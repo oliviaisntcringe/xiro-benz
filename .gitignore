@@ -1,0 +1,24 @@
+# Visual Studio and MSBuild output
+.vs/
+*.suo
+*.user
+*.VC.db
+*.VC.opendb
+*.pdb
+*.ilk
+*.obj
+*.idb
+*.ipch
+*.tlog/
+Debug/
+Release/
+bin/
+velocity-cs2/bin/
+
+# Local dependency/build cache
+velocity-cs2/vcpkg_installed/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+

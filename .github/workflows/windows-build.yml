@@ -1,0 +1,91 @@
+name: Windows Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.configuration }} | x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - Development
+          - Release
+
+    env:
+      BUILD_ROOT: ${{ github.workspace }}\velocity-cs2\bin\${{ matrix.configuration }}
+      INTERMEDIATE_ROOT: ${{ github.workspace }}\velocity-cs2\bin\intermediates\${{ matrix.configuration }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Select available MSVC toolset
+        shell: pwsh
+        run: |
+          $versions = Get-ChildItem "$env:ProgramFiles\Microsoft Visual Studio" -Directory -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\VC\\Tools\\MSVC\\14\.' }
+
+          if ($versions | Where-Object { $_.Name -match '^14\.5' }) {
+            $platformToolset = 'v145'
+          }
+          elseif ($versions | Where-Object { $_.Name -match '^14\.(3|4)' }) {
+            $platformToolset = 'v143'
+          }
+          else {
+            throw 'No supported MSVC toolset was found on the runner'
+          }
+
+          "PLATFORM_TOOLSET=$platformToolset" >> $env:GITHUB_ENV
+          Write-Host "Using MSVC platform toolset: $platformToolset"
+
+      - name: Build ${{ matrix.configuration }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:BUILD_ROOT | Out-Null
+          New-Item -ItemType Directory -Force -Path $env:INTERMEDIATE_ROOT | Out-Null
+
+          msbuild .\velocity-cs2\velocity-cs2.vcxproj `
+            /m `
+            /p:Configuration=${{ matrix.configuration }} `
+            /p:Platform=x64 `
+            /p:PlatformToolset=$env:PLATFORM_TOOLSET `
+            /p:OutDir="$env:BUILD_ROOT\" `
+            /p:IntDir="$env:INTERMEDIATE_ROOT\" `
+            /verbosity:minimal
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          $outputs = Get-ChildItem -Path $env:BUILD_ROOT -File -Recurse |
+            Where-Object { $_.Extension -in '.dll', '.pdb' }
+
+          if (-not $outputs) {
+            throw "No DLL or PDB was produced in $env:BUILD_ROOT"
+          }
+
+          $outputs | Select-Object FullName, Length
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: velocity-cs2-${{ matrix.configuration }}-x64
+          if-no-files-found: error
+          path: |
+            velocity-cs2/bin/${{ matrix.configuration }}/*.dll
+            velocity-cs2/bin/${{ matrix.configuration }}/*.pdb
