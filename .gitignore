@@ -22,3 +22,5 @@ velocity-cs2/vcpkg_installed/
 .DS_Store
 Thumbs.db
 
+
+.worktrees/
