@@ -9,6 +9,8 @@
 
 namespace features::misc {
 
+	namespace retro = rendering::retro;
+
 	void hud::on_render( xdraw::draw_list& draw_list )
 	{
 		if ( systems::g_local.is_in_cinematic( ) || systems::g_local.is_in_time_freeze( ) )
