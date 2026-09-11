@@ -282,6 +282,7 @@ namespace features::misc {
 		void do_scope( xdraw::draw_list& draw_list, float cx, float cy, float screen_h, std::uintptr_t local_pawn );
 		void do_hat( xdraw::draw_list& draw_list, std::uintptr_t local_pawn ) const;
 		void do_velocity( xdraw::draw_list& draw_list, float cx, float screen_h, std::uintptr_t local_pawn );
+		void do_weapon_telemetry( xdraw::draw_list& draw_list, float screen_w, float screen_h, std::uintptr_t local_pawn ) const;
 
 		static constexpr std::size_t k_velocity_history{ 120 };
 

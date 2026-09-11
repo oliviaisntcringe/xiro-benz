@@ -30,6 +30,7 @@ namespace features::misc {
 		this->do_crosshair( draw_list, cx, cy );
 		this->do_hat( draw_list, local.pawn );
 		this->do_velocity( draw_list, cx, static_cast< float >( screen_h ), local.pawn );
+		this->do_weapon_telemetry( draw_list, static_cast< float >( screen_w ), static_cast< float >( screen_h ), local.pawn );
 	}
 
 	void hud::do_crosshair( xdraw::draw_list& draw_list, float cx, float cy ) const
@@ -630,6 +631,93 @@ namespace features::misc {
 		const auto dot_x = points[ ( sample_count - 1 ) * 2 ];
 		const auto dot_y = points[ ( sample_count - 1 ) * 2 + 1 ];
 		draw_list.circle_filled( dot_x, dot_y, 2.0f, accent );
+	}
+
+	void hud::do_weapon_telemetry( xdraw::draw_list& draw_list, float screen_w, float screen_h, std::uintptr_t local_pawn ) const
+	{
+		const auto weapon_services = memory::read<std::uintptr_t>( local_pawn + SCHEMA( "C_BasePlayerPawn", "m_pWeaponServices"_hash ) );
+		if ( !weapon_services )
+		{
+			return;
+		}
+
+		const auto weapon_handle = memory::read<std::uint32_t>( weapon_services + SCHEMA( "CPlayer_WeaponServices", "m_hActiveWeapon"_hash ) );
+		if ( !weapon_handle || weapon_handle == 0xffffffff )
+		{
+			return;
+		}
+
+		const auto weapon = systems::g_entities.lookup( weapon_handle );
+		if ( !weapon )
+		{
+			return;
+		}
+
+		const auto weapon_vdata = memory::read<std::uintptr_t>( weapon + SCHEMA( "C_BaseEntity", "m_nSubclassID"_hash ) + 0x8 );
+		if ( !weapon_vdata )
+		{
+			return;
+		}
+
+		const auto weapon_name_ptr = memory::read<const char*>( weapon_vdata + SCHEMA( "CCSWeaponBaseVData", "m_szName"_hash ) );
+		if ( !weapon_name_ptr )
+		{
+			return;
+		}
+
+		auto weapon_name = memory::read_string( reinterpret_cast<std::uintptr_t>( weapon_name_ptr ), 64 );
+		if ( weapon_name.empty( ) )
+		{
+			return;
+		}
+
+		if ( weapon_name.starts_with( "weapon_" ) )
+		{
+			weapon_name.erase( 0, 7 );
+		}
+
+		const auto ammo = memory::read<int>( weapon + SCHEMA( "C_BasePlayerWeapon", "m_iClip1"_hash ) );
+		const auto max_ammo = memory::read<int>( weapon_vdata + SCHEMA( "CBasePlayerWeaponVData", "m_iMaxClip1"_hash ) );
+		const auto has_ammo = max_ammo > 0;
+		const auto clamped_ammo = std::clamp( ammo, 0, std::max( max_ammo, 1 ) );
+		const auto fraction = has_ammo ? static_cast<float>( clamped_ammo ) / static_cast<float>( max_ammo ) : 0.0f;
+
+		constexpr auto panel_w{ 280.0f };
+		constexpr auto panel_h{ 68.0f };
+		constexpr auto margin{ 20.0f };
+		constexpr auto pad{ 10.0f };
+		const auto panel_x = std::floor( screen_w - panel_w - margin );
+		const auto panel_y = std::floor( screen_h - panel_h - 24.0f );
+
+		retro::draw_frame( draw_list, { panel_x, panel_y, panel_w, panel_h }, retro::palette::panel, retro::palette::border );
+		retro::push_font( );
+		draw_list.text( panel_x + pad, panel_y + 7.0f, "> weapon telemetry", retro::to_xdraw_color( retro::palette::accent_green ) );
+		retro::draw_rule( draw_list, panel_x + pad, panel_y + 23.0f, panel_x + panel_w - pad, retro::palette::accent_green_dim );
+
+		const auto weapon_text_y = panel_y + 30.0f;
+		draw_list.text( panel_x + pad, weapon_text_y, weapon_name.c_str( ), retro::to_xdraw_color( retro::palette::text ) );
+
+		char ammo_text[ 24 ]{};
+		if ( has_ammo )
+		{
+			std::snprintf( ammo_text, sizeof( ammo_text ), "%d / %d", clamped_ammo, max_ammo );
+		}
+		else
+		{
+			std::snprintf( ammo_text, sizeof( ammo_text ), "-- / --" );
+		}
+
+		const auto ammo_w = xdraw::measure_text( ammo_text ).first;
+		draw_list.text( panel_x + panel_w - pad - ammo_w, weapon_text_y, ammo_text, retro::to_xdraw_color( has_ammo && clamped_ammo <= 3 ? retro::palette::focus : retro::palette::accent_green ) );
+
+		const auto bar_x = panel_x + pad;
+		const auto bar_y = panel_y + panel_h - pad - 4.0f;
+		const auto bar_w = panel_w - pad * 2.0f;
+		draw_list.rect_filled( bar_x, bar_y, bar_w, 4.0f, retro::to_xdraw_color( retro::palette::canvas ) );
+		if ( has_ammo && fraction > 0.0f )
+		{
+			draw_list.rect_filled( bar_x, bar_y, std::floor( bar_w * fraction ), 4.0f, retro::to_xdraw_color( clamped_ammo <= 3 ? retro::palette::focus : retro::palette::accent_green ) );
+		}
 	}
 
 } // namespace features::misc
