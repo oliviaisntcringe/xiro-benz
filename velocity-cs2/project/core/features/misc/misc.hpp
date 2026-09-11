@@ -276,6 +276,7 @@ namespace features::misc {
 	{
 	public:
 		void on_render( xdraw::draw_list& draw_list );
+		void on_player_death( std::uintptr_t event );
 
 	private:
 		void do_crosshair( xdraw::draw_list& draw_list, float cx, float cy ) const;
@@ -284,6 +285,16 @@ namespace features::misc {
 		void do_velocity( xdraw::draw_list& draw_list, float cx, float screen_h, std::uintptr_t local_pawn );
 		void do_weapon_telemetry( xdraw::draw_list& draw_list, float screen_w, float screen_h, std::uintptr_t local_pawn ) const;
 		void do_match_header( xdraw::draw_list& draw_list, float screen_w );
+		void do_killfeed( xdraw::draw_list& draw_list, float screen_w );
+
+		struct kill_entry
+		{
+			std::string attacker{};
+			std::string victim{};
+			std::string weapon{};
+			float age{};
+			bool headshot{};
+		};
 
 		static constexpr std::size_t k_velocity_history{ 120 };
 
@@ -297,9 +308,13 @@ namespace features::misc {
 		std::size_t m_velocity_history_head{};
 		float m_velocity_smoothed{};
 		float m_velocity_scale{};
+		mutable std::uint32_t m_last_telemetry_weapon{};
+		mutable float m_weapon_transition{};
 		float m_match_header_alpha{};
 		float m_match_header_offset{};
 		float m_match_header_phase{};
+		std::array<kill_entry, 5> m_killfeed{};
+		std::size_t m_killfeed_count{};
 	};
 
 	class dlight

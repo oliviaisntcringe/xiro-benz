@@ -24,7 +24,7 @@ namespace systems {
 			return false;
 		}
 
-		if ( !register_listener( xs( "player_death" ), [ ]( void* event ) { features::misc::g_other.on_player_death( reinterpret_cast< std::uintptr_t >( event ) ); } ) )
+				if ( !register_listener( xs( "player_death" ), [ ]( void* event ) { features::misc::g_hud.on_player_death( reinterpret_cast< std::uintptr_t >( event ) ); features::misc::g_other.on_player_death( reinterpret_cast< std::uintptr_t >( event ) ); } ) )
 		{
 			return false;
 		}

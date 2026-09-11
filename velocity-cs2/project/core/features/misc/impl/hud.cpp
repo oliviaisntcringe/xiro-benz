@@ -27,6 +27,7 @@ namespace features::misc {
 		const auto cy = static_cast< float >( screen_h ) * 0.5f;
 
 		this->do_match_header( draw_list, static_cast< float >( screen_w ) );
+		this->do_killfeed( draw_list, static_cast< float >( screen_w ) );
 		this->do_scope( draw_list, cx, cy, static_cast< float >( screen_h ), local.pawn );
 		this->do_crosshair( draw_list, cx, cy );
 		this->do_hat( draw_list, local.pawn );
@@ -678,6 +679,99 @@ namespace features::misc {
 		draw_list.circle_filled( x + panel_w - pad - 4.0f, y + 15.0f, 2.0f, retro::to_xdraw_color( with_alpha( retro::palette::focus, alpha * pulse ) ) );
 	}
 
+	void hud::on_player_death( std::uintptr_t event )
+	{
+		if ( !event )
+		{
+			return;
+		}
+
+		const auto attacker_key = cstypes::event_hash{ 0, "attacker" };
+		const auto victim_key = cstypes::event_hash{ 0, "userid" };
+		const auto attacker = memory::call<std::uintptr_t>( PATTERN( patterns::game_event_get_controller ), event, &attacker_key );
+		const auto victim = memory::call<std::uintptr_t>( PATTERN( patterns::game_event_get_controller ), event, &victim_key );
+		if ( !attacker || !victim )
+		{
+			return;
+		}
+
+		auto read_name = [ ]( std::uintptr_t controller )
+			{
+				const auto name_ptr = memory::read<std::uintptr_t>( controller + SCHEMA( "CCSPlayerController", "m_sSanitizedPlayerName"_hash ) );
+				return name_ptr ? memory::read_string( name_ptr, 32 ) : std::string{};
+			};
+
+		kill_entry entry{};
+		entry.attacker = read_name( attacker );
+		entry.victim = read_name( victim );
+		entry.headshot = memory::call<int>( PATTERN( patterns::game_event_get_int ), event, "headshot", false ) != 0;
+		if ( entry.attacker.empty( ) || entry.victim.empty( ) )
+		{
+			return;
+		}
+
+		const auto pawn_handle = memory::read<std::uint32_t>( attacker + SCHEMA( "CBasePlayerController", "m_hPawn"_hash ) );
+		const auto pawn = systems::g_entities.lookup( pawn_handle );
+		if ( pawn )
+		{
+			const auto services = memory::read<std::uintptr_t>( pawn + SCHEMA( "C_BasePlayerPawn", "m_pWeaponServices"_hash ) );
+			const auto handle = services ? memory::read<std::uint32_t>( services + SCHEMA( "CPlayer_WeaponServices", "m_hActiveWeapon"_hash ) ) : 0;
+			const auto weapon = handle && handle != 0xffffffff ? systems::g_entities.lookup( handle ) : 0;
+			const auto vdata = weapon ? memory::read<std::uintptr_t>( weapon + SCHEMA( "C_BaseEntity", "m_nSubclassID"_hash ) + 0x8 ) : 0;
+			const auto name_ptr = vdata ? memory::read<const char*>( vdata + SCHEMA( "CCSWeaponBaseVData", "m_szName"_hash ) ) : nullptr;
+			if ( name_ptr )
+			{
+				entry.weapon = memory::read_string( reinterpret_cast<std::uintptr_t>( name_ptr ), 32 );
+				if ( entry.weapon.starts_with( "weapon_" ) ) entry.weapon.erase( 0, 7 );
+			}
+		}
+
+		if ( this->m_killfeed_count == this->m_killfeed.size( ) )
+		{
+			std::move( this->m_killfeed.begin( ) + 1, this->m_killfeed.end( ), this->m_killfeed.begin( ) );
+			--this->m_killfeed_count;
+		}
+
+		this->m_killfeed[ this->m_killfeed_count++ ] = std::move( entry );
+	}
+
+	void hud::do_killfeed( xdraw::draw_list& draw_list, float screen_w )
+	{
+		constexpr auto ttl{ 5.0f };
+		constexpr auto row_h{ 22.0f };
+		constexpr auto panel_w{ 390.0f };
+		constexpr auto pad{ 10.0f };
+		const auto dt = std::min( xdraw::delta_time( ), 0.05f );
+		auto write_index{ std::size_t{} };
+
+		for ( auto i = std::size_t{}; i < this->m_killfeed_count; ++i )
+		{
+			auto& entry = this->m_killfeed[ i ];
+			entry.age += dt;
+			if ( entry.age < ttl ) this->m_killfeed[ write_index++ ] = std::move( entry );
+		}
+		this->m_killfeed_count = write_index;
+		if ( !write_index ) return;
+
+		const auto x = std::floor( screen_w - panel_w - 20.0f );
+		const auto y = 84.0f;
+		const auto panel_h = 24.0f + static_cast<float>( write_index ) * row_h;
+		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border );
+		retro::push_font( );
+		draw_list.text( x + pad, y + 6.0f, "> event log // kills", retro::to_xdraw_color( retro::palette::accent_green ) );
+		retro::draw_rule( draw_list, x + pad, y + 20.0f, x + panel_w - pad, retro::palette::accent_green_dim );
+
+		for ( auto i = std::size_t{}; i < write_index; ++i )
+		{
+			const auto& entry = this->m_killfeed[ i ];
+			const auto alpha = entry.age < 0.25f ? entry.age / 0.25f : std::min( 1.0f, ( ttl - entry.age ) / 0.7f );
+			char line[ 160 ]{};
+			std::snprintf( line, sizeof( line ), "%s > %s%s%s", entry.attacker.c_str( ), entry.victim.c_str( ), entry.weapon.empty( ) ? "" : " // ", entry.weapon.empty( ) ? "" : entry.weapon.c_str( ) );
+			draw_list.text( x + pad, y + 25.0f + static_cast<float>( i ) * row_h, line, retro::to_xdraw_color( { 0xE4, 0xE4, 0xE4, static_cast<std::uint8_t>( std::clamp( alpha, 0.0f, 1.0f ) * 255.0f ) } ) );
+			if ( entry.headshot ) draw_list.text( x + panel_w - 38.0f, y + 25.0f + static_cast<float>( i ) * row_h, "HS", retro::to_xdraw_color( retro::palette::focus ) );
+		}
+	}
+
 	void hud::do_weapon_telemetry( xdraw::draw_list& draw_list, float screen_w, float screen_h, std::uintptr_t local_pawn ) const
 	{
 		const auto weapon_services = memory::read<std::uintptr_t>( local_pawn + SCHEMA( "C_BasePlayerPawn", "m_pWeaponServices"_hash ) );
@@ -690,6 +784,16 @@ namespace features::misc {
 		if ( !weapon_handle || weapon_handle == 0xffffffff )
 		{
 			return;
+		}
+
+		if ( weapon_handle != this->m_last_telemetry_weapon )
+		{
+			this->m_last_telemetry_weapon = weapon_handle;
+			this->m_weapon_transition = 1.0f;
+		}
+		else
+		{
+			this->m_weapon_transition = std::max( 0.0f, this->m_weapon_transition - std::min( xdraw::delta_time( ) * 4.0f, 1.0f ) );
 		}
 
 		const auto weapon = systems::g_entities.lookup( weapon_handle );
@@ -734,13 +838,20 @@ namespace features::misc {
 		const auto panel_x = std::floor( screen_w - panel_w - margin );
 		const auto panel_y = std::floor( screen_h - panel_h - 24.0f );
 
-		retro::draw_frame( draw_list, { panel_x, panel_y, panel_w, panel_h }, retro::palette::panel, retro::palette::border );
+		const auto transition_alpha = std::clamp( this->m_weapon_transition, 0.0f, 1.0f );
+		const auto transition_border = retro::color{ static_cast<std::uint8_t>( retro::palette::border.r + ( retro::palette::accent_purple.r - retro::palette::border.r ) * transition_alpha ), static_cast<std::uint8_t>( retro::palette::border.g + ( retro::palette::accent_purple.g - retro::palette::border.g ) * transition_alpha ), static_cast<std::uint8_t>( retro::palette::border.b + ( retro::palette::accent_purple.b - retro::palette::border.b ) * transition_alpha ) };
+		retro::draw_frame( draw_list, { panel_x, panel_y, panel_w, panel_h }, retro::palette::panel, transition_border );
 		retro::push_font( );
 		draw_list.text( panel_x + pad, panel_y + 7.0f, "> weapon telemetry", retro::to_xdraw_color( retro::palette::accent_green ) );
 		retro::draw_rule( draw_list, panel_x + pad, panel_y + 23.0f, panel_x + panel_w - pad, retro::palette::accent_green_dim );
 
 		const auto weapon_text_y = panel_y + 30.0f;
 		draw_list.text( panel_x + pad, weapon_text_y, weapon_name.c_str( ), retro::to_xdraw_color( retro::palette::text ) );
+		if ( transition_alpha > 0.0f )
+		{
+			const auto wipe_w = std::floor( ( panel_w - pad * 2.0f ) * transition_alpha );
+			draw_list.rect_filled( panel_x + pad, panel_y + 25.0f, wipe_w, 1.0f, retro::to_xdraw_color( retro::palette::accent_purple ) );
+		}
 
 		char ammo_text[ 24 ]{};
 		if ( has_ammo )
