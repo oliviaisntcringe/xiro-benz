@@ -329,6 +329,65 @@ namespace features::esp::other {
 			return;
 		}
 
+		struct spectator_entry
+		{
+			char name[ 128 ];
+			std::uintptr_t steam_id;
+		};
+
+		spectator_entry entries[ 32 ]{};
+		auto count{ 0 };
+
+		for ( const auto& player : systems::g_entities.get_by_type( systems::entities::type::player ) )
+		{
+			if ( player.ptr == local_controller || player.ptr == view_controller || count >= 32 )
+			{
+				continue;
+			}
+
+			if ( memory::read<bool>( player.ptr + SCHEMA( "CCSPlayerController", "m_bPawnIsAlive"_hash ) ) )
+			{
+				continue;
+			}
+
+			const auto observer_pawn_handle = memory::read<std::uint32_t>( player.ptr + SCHEMA( "CCSPlayerController", "m_hObserverPawn"_hash ) );
+			if ( !observer_pawn_handle || observer_pawn_handle == 0xffffffff )
+			{
+				continue;
+			}
+
+			const auto observer_pawn = systems::g_entities.lookup( observer_pawn_handle );
+			const auto observer_services = observer_pawn ? memory::safe_read<std::uintptr_t>( observer_pawn + SCHEMA( "C_BasePlayerPawn", "m_pObserverServices"_hash ) ).value_or( 0 ) : 0;
+			if ( !observer_services || ( observer_services >> 48 ) != 0 )
+			{
+				continue;
+			}
+
+			const auto target_handle = memory::safe_read<std::uint32_t>( observer_services + SCHEMA( "CPlayer_ObserverServices", "m_hObserverTarget"_hash ) ).value_or( 0 );
+			if ( !target_handle || systems::g_entities.lookup( target_handle ) != view_pawn )
+			{
+				continue;
+			}
+
+			const auto name_ptr = memory::read<std::uintptr_t>( player.ptr + SCHEMA( "CCSPlayerController", "m_sSanitizedPlayerName"_hash ) );
+			if ( !name_ptr )
+			{
+				continue;
+			}
+
+			auto name = memory::read_string( name_ptr, 127 );
+			std::ranges::transform( name, name.begin( ), [ ]( unsigned char c ) { return std::tolower( c ); } );
+			auto& entry = entries[ count++ ];
+			strncpy_s( entry.name, name.c_str( ), sizeof( entry.name ) - 1 );
+			entry.name[ sizeof( entry.name ) - 1 ] = '\0';
+			entry.steam_id = memory::read<std::uintptr_t>( player.ptr + SCHEMA( "CBasePlayerController", "m_steamID"_hash ) );
+		}
+
+		if ( count <= 0 )
+		{
+			return;
+		}
+
 		static detail::avatar_cache avatars{};
 
 		constexpr auto margin{ 10.0f };
