@@ -92,7 +92,7 @@ namespace rendering
                     hat.enabled.value = true;
                     hat.type.value = settings::misc::hud::hat::hat_type::kasa;
                 }
-                xui::same_line( );
+                xui::layout::same_line( );
                 if ( xui::button( "BUCKET", 150.0f, 28.0f ) )
                 {
                     hat.enabled.value = true;
