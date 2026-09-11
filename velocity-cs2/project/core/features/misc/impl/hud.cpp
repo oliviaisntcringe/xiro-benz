@@ -5,7 +5,7 @@
 #include <core/features/features.hpp>
 #include <protection/game_addresses.hpp>
 #include <utilities//addresses/addresses.hpp>
-#include <external/xdraw/xui/xui.hpp>
+#include <core/rendering/retro_style.hpp>
 
 namespace features::misc {
 
@@ -164,47 +164,11 @@ namespace features::misc {
 		const auto length = cfg.line_length * this->m_scope_anim;
 		const auto alpha = static_cast< std::uint8_t >( cfg.color.value.a * this->m_scope_anim );
 
-		const auto col_clear = xdraw::color{ cfg.color.value.r, cfg.color.value.g, cfg.color.value.b, 0 };
 		const auto col_solid = xdraw::color{ cfg.color.value.r, cfg.color.value.g, cfg.color.value.b, alpha };
-		const auto& col_start = cfg.fade_in ? col_clear : col_solid;
-
-		if ( cfg.glow && alpha > 0 )
-		{
-			auto& glow = xdraw::get_glow( );
-			const auto glow_a = static_cast< std::uint8_t >( static_cast< float >( alpha ) * cfg.glow_strength );
-			const auto glow_col = xdraw::color{ cfg.color.value.r, cfg.color.value.g, cfg.color.value.b, glow_a };
-
-			const auto glow_draw_line = [ & ]( float x1, float y1, float x2, float y2 )
-				{
-					const auto mx = ( x1 + x2 ) * 0.5f;
-					const auto my = ( y1 + y2 ) * 0.5f;
-
-					const auto glow_thickness = cfg.thickness + 0.5f;
-
-					const auto gc_clear = xdraw::color{ cfg.color.value.r, cfg.color.value.g, cfg.color.value.b, 0 };
-					const auto& gc_start = cfg.fade_in ? gc_clear : glow_col;
-
-					const float pts[ ]{ x1, y1, mx, my, x2, y2 };
-					const xdraw::color cols[ ]{ gc_start, glow_col, glow_col };
-
-					glow.polyline_gradient( pts, cols, false, glow_thickness );
-				};
-
-			glow_draw_line( cx, cy - gap, cx, cy - gap - length );
-			glow_draw_line( cx, cy + gap, cx, cy + gap + length );
-			glow_draw_line( cx - gap, cy, cx - gap - length, cy );
-			glow_draw_line( cx + gap, cy, cx + gap + length, cy );
-		}
 
 		const auto draw_line = [ & ]( float x1, float y1, float x2, float y2 )
 			{
-				const auto mx = ( x1 + x2 ) * 0.5f;
-				const auto my = ( y1 + y2 ) * 0.5f;
-
-				const float pts[ ]{ x1, y1, mx, my, x2, y2 };
-				const xdraw::color cols[ ]{ col_start, col_solid, col_solid };
-
-				draw_list.polyline_gradient( pts, cols, false, cfg.thickness );
+				draw_list.line( x1, y1, x2, y2, col_solid, cfg.thickness );
 			};
 
 		draw_line( cx, cy - gap, cx, cy - gap - length );
@@ -328,28 +292,6 @@ namespace features::misc {
 				}
 
 				base[ i ] = { sp.x, sp.y };
-			}
-
-			if ( cfg.glow )
-			{
-				auto& glow = xdraw::get_glow( );
-				const auto ga = static_cast< std::uint8_t >( static_cast< float >( primary_col.a ) * cfg.glow_strength );
-				const auto glow_col = xdraw::color{ primary_col.r, primary_col.g, primary_col.b, ga };
-
-				for ( auto i = 0; i < rim_points; ++i )
-				{
-					const auto next = ( i + 1 ) % rim_points;
-					glow.line( base[ i ].x, base[ i ].y, base[ next ].x, base[ next ].y, glow_col, 3.0f );
-				}
-
-				const auto spoke_ga = static_cast< std::uint8_t >( static_cast< float >( secondary_col.a ) * cfg.glow_strength );
-				const auto spoke_glow_col = xdraw::color{ secondary_col.r, secondary_col.g, secondary_col.b, spoke_ga };
-
-				for ( auto i = 0; i < spokes; ++i )
-				{
-					const auto idx = ( i * rim_points ) / spokes;
-					glow.line( base[ idx ].x, base[ idx ].y, peak.x, peak.y, spoke_glow_col, 2.0f );
-				}
 			}
 
 			for ( auto i = 0; i < rim_points; ++i )
@@ -501,25 +443,6 @@ namespace features::misc {
 			arc_right[ i ] = { rsp.x, rsp.y };
 		}
 
-		if ( cfg.glow )
-		{
-			auto& glow = xdraw::get_glow( );
-			const auto ga = static_cast< std::uint8_t >( static_cast< float >( primary_col.a ) * cfg.glow_strength );
-			const auto glow_col = xdraw::color{ primary_col.r, primary_col.g, primary_col.b, ga };
-
-			for ( auto i = 0; i < segments; ++i )
-			{
-				const auto next = ( i + 1 ) % segments;
-				glow.line( brim_pts[ i ].x, brim_pts[ i ].y, brim_pts[ next ].x, brim_pts[ next ].y, glow_col, 3.0f );
-			}
-
-			for ( auto i = 0; i < arc_steps; ++i )
-			{
-				glow.line( arc_left[ i ].x, arc_left[ i ].y, arc_left[ i + 1 ].x, arc_left[ i + 1 ].y, glow_col, 3.0f );
-				glow.line( arc_right[ i ].x, arc_right[ i ].y, arc_right[ i + 1 ].x, arc_right[ i + 1 ].y, glow_col, 3.0f );
-			}
-		}
-
 		draw_ring( brim_pts, segments, primary_col, 1.4f );
 		draw_ring( junction_pts, segments, primary_col, 1.2f );
 
@@ -586,14 +509,11 @@ namespace features::misc {
 		this->m_velocity_history_head = ( this->m_velocity_history_head + 1 ) % k_velocity_history;
 		this->m_velocity_history_count = std::min( this->m_velocity_history_count + 1, k_velocity_history );
 
-		const auto& s = xui::ctx( ).style;
 		const xdraw::color accent = cfg.color;
 		const auto accent_dim = xdraw::color{ accent.r, accent.g, accent.b, static_cast< std::uint8_t >( accent.a * 0.45f ) };
 		const auto accent_fill = xdraw::color{ accent.r, accent.g, accent.b, static_cast< std::uint8_t >( accent.a * 0.18f ) };
 
-		constexpr auto panel_r{ 10.0f };
 		constexpr auto inner_pad{ 4.0f };
-		constexpr auto inner_r{ 7.0f };
 		constexpr auto text_pad_x{ 8.0f };
 		constexpr auto text_nudge{ -1.0f };
 		constexpr auto section_gap{ 4.0f };
@@ -621,8 +541,12 @@ namespace features::misc {
 		const auto panel_x = std::floor( cx - panel_w * 0.5f );
 		const auto panel_y = std::floor( screen_h - bottom_offset - panel_h );
 
-		draw_list.rect_filled_blurred( panel_x, panel_y, panel_w, panel_h, xdraw::corner_radius{ panel_r } );
-		draw_list.rect_filled( panel_x, panel_y, panel_w, panel_h, s.window_bg, xdraw::corner_radius{ panel_r } );
+		rendering::retro::draw_frame(
+			draw_list,
+			{ panel_x, panel_y, panel_w, panel_h },
+			rendering::retro::palette::panel,
+			rendering::retro::palette::border
+		);
 
 		auto content_y = panel_y;
 
@@ -630,7 +554,7 @@ namespace features::misc {
 		{
 			const auto pill_x = std::floor( cx - counter_pill_w * 0.5f );
 			const auto pill_y = content_y + inner_pad;
-			draw_list.rect_filled( pill_x, pill_y, counter_pill_w, counter_pill_h, s.child_bg, xdraw::corner_radius{ inner_r } );
+			draw_list.rect_filled( pill_x, pill_y, counter_pill_w, counter_pill_h, rendering::retro::to_xdraw_color( rendering::retro::palette::panel_raised ) );
 			draw_list.text( pill_x + text_pad_x, pill_y + ( counter_pill_h - speed_vh ) * 0.5f + text_nudge, speed_buf, accent );
 			draw_list.text( pill_x + text_pad_x + speed_vw, pill_y + ( counter_pill_h - speed_uh ) * 0.5f + text_nudge, " u/s", accent_dim );
 			content_y += counter_block_h + stack_gap;
@@ -643,7 +567,7 @@ namespace features::misc {
 
 		const auto chart_x = panel_x + inner_pad;
 		const auto chart_y = content_y + inner_pad;
-		draw_list.rect_filled( chart_x, chart_y, chart_w - inner_pad * 2.0f, chart_inner_h, s.child_bg, xdraw::corner_radius{ inner_r } );
+		draw_list.rect_filled( chart_x, chart_y, chart_w - inner_pad * 2.0f, chart_inner_h, rendering::retro::to_xdraw_color( rendering::retro::palette::canvas ) );
 
 		auto peak = 50.0f;
 		for ( std::size_t i = 0; i < this->m_velocity_history_count; ++i )
@@ -661,13 +585,12 @@ namespace features::misc {
 		const auto plot_h = chart_inner_h - inner_pad * 2.0f;
 		const auto baseline_y = std::floor( plot_y + plot_h );
 
-		draw_list.line( plot_x, baseline_y, plot_x + plot_w, baseline_y, xdraw::color{ 255, 255, 255, 18 }, 1.0f, false );
+		draw_list.line( plot_x, baseline_y, plot_x + plot_w, baseline_y, rendering::retro::to_xdraw_color( rendering::retro::palette::accent_green_dim ), 1.0f, false );
 
 		const auto sample_count = this->m_velocity_history_count;
 		const auto step_x = plot_w / static_cast< float >( sample_count - 1 );
 
 		std::array<float, k_velocity_history * 2> points{};
-		std::array<xdraw::color, k_velocity_history> point_colors{};
 
 		for ( std::size_t i = 0; i < sample_count; ++i )
 		{
@@ -678,7 +601,6 @@ namespace features::misc {
 
 			points[ i * 2 ] = nx;
 			points[ i * 2 + 1 ] = ny;
-			point_colors[ i ] = accent;
 		}
 
 		for ( std::size_t i = 0; i + 1 < sample_count; ++i )
@@ -693,26 +615,17 @@ namespace features::misc {
 			if ( fill_h > 0.0f )
 			{
 				const auto seg_w = std::max( 1.0f, x1 - x0 );
-				draw_list.rect_filled_gradient(
+				draw_list.rect_filled(
 					x0,
 					fill_top,
 					seg_w,
 					fill_h,
-					accent_fill,
-					accent_fill,
-					xdraw::color{ accent_fill.r, accent_fill.g, accent_fill.b, 0 },
-					xdraw::color{ accent_fill.r, accent_fill.g, accent_fill.b, 0 }
+					accent_fill
 				);
 			}
 		}
 
-		draw_list.polyline_gradient(
-			std::span<const float>{ points.data( ), sample_count * 2 },
-			std::span<const xdraw::color>{ point_colors.data( ), sample_count },
-			false,
-			1.5f,
-			false
-		);
+		draw_list.polyline( std::span<const float>{ points.data( ), sample_count * 2 }, accent, false, 1.5f, false );
 
 		const auto dot_x = points[ ( sample_count - 1 ) * 2 ];
 		const auto dot_y = points[ ( sample_count - 1 ) * 2 + 1 ];
