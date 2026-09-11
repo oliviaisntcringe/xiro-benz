@@ -48,7 +48,7 @@ namespace rendering {
 
         enum class tab : int
         {
-            ragebot, legitbot, player, world, skins, misc, config, count
+			ragebot, legitbot, player, world, skins, misc, local, config, count
         };
 
     private:
@@ -70,6 +70,7 @@ namespace rendering {
         void draw_world( float group_w ) const;
         void draw_skins( float group_w ) const;
         void draw_misc( float group_w ) const;
+		void draw_local( float group_w ) const;
         void draw_config( float group_w );
 
         bool m_open{ true };
@@ -130,7 +131,7 @@ namespace rendering {
 
             entry logo{};
             entry user{};
-            entry tabs[ 7 ]{};
+			entry tabs[ 8 ]{};
             entry search{};
             entry settings{};
             entry cfg_folder_on{};
@@ -157,7 +158,8 @@ namespace rendering {
             { { "esp", "scene", "weather" },                            3 },
             { { "guns", "knives", "gloves", "agents" },                 4 },
             { { "main", "removals", "camera", "hud" },                  4 },
-            { { "general" },                                            1 }
+			{ { "preview", "presets", "layers" },                      3 },
+			{ { "general" },                                             1 }
         };
     };
 

@@ -89,9 +89,14 @@ namespace rendering {
 				return { 4, 0 };
 			}
 
-			if ( category_lower.find( "config" ) != std::string::npos )
+			if ( category_lower.find( "local visual" ) != std::string::npos )
 			{
 				return { 6, 0 };
+			}
+
+			if ( category_lower.find( "config" ) != std::string::npos )
+			{
+				return { 7, 0 };
 			}
 
 			return { 5, 0 };
@@ -945,16 +950,17 @@ namespace rendering {
 		this->m_textures.cfg_plus.resource = xdraw::load_svg( svgs::cfg_plus, 1.0f, &this->m_textures.cfg_plus.width, &this->m_textures.cfg_plus.height );
 
 		constexpr auto tab_target{ 22.0f };
-		constexpr std::array<const char*, 7> tab_svgs{
+			constexpr std::array<const char*, 8> tab_svgs{
 			svgs::tab_rage,
 			svgs::tab_legit,
 			svgs::tab_player,
 			svgs::tab_world,
 			svgs::tab_skins,
-			svgs::tab_misc,
-			svgs::tab_config
+					svgs::tab_misc,
+					svgs::tab_player,
+					svgs::tab_config
 		};
-		for ( auto i = 0; i < 7; ++i )
+			for ( auto i = 0; i < 8; ++i )
 		{
 			this->m_textures.tabs[ i ].resource = xdraw::load_svg( tab_svgs[ i ], tab_target / 24.0f, &this->m_textures.tabs[ i ].width, &this->m_textures.tabs[ i ].height );
 		}
@@ -1003,7 +1009,7 @@ namespace rendering {
 		}
 
 		const auto& chosen = this->m_search_entries[ this->m_search_visible_indices[ index ] ];
-		this->m_tab = std::clamp( chosen.tab, 0, 6 );
+			this->m_tab = std::clamp( chosen.tab, 0, 7 );
 		this->m_subtab = std::clamp( chosen.subtab, 0, k_subtab_defs[ this->m_tab ].count - 1 );
 		xui::set_highlight_target( chosen.name, 1.2f );
 		this->close_search( );
@@ -1365,7 +1371,8 @@ namespace rendering {
 			case 3: this->draw_world( col_w ); break;
 			case 4: this->draw_skins( col_w ); break;
 			case 5: this->draw_misc( col_w ); break;
-			case 6: this->draw_config( col_w ); break;
+			case 6: this->draw_local( col_w ); break;
+			case 7: this->draw_config( col_w ); break;
 			}
 
 			xui::end_window( );
@@ -1425,7 +1432,7 @@ namespace rendering {
 			dl.image( lx, ly, lw, lh, this->m_textures.logo.resource.Get( ) );
 		}
 
-		constexpr auto tab_count{ 7 };
+				constexpr auto tab_count{ 8 };
 		const auto icon_pad{ 4.0f };
 		const auto icon_stride = tokens::tab_icon_size + 4.0f;
 
