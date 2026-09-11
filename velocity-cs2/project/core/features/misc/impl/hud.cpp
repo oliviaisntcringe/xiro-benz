@@ -26,6 +26,7 @@ namespace features::misc {
 		const auto cx = static_cast< float >( screen_w ) * 0.5f;
 		const auto cy = static_cast< float >( screen_h ) * 0.5f;
 
+		this->do_match_header( draw_list, static_cast< float >( screen_w ) );
 		this->do_scope( draw_list, cx, cy, static_cast< float >( screen_h ), local.pawn );
 		this->do_crosshair( draw_list, cx, cy );
 		this->do_hat( draw_list, local.pawn );
@@ -631,6 +632,50 @@ namespace features::misc {
 		const auto dot_x = points[ ( sample_count - 1 ) * 2 ];
 		const auto dot_y = points[ ( sample_count - 1 ) * 2 + 1 ];
 		draw_list.circle_filled( dot_x, dot_y, 2.0f, accent );
+	}
+
+	void hud::do_match_header( xdraw::draw_list& draw_list, float screen_w )
+	{
+		const auto dt = std::min( xdraw::delta_time( ), 0.05f );
+		this->m_match_header_alpha = std::min( this->m_match_header_alpha + dt * 3.5f, 1.0f );
+		this->m_match_header_offset = std::lerp( this->m_match_header_offset, 0.0f, std::min( dt * 8.0f, 1.0f ) );
+		this->m_match_header_phase = std::fmod( this->m_match_header_phase + dt * 0.7f, 1.0f );
+
+		const auto with_alpha = [ ]( retro::color color, float alpha )
+			{
+				color.a = static_cast<std::uint8_t>( std::clamp( alpha, 0.0f, 1.0f ) * 255.0f );
+				return color;
+			};
+
+		constexpr auto panel_w{ 460.0f };
+		constexpr auto panel_h{ 48.0f };
+		constexpr auto panel_y{ 18.0f };
+		constexpr auto pad{ 12.0f };
+		const auto alpha = this->m_match_header_alpha;
+		const auto x = std::floor( ( screen_w - panel_w ) * 0.5f );
+		const auto y = std::floor( panel_y + this->m_match_header_offset );
+		const auto panel_col = with_alpha( retro::palette::panel, alpha * 0.96f );
+		const auto border_col = with_alpha( retro::palette::border_strong, alpha );
+
+		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, panel_col, border_col );
+		retro::push_font( );
+		draw_list.text( x + pad, y + 7.0f, "> MATCH // LIVE", retro::to_xdraw_color( with_alpha( retro::palette::accent_green, alpha ) ) );
+
+		const auto map_name = rendering::widgets::s_map_name.empty( ) ? "OFFLINE" : rendering::widgets::s_map_name.c_str( );
+		const auto [ map_w, map_h ] = xdraw::measure_text( map_name );
+		draw_list.text( x + panel_w - pad - map_w, y + 7.0f, map_name, retro::to_xdraw_color( with_alpha( retro::palette::text, alpha ) ) );
+		retro::draw_rule( draw_list, x + pad, y + 23.0f, x + panel_w - pad, with_alpha( retro::palette::accent_green_dim, alpha ) );
+
+		const auto track_x = x + pad;
+		const auto track_y = y + panel_h - 11.0f;
+		const auto track_w = panel_w - pad * 2.0f;
+		const auto marker_w = 34.0f;
+		const auto marker_x = track_x + ( track_w - marker_w ) * this->m_match_header_phase;
+		draw_list.rect_filled( track_x, track_y, track_w, 2.0f, retro::to_xdraw_color( with_alpha( retro::palette::canvas, alpha ) ) );
+		draw_list.rect_filled( marker_x, track_y, marker_w, 2.0f, retro::to_xdraw_color( with_alpha( retro::palette::accent_green, alpha ) ) );
+
+		const auto pulse = 0.65f + 0.35f * std::sin( this->m_match_header_phase * std::numbers::pi_v<float> * 2.0f );
+		draw_list.circle_filled( x + panel_w - pad - 4.0f, y + 15.0f, 2.0f, retro::to_xdraw_color( with_alpha( retro::palette::focus, alpha * pulse ) ) );
 	}
 
 	void hud::do_weapon_telemetry( xdraw::draw_list& draw_list, float screen_w, float screen_h, std::uintptr_t local_pawn ) const
