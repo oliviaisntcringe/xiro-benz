@@ -270,41 +270,41 @@ namespace features::esp::other {
 
 		const auto site_label = bomb_site == 0 ? "A PLANT" : "B PLANT";
 		const auto timer_col = is_exploding || time_remaining <= 3.0f
-			? retro::palette::accent_purple
-			: time_remaining <= 7.0f ? retro::color{ 0xD5, 0xA8, 0x4A } : retro::palette::accent_green;
-		const auto damage_col = will_kill ? retro::color{ 0xE5, 0x6A, 0x5F } : retro::palette::accent_green;
+			? rendering::retro::palette::accent_purple
+			: time_remaining <= 7.0f ? rendering::retro::color{ 0xD5, 0xA8, 0x4A } : rendering::retro::palette::accent_green;
+		const auto damage_col = will_kill ? rendering::retro::color{ 0xE5, 0x6A, 0x5F } : rendering::retro::palette::accent_green;
 		const auto status_label = is_exploding ? "EXPLODING" : being_defused ? "DEFUSING" : "ARMED";
 
 		const auto x = std::floor( ( screen_w - panel_w ) * 0.5f );
 		const auto y = top_offset;
-		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border );
-		retro::push_font( );
+		rendering::retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, rendering::retro::palette::panel, rendering::retro::palette::border );
+		rendering::retro::push_font( );
 
-		draw_list.text( x + text_pad, y + 5.0f, "> bomb status", retro::to_xdraw_color( retro::palette::accent_green ) );
-		draw_list.text( x + panel_w - 20.0f, y + 5.0f, "*", retro::to_xdraw_color( retro::palette::accent_purple ) );
-		retro::draw_rule( draw_list, x + text_pad, y + header_h, x + panel_w - text_pad, retro::palette::accent_green_dim );
+		draw_list.text( x + text_pad, y + 5.0f, "> bomb status", rendering::retro::to_xdraw_color( rendering::retro::palette::accent_green ) );
+		draw_list.text( x + panel_w - 20.0f, y + 5.0f, "*", rendering::retro::to_xdraw_color( rendering::retro::palette::accent_purple ) );
+		rendering::retro::draw_rule( draw_list, x + text_pad, y + header_h, x + panel_w - text_pad, rendering::retro::palette::accent_green_dim );
 
-		auto draw_row = [ & ]( const char* label, const char* value, const char* unit, retro::color value_col, float row_y )
+		auto draw_row = [ & ]( const char* label, const char* value, const char* unit, rendering::retro::color value_col, float row_y )
 			{
-				draw_list.text( x + text_pad, row_y, label, retro::to_xdraw_color( retro::palette::text_muted ) );
+				draw_list.text( x + text_pad, row_y, label, rendering::retro::to_xdraw_color( rendering::retro::palette::text_muted ) );
 				const auto [ value_w, value_h ] = xdraw::measure_text( value );
 				const auto [ unit_w, unit_h ] = xdraw::measure_text( unit );
 				const auto value_x = x + panel_w - text_pad - value_w - ( unit[ 0 ] ? unit_w + 4.0f : 0.0f );
 				const auto value_y = row_y;
 				draw_list.push_clip( x + 96.0f, row_y, panel_w - 96.0f - text_pad, row_h );
-				draw_list.text( value_x, value_y, value, retro::to_xdraw_color( value_col ) );
+				draw_list.text( value_x, value_y, value, rendering::retro::to_xdraw_color( value_col ) );
 				if ( unit[ 0 ] )
-					draw_list.text( value_x + value_w + 4.0f, value_y, unit, retro::to_xdraw_color( retro::palette::text_muted ) );
+					draw_list.text( value_x + value_w + 4.0f, value_y, unit, rendering::retro::to_xdraw_color( rendering::retro::palette::text_muted ) );
 				draw_list.pop_clip( );
 			};
 
 		const auto first_row_y = y + header_h + 5.0f;
-		draw_row( "SITE", site_label, "", retro::palette::text, first_row_y );
+		draw_row( "SITE", site_label, "", rendering::retro::palette::text, first_row_y );
 		draw_row( "TIME", timer_buf, is_exploding ? "EXPLOSION" : being_defused ? "DEFUSE" : "UNTIL BLOW", timer_col, first_row_y + row_h + row_gap );
 		draw_row( "DAMAGE", damage_buf, "HEALTH", damage_col, first_row_y + ( row_h + row_gap ) * 2.0f );
-		draw_row( "DEFUSE", status_label, "", being_defused ? retro::palette::accent_green : retro::palette::text_muted, first_row_y + ( row_h + row_gap ) * 3.0f );
+		draw_row( "DEFUSE", status_label, "", being_defused ? rendering::retro::palette::accent_green : rendering::retro::palette::text_muted, first_row_y + ( row_h + row_gap ) * 3.0f );
 
-		retro::pop_font( );
+		rendering::retro::pop_font( );
 	}
 
 	void overlay::add_spectators( xdraw::draw_list& draw_list )
@@ -403,10 +403,10 @@ namespace features::esp::other {
 		const auto x = margin;
 		const auto y = std::floor( screen_h * 0.5f - panel_h * 0.5f );
 
-		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border );
-		retro::push_font( );
-		draw_list.text( x + text_pad, y + 5.0f, "> spectators", retro::to_xdraw_color( retro::palette::accent_green ) );
-		retro::draw_rule( draw_list, x + text_pad, y + header_h, x + panel_w - text_pad, retro::palette::accent_green_dim );
+		rendering::retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, rendering::retro::palette::panel, rendering::retro::palette::border );
+		rendering::retro::push_font( );
+		draw_list.text( x + text_pad, y + 5.0f, "> spectators", rendering::retro::to_xdraw_color( rendering::retro::palette::accent_green ) );
+		rendering::retro::draw_rule( draw_list, x + text_pad, y + header_h, x + panel_w - text_pad, rendering::retro::palette::accent_green_dim );
 
 		for ( auto i = 0; i < count; ++i )
 		{
@@ -420,7 +420,7 @@ namespace features::esp::other {
 				row_y + 7.0f,
 				3.0f,
 				6.0f,
-				retro::to_xdraw_color( retro::palette::accent_green )
+				rendering::retro::to_xdraw_color( rendering::retro::palette::accent_green )
 			);
 
 			auto text_x = x + text_pad + 10.0f;
@@ -433,7 +433,7 @@ namespace features::esp::other {
 					avatar_size,
 					avatar_size,
 					avatar_tex,
-					retro::to_xdraw_color( retro::color{ 0xB0, 0xB0, 0xB0, 220 } )
+					rendering::retro::to_xdraw_color( rendering::retro::color{ 0xB0, 0xB0, 0xB0, 220 } )
 				);
 				text_x += avatar_size + 7.0f;
 			}
@@ -444,15 +444,15 @@ namespace features::esp::other {
 				text_x,
 				row_y + ( row_h - name_h ) * 0.5f,
 				e.name,
-				retro::to_xdraw_color( retro::palette::text )
+				rendering::retro::to_xdraw_color( rendering::retro::palette::text )
 			);
 			draw_list.pop_clip( );
 
 			if ( i + 1 < count )
-				retro::draw_rule( draw_list, x + text_pad, row_y + row_h, x + panel_w - text_pad, retro::palette::accent_green_dim );
+				rendering::retro::draw_rule( draw_list, x + text_pad, row_y + row_h, x + panel_w - text_pad, rendering::retro::palette::accent_green_dim );
 		}
 
-		retro::pop_font( );
+		rendering::retro::pop_font( );
 	}
 
 } // namespace features::esp::other
