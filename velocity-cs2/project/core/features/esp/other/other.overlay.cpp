@@ -3,6 +3,7 @@
 #include <utilities/addresses/addresses.hpp>
 #include <utilities/steam/steam.hpp>
 #include <core/rendering/rendering.hpp>
+#include <core/rendering/retro_style.hpp>
 #include <core/settings.hpp>
 #include <core/features/features.hpp>
 
@@ -244,117 +245,66 @@ namespace features::esp::other {
 				return std::floor( damage );
 			}( );
 
-		const auto [screen_w, screen_h] = xdraw::viewport_size( );
-		const auto& s = xui::ctx( ).style;
-
-		constexpr auto h{ 24.0f };
+		const auto screen_w = static_cast<float>( xdraw::viewport_size( ).first );
+		constexpr auto panel_w{ 280.0f };
+		constexpr auto panel_h{ 102.0f };
 		constexpr auto top_offset{ 175.0f };
-		constexpr auto r{ 8.0f };
-		constexpr auto inner_r{ 6.0f };
-		constexpr auto inner_pad{ 2.0f };
-		constexpr auto text_pad_x{ 8.0f };
-		constexpr auto text_nudge{ 0.5f };
-		constexpr auto section_spacing{ 2.0f };
+		constexpr auto header_h{ 21.0f };
+		constexpr auto row_h{ 18.0f };
+		constexpr auto row_gap{ 2.0f };
+		constexpr auto text_pad{ 12.0f };
 
-		const auto inner_h = h - inner_pad * 2.0f;
-
-		auto timer_color = [ & ]( ) -> xdraw::color
-			{
-				if ( is_exploding )
-				{
-					return { 255, 100, 100, 255 };
-				}
-
-				const auto frac = timer_length > 0.0f ? time_remaining / timer_length : 1.0f;
-
-				if ( frac > 0.5f )
-				{
-					return s.accent;
-				}
-				else if ( frac > 0.2f )
-				{
-					const auto t = ( frac - 0.2f ) / 0.3f;
-
-					return
-					{
-						static_cast< std::uint8_t >( 255 ),
-						static_cast< std::uint8_t >( 200 + static_cast< int >( ( s.accent.g - 200 ) * t ) ),
-						static_cast< std::uint8_t >( 140 + static_cast< int >( ( s.accent.b - 140 ) * t ) ),
-						255
-					};
-				}
-				else
-				{
-					const auto t = frac / 0.2f;
-
-					return
-					{
-						255,
-						static_cast< std::uint8_t >( 120 + static_cast< int >( 80 * t ) ),
-						static_cast< std::uint8_t >( 100 + static_cast< int >( 40 * t ) ),
-						255
-					};
-				}
-			}( );
-
-		const auto site_label = bomb_site == 0 ? "A plant" : "B plant";
-		const auto [site_tw, site_th] = xdraw::measure_text( site_label );
-		const auto site_pill_w = site_tw + text_pad_x * 2.0f;
-
-		const auto damage = static_cast< int >( calculate_bomb_damage );
+		const auto damage = static_cast<int>( calculate_bomb_damage );
 		const auto view_pawn = local.view_pawn( );
 		const auto health = view_pawn ? memory::read<int>( view_pawn + SCHEMA( "C_BaseEntity", "m_iHealth"_hash ) ) : 0;
 		const auto will_kill = health <= damage;
 
-		char health_buf[ 16 ]{};
-		std::snprintf( health_buf, sizeof( health_buf ), "%+d", -damage );
-
-		const auto [health_vw, health_vh] = xdraw::measure_text( health_buf );
-		const auto [health_uw, health_uh] = xdraw::measure_text( " health" );
-		const auto health_pill_w = health_vw + health_uw + text_pad_x * 2.0f;
-		const auto health_col = will_kill ? xdraw::color{ 255, 120, 120, 255 } : xdraw::color{ 160, 210, 140, 255 };
+		char damage_buf[ 16 ]{};
+		std::snprintf( damage_buf, sizeof( damage_buf ), "%+d", -damage );
 
 		char timer_buf[ 16 ]{};
-		const char* timer_unit{};
-
 		if ( is_exploding )
-		{
 			strncpy_s( timer_buf, sizeof( timer_buf ), "0.0s", _TRUNCATE );
-			timer_unit = " exploding";
-		}
 		else
-		{
-			std::snprintf( timer_buf, sizeof( timer_buf ), "%.1fs", time_remaining );
-			timer_unit = being_defused ? " defusing" : " explosion";
-		}
+			std::snprintf( timer_buf, sizeof( timer_buf ), "%.1fs", std::max( time_remaining, 0.0f ) );
 
-		const auto [timer_vw, timer_vh] = xdraw::measure_text( timer_buf );
-		const auto [timer_uw, timer_uh] = xdraw::measure_text( timer_unit );
-		const auto timer_pill_w = timer_vw + timer_uw + text_pad_x * 2.0f;
+		const auto site_label = bomb_site == 0 ? "A PLANT" : "B PLANT";
+		const auto timer_col = is_exploding || time_remaining <= 3.0f
+			? retro::palette::accent_purple
+			: time_remaining <= 7.0f ? retro::color{ 0xD5, 0xA8, 0x4A } : retro::palette::accent_green;
+		const auto damage_col = will_kill ? retro::color{ 0xE5, 0x6A, 0x5F } : retro::palette::accent_green;
+		const auto status_label = is_exploding ? "EXPLODING" : being_defused ? "DEFUSING" : "ARMED";
 
-		const auto total_w = inner_pad + site_pill_w + section_spacing + health_pill_w + section_spacing + timer_pill_w + inner_pad;
-		const auto x = ( static_cast< float >( screen_w ) - total_w ) * 0.5f;
+		const auto x = std::floor( ( screen_w - panel_w ) * 0.5f );
 		const auto y = top_offset;
+		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border );
+		retro::push_font( );
 
-		draw_list.rect_filled_blurred( x, y, total_w, h, xdraw::corner_radius{ r } );
-		draw_list.rect_filled( x, y, total_w, h, s.window_bg, xdraw::corner_radius{ r } );
+		draw_list.text( x + text_pad, y + 5.0f, "> bomb status", retro::to_xdraw_color( retro::palette::accent_green ) );
+		draw_list.text( x + panel_w - 20.0f, y + 5.0f, "*", retro::to_xdraw_color( retro::palette::accent_purple ) );
+		retro::draw_rule( draw_list, x + text_pad, y + header_h, x + panel_w - text_pad, retro::palette::accent_green_dim );
 
-		auto cx = x + inner_pad;
+		auto draw_row = [ & ]( const char* label, const char* value, const char* unit, retro::color value_col, float row_y )
+			{
+				draw_list.text( x + text_pad, row_y, label, retro::to_xdraw_color( retro::palette::text_muted ) );
+				const auto [ value_w, value_h ] = xdraw::measure_text( value );
+				const auto [ unit_w, unit_h ] = xdraw::measure_text( unit );
+				const auto value_x = x + panel_w - text_pad - value_w - ( unit[ 0 ] ? unit_w + 4.0f : 0.0f );
+				const auto value_y = row_y;
+				draw_list.push_clip( x + 96.0f, row_y, panel_w - 96.0f - text_pad, row_h );
+				draw_list.text( value_x, value_y, value, retro::to_xdraw_color( value_col ) );
+				if ( unit[ 0 ] )
+					draw_list.text( value_x + value_w + 4.0f, value_y, unit, retro::to_xdraw_color( retro::palette::text_muted ) );
+				draw_list.pop_clip( );
+			};
 
-		draw_list.rect_filled( cx, y + inner_pad, site_pill_w, inner_h, s.child_bg, xdraw::corner_radius{ inner_r } );
-		draw_list.text( cx + text_pad_x, y + ( h - site_th ) * 0.5f + text_nudge, site_label, s.accent );
-		cx += site_pill_w + section_spacing;
+		const auto first_row_y = y + header_h + 5.0f;
+		draw_row( "SITE", site_label, "", retro::palette::text, first_row_y );
+		draw_row( "TIME", timer_buf, is_exploding ? "EXPLOSION" : being_defused ? "DEFUSE" : "UNTIL BLOW", timer_col, first_row_y + row_h + row_gap );
+		draw_row( "DAMAGE", damage_buf, "HEALTH", damage_col, first_row_y + ( row_h + row_gap ) * 2.0f );
+		draw_row( "DEFUSE", status_label, "", being_defused ? retro::palette::accent_green : retro::palette::text_muted, first_row_y + ( row_h + row_gap ) * 3.0f );
 
-		const auto health_unit_col = xdraw::color{ health_col.r, health_col.g, health_col.b, 120 };
-		draw_list.rect_filled( cx, y + inner_pad, health_pill_w, inner_h, s.child_bg, xdraw::corner_radius{ inner_r } );
-		draw_list.text( cx + text_pad_x, y + ( h - health_vh ) * 0.5f + text_nudge, health_buf, health_col );
-		draw_list.text( cx + text_pad_x + health_vw, y + ( h - health_uh ) * 0.5f + text_nudge, " health", health_unit_col );
-		cx += health_pill_w + section_spacing;
-
-		const auto timer_unit_col = xdraw::color{ timer_color.r, timer_color.g, timer_color.b, 120 };
-		draw_list.rect_filled( cx, y + inner_pad, timer_pill_w, inner_h, s.child_bg, xdraw::corner_radius{ inner_r } );
-		draw_list.text( cx + text_pad_x, y + ( h - timer_vh ) * 0.5f + text_nudge, timer_buf, timer_color );
-		draw_list.text( cx + text_pad_x + timer_vw, y + ( h - timer_uh ) * 0.5f + text_nudge, timer_unit, timer_unit_col );
+		retro::pop_font( );
 	}
 
 	void overlay::add_spectators( xdraw::draw_list& draw_list )
@@ -379,158 +329,71 @@ namespace features::esp::other {
 			return;
 		}
 
-		const auto [screen_w, screen_h] = xdraw::viewport_size( );
-		const auto& s = xui::ctx( ).style;
-
-		constexpr auto margin{ 10.0f };
-		constexpr auto row_spacing{ 3.0f };
-		constexpr auto row_h{ 24.0f };
-		constexpr auto header_h{ 24.0f };
-		constexpr auto r{ 8.0f };
-		constexpr auto inner_r{ 6.0f };
-		constexpr auto inner_pad{ 2.0f };
-		constexpr auto text_pad_x{ 8.0f };
-		constexpr auto text_nudge{ 0.5f };
-		constexpr auto icon_size{ 20.0f };
-		constexpr auto icon_inner_pad{ 4.0f };
-		constexpr auto avatar_pill_size{ 20.0f };
-
-		struct spectator_entry
-		{
-			char name[ 128 ];
-			std::uintptr_t steam_id;
-		};
-
-		spectator_entry entries[ 32 ]{};
-		auto count{ 0 };
-
-		for ( const auto& player : systems::g_entities.get_by_type( systems::entities::type::player ) )
-		{
-			if ( player.ptr == view_controller || player.ptr == local_controller || count >= 32 )
-			{
-				continue;
-			}
-
-			if ( memory::read<bool>( player.ptr + SCHEMA( "CCSPlayerController", "m_bPawnIsAlive"_hash ) ) )
-			{
-				continue;
-			}
-
-			const auto obs_pawn_handle = memory::read<std::uint32_t>( player.ptr + SCHEMA( "CCSPlayerController", "m_hObserverPawn"_hash ) );
-			if ( !obs_pawn_handle || obs_pawn_handle == 0xffffffff )
-			{
-				continue;
-			}
-
-			const auto obs_pawn = systems::g_entities.lookup( obs_pawn_handle );
-			if ( !obs_pawn )
-			{
-				continue;
-			}
-
-			const auto observer_services = memory::safe_read<std::uintptr_t>( obs_pawn + SCHEMA( "C_BasePlayerPawn", "m_pObserverServices"_hash ) ).value_or( 0 );
-			if ( !observer_services || ( observer_services >> 48 ) != 0 )
-			{
-				continue;
-			}
-
-			const auto observer_target_handle = memory::safe_read<std::uint32_t>( observer_services + SCHEMA( "CPlayer_ObserverServices", "m_hObserverTarget"_hash ) ).value_or( 0 );
-			if ( !observer_target_handle )
-			{
-				continue;
-			}
-
-			const auto observer_target = systems::g_entities.lookup( observer_target_handle );
-			if ( observer_target != view_pawn )
-			{
-				continue;
-			}
-
-			const auto name_ptr = memory::read<std::uintptr_t>( player.ptr + SCHEMA( "CCSPlayerController", "m_sSanitizedPlayerName"_hash ) );
-			if ( !name_ptr )
-			{
-				continue;
-			}
-
-			auto name = memory::read_string( name_ptr, 127 );
-			std::ranges::transform( name, name.begin( ), [ ]( unsigned char c ) { return std::tolower( c ); } );
-
-			auto& e = entries[ count++ ];
-			strncpy_s( e.name, name.c_str( ), sizeof( e.name ) - 1 );
-
-			e.name[ sizeof( e.name ) - 1 ] = '\0';
-			e.steam_id = memory::read<std::uintptr_t>( player.ptr + SCHEMA( "CBasePlayerController", "m_steamID"_hash ) );
-		}
-
-		if ( count <= 0 )
-		{
-			return;
-		}
-
 		static detail::avatar_cache avatars{};
 
-		static auto icon_w_px = 0, icon_h_px = 0;
-		static const auto eye_icon = xdraw::load_svg( std::span<const std::byte>( reinterpret_cast< const std::byte* >( detail::spectator_icon ), sizeof( detail::spectator_icon ) ), 1.0f, &icon_w_px, &icon_h_px );
+		constexpr auto margin{ 10.0f };
+		constexpr auto panel_w{ 260.0f };
+		constexpr auto row_spacing{ 2.0f };
+		constexpr auto row_h{ 20.0f };
+		constexpr auto header_h{ 21.0f };
+		constexpr auto text_pad{ 10.0f };
+		constexpr auto avatar_size{ 16.0f };
 
-		const auto [header_tw, header_th] = xdraw::measure_text( "spectators" );
-		const auto inner_h = row_h - inner_pad * 2.0f;
-		const auto header_inner_h = header_h - inner_pad * 2.0f;
+		const auto panel_h = header_h + row_spacing + static_cast<float>( count ) * ( row_h + row_spacing );
+		const auto screen_h = static_cast<float>( xdraw::viewport_size( ).second );
+		const auto x = margin;
+		const auto y = std::floor( screen_h * 0.5f - panel_h * 0.5f );
 
-		const auto header_w = inner_pad + header_tw + text_pad_x * 2.0f + inner_pad + icon_size + inner_pad;
-		const auto x = static_cast< float >( screen_w ) - header_w - margin;
-		auto ry = ( static_cast< float >( screen_h ) * 0.5f ) - ( ( header_h + row_spacing + static_cast< float >( count ) * ( row_h + row_spacing ) ) * 0.5f );
-
-		draw_list.rect_filled_blurred( x, ry, header_w, header_h, xdraw::corner_radius{ r } );
-		draw_list.rect_filled( x, ry, header_w, header_h, s.window_bg, xdraw::corner_radius{ r } );
-
-		const auto htx = x + inner_pad;
-		const auto htw = header_tw + text_pad_x * 2.0f;
-		draw_list.rect_filled( htx, ry + inner_pad, htw, header_inner_h, s.child_bg, xdraw::corner_radius{ inner_r } );
-		draw_list.text( htx + text_pad_x, ry + ( header_h - header_th ) * 0.5f + text_nudge, "spectators", s.accent );
-
-		const auto icon_x = x + inner_pad + htw + inner_pad;
-		draw_list.rect_filled( icon_x, ry + inner_pad, icon_size, header_inner_h, s.accent, xdraw::corner_radius{ inner_r } );
-
-		if ( eye_icon )
-		{
-			const auto icon_draw = icon_size - icon_inner_pad * 2.0f;
-			const auto ix = std::floor( icon_x + icon_inner_pad );
-			const auto iy = std::floor( ry + inner_pad + ( header_inner_h - icon_draw ) * 0.5f + 1.0f );
-			draw_list.image( ix, iy, icon_draw, icon_draw, eye_icon.Get( ), s.checkbox_mark_icon );
-		}
-
-		ry += header_h + row_spacing;
+		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border );
+		retro::push_font( );
+		draw_list.text( x + text_pad, y + 5.0f, "> spectators", retro::to_xdraw_color( retro::palette::accent_green ) );
+		retro::draw_rule( draw_list, x + text_pad, y + header_h, x + panel_w - text_pad, retro::palette::accent_green_dim );
 
 		for ( auto i = 0; i < count; ++i )
 		{
 			const auto& e = entries[ i ];
-			const auto [nw, nh] = xdraw::measure_text( e.name );
+			const auto row_y = y + header_h + row_spacing + static_cast<float>( i ) * ( row_h + row_spacing );
 			const auto avatar_tex = avatars.get( e.steam_id );
 			const auto has_avatar = avatar_tex != nullptr;
 
-			const auto name_pill_w = nw + text_pad_x * 2.0f;
-			const auto row_w = inner_pad + name_pill_w + ( has_avatar ? inner_pad + avatar_pill_size : 0.0f ) + inner_pad;
-			const auto rx = static_cast< float >( screen_w ) - row_w - margin;
+			draw_list.rect_filled(
+				x + text_pad,
+				row_y + 7.0f,
+				3.0f,
+				6.0f,
+				retro::to_xdraw_color( retro::palette::accent_green )
+			);
 
-			draw_list.rect_filled_blurred( rx, ry, row_w, row_h, xdraw::corner_radius{ r } );
-			draw_list.rect_filled( rx, ry, row_w, row_h, s.window_bg, xdraw::corner_radius{ r } );
-
-			auto cx = rx + inner_pad;
-
-			draw_list.rect_filled( cx, ry + inner_pad, name_pill_w, inner_h, s.child_bg, xdraw::corner_radius{ inner_r } );
-			draw_list.text( cx + text_pad_x, ry + ( row_h - nh ) * 0.5f + text_nudge, e.name, s.accent );
-			cx += name_pill_w;
-
+			auto text_x = x + text_pad + 10.0f;
 			if ( has_avatar )
 			{
-				cx += inner_pad;
-				const auto avatar_draw = inner_h;
-				const auto ay = ry + inner_pad;
-				draw_list.image( cx, ay, avatar_draw, avatar_draw, avatar_tex, xdraw::corner_radius{ inner_r }, xdraw::color{ 255, 255, 255, 255 } );
+				const auto avatar_y = row_y + ( row_h - avatar_size ) * 0.5f;
+				draw_list.image(
+					text_x,
+					avatar_y,
+					avatar_size,
+					avatar_size,
+					avatar_tex,
+					retro::to_xdraw_color( retro::color{ 0xB0, 0xB0, 0xB0, 220 } )
+				);
+				text_x += avatar_size + 7.0f;
 			}
 
-			ry += row_h + row_spacing;
+			const auto name_h = xdraw::measure_text( e.name ).second;
+			draw_list.push_clip( text_x, row_y, x + panel_w - text_x - text_pad, row_h );
+			draw_list.text(
+				text_x,
+				row_y + ( row_h - name_h ) * 0.5f,
+				e.name,
+				retro::to_xdraw_color( retro::palette::text )
+			);
+			draw_list.pop_clip( );
+
+			if ( i + 1 < count )
+				retro::draw_rule( draw_list, x + text_pad, row_y + row_h, x + panel_w - text_pad, retro::palette::accent_green_dim );
 		}
+
+		retro::pop_font( );
 	}
 
 } // namespace features::esp::other
