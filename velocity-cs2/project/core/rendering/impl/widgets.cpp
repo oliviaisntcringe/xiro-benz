@@ -203,6 +203,7 @@ namespace rendering {
 			char value[ 32 ];
 			char unit[ 8 ];
 			bool has_value;
+			bool active;
 			xui::bind_mode mode;
 		};
 
@@ -214,7 +215,7 @@ namespace rendering {
 
 		for ( const auto setting : xui::binds::all( ) )
 		{
-			if ( !setting || setting->bind.key == 0 || !setting->bind.active || count >= 32 )
+			if ( !setting || setting->bind.key == 0 || count >= 32 )
 			{
 				continue;
 			}
@@ -260,6 +261,7 @@ namespace rendering {
 
 				auto& e = entries[ count++ ];
 				e.name = setting->name.c_str( );
+				e.active = setting->bind.active;
 				e.mode = setting->bind.mode;
 
 				if ( setting == &active_group->min_damage_override )
@@ -328,6 +330,7 @@ namespace rendering {
 
 				auto& e = entries[ count++ ];
 				e.name = setting->name.c_str( );
+				e.active = setting->bind.active;
 				e.mode = setting->bind.mode;
 				e.value[ 0 ] = '\0';
 				e.has_value = false;
@@ -344,6 +347,7 @@ namespace rendering {
 
 			auto& e = entries[ count++ ];
 			e.name = setting->name.c_str( );
+			e.active = setting->bind.active;
 			e.mode = setting->bind.mode;
 			e.value[ 0 ] = '\0';
 			e.has_value = false;
@@ -405,7 +409,7 @@ namespace rendering {
 			const auto row_alpha = anim.alpha.alpha( ) * master_alpha;
 			const auto draw_y = base_ry + anim.offset_y.value( );
 			const auto name_h = xdraw::measure_text( e.name ).second;
-			const auto text_col = ( e.mode == xui::bind_mode::toggle ) ? retro::palette::text_muted : retro::palette::accent_green;
+			const auto text_col = e.active ? retro::palette::accent_green : retro::palette::text_muted;
 			const auto name_clip_w = e.has_value ? panel_w - text_pad_x * 2.0f - 72.0f : panel_w - text_pad_x * 2.0f;
 
 			draw_list.push_clip( x + text_pad_x, draw_y, name_clip_w, row_h );
@@ -423,7 +427,7 @@ namespace rendering {
 				const auto [ unit_w, unit_h ] = xdraw::measure_text( e.unit );
 				const auto value_x = x + panel_w - text_pad_x - value_w - ( e.unit[ 0 ] ? unit_w + 3.0f : 0.0f );
 				const auto value_y = draw_y + ( row_h - std::max( value_h, unit_h ) ) * 0.5f;
-				draw_list.text( value_x, value_y, e.value, retro::to_xdraw_color( with_alpha( retro::palette::accent_green, row_alpha ) ) );
+				draw_list.text( value_x, value_y, e.value, retro::to_xdraw_color( with_alpha( e.active ? retro::palette::accent_green : retro::palette::text_muted, row_alpha ) ) );
 				if ( e.unit[ 0 ] )
 					draw_list.text( value_x + value_w + 3.0f, value_y, e.unit, retro::to_xdraw_color( with_alpha( retro::palette::text_muted, row_alpha ) ) );
 			}
