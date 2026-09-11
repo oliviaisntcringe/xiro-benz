@@ -26,4 +26,9 @@ namespace rendering::retro
 	{
 		xdraw::push_font( rendering::g_fonts.smallest_pixel7[ rendering::fonts::size::normal ] );
 	}
+
+	inline void pop_font( )
+	{
+		xdraw::pop_font( );
+	}
 }
