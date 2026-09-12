@@ -355,6 +355,41 @@ namespace features::combat {
 			math::helpers::normalize_angles( aim_angle );
 		}
 
+		if ( ( config.silent.value || config.no_spread.value ) && ( cmd->buttons.value & cstypes::command_buttons::in_attack ) )
+		{
+			if ( config.no_spread.value && ( cmd->buttons.value & cstypes::command_buttons::in_attack ) )
+			{
+				const auto tick_base = memory::read<std::int32_t>( local.controller + SCHEMA( "CBasePlayerController", "m_nTickBase"_hash ) );
+				const auto corrected = g_shared.find_spread_correction( aim_angle, tick_base );
+				if ( corrected.x != 0.0f || corrected.y != 0.0f || corrected.z != 0.0f )
+				{
+					aim_angle = corrected;
+				}
+			}
+
+			const auto command_angle = aim_angle - aim_punch;
+			if ( const auto angles = cmd->csgo_user_cmd.mutable_base( )->mutable_viewangles( ) )
+			{
+				angles->set_x( command_angle.x );
+				angles->set_y( command_angle.y );
+				angles->set_z( command_angle.z );
+			}
+
+			const auto history_size = cmd->csgo_user_cmd.input_history_size( );
+			for ( auto i = 0; i < history_size; ++i )
+			{
+				const auto entry = cmd->csgo_user_cmd.mutable_input_history( i );
+				if ( entry && entry->mutable_view_angles( ) )
+				{
+					entry->mutable_view_angles( )->set_x( command_angle.x );
+					entry->mutable_view_angles( )->set_y( command_angle.y );
+					entry->mutable_view_angles( )->set_z( command_angle.z );
+				}
+			}
+
+			return;
+		}
+
 		auto want_x = aim_angle.x - view_angles.x;
 		auto want_y = aim_angle.y - view_angles.y;
 

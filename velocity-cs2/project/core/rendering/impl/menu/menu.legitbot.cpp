@@ -41,6 +41,8 @@ namespace rendering {
 		if ( xui::begin_child( "##legitbot_aimbot", col_w ) )
 		{
 			xui::checkbox( "aimbot", wg.aimbot );
+			xui::checkbox( "silent", wg.silent );
+			xui::checkbox( "nospread", wg.no_spread );
 
 			xui::slider_float( "fov", wg.fov, 0.5f, 30.0f, "%.1f°" );
 			xui::slider_int( "smooth", wg.smooth, 0, 100, "%d" );

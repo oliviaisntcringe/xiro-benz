@@ -157,6 +157,11 @@ namespace features::esp::other {
 		this->add_bomb( draw_list );
 	}
 
+	void overlay::draw_spectators( xdraw::draw_list& draw_list )
+	{
+		this->add_spectators( draw_list );
+	}
+
 	void overlay::add_bomb( xdraw::draw_list& draw_list )
 	{
 		const auto local = systems::g_local.get( );
@@ -468,6 +473,11 @@ namespace features::esp::other {
 		}
 
 		static detail::avatar_cache avatars{};
+		static float panel_x{ -1.0f };
+		static float panel_y{ -1.0f };
+		static bool dragging{ false };
+		static float drag_offset_x{};
+		static float drag_offset_y{};
 
 		static auto icon_w_px = 0, icon_h_px = 0;
 		static const auto eye_icon = xdraw::load_svg( std::span<const std::byte>( reinterpret_cast< const std::byte* >( detail::spectator_icon ), sizeof( detail::spectator_icon ) ), 1.0f, &icon_w_px, &icon_h_px );
@@ -477,8 +487,30 @@ namespace features::esp::other {
 		const auto header_inner_h = header_h - inner_pad * 2.0f;
 
 		const auto header_w = inner_pad + header_tw + text_pad_x * 2.0f + inner_pad + icon_size + inner_pad;
-		const auto x = static_cast< float >( screen_w ) - header_w - margin;
-		auto ry = ( static_cast< float >( screen_h ) * 0.5f ) - ( ( header_h + row_spacing + static_cast< float >( count ) * ( row_h + row_spacing ) ) * 0.5f );
+		const auto total_h = header_h + row_spacing + static_cast< float >( count ) * ( row_h + row_spacing );
+		auto x = panel_x >= 0.0f ? panel_x : static_cast< float >( screen_w ) - header_w - margin;
+		auto ry = panel_y >= 0.0f ? panel_y : ( static_cast< float >( screen_h ) * 0.5f ) - total_h * 0.5f;
+
+		const auto& input = xui::ctx( ).input;
+		if ( rendering::g_menu.is_open( ) )
+		{
+			const xui::rect header_rect{ x, ry, header_w, header_h };
+			if ( input.mouse_clicked && header_rect.contains( input.mouse_x, input.mouse_y ) )
+			{
+				dragging = true;
+				drag_offset_x = input.mouse_x - x;
+				drag_offset_y = input.mouse_y - ry;
+			}
+			if ( !input.mouse_down )
+				dragging = false;
+			if ( dragging )
+			{
+				panel_x = std::clamp( input.mouse_x - drag_offset_x, 0.0f, std::max( 0.0f, static_cast<float>( screen_w ) - header_w ) );
+				panel_y = std::clamp( input.mouse_y - drag_offset_y, 0.0f, std::max( 0.0f, static_cast<float>( screen_h ) - total_h ) );
+				x = panel_x;
+				ry = panel_y;
+			}
+		}
 
 		draw_list.rect_filled_blurred( x, ry, header_w, header_h, xdraw::corner_radius{ r } );
 		draw_list.rect_filled( x, ry, header_w, header_h, s.window_bg, xdraw::corner_radius{ r } );
@@ -510,7 +542,7 @@ namespace features::esp::other {
 
 			const auto name_pill_w = nw + text_pad_x * 2.0f;
 			const auto row_w = inner_pad + name_pill_w + ( has_avatar ? inner_pad + avatar_pill_size : 0.0f ) + inner_pad;
-			const auto rx = static_cast< float >( screen_w ) - row_w - margin;
+			const auto rx = x + header_w - row_w;
 
 			draw_list.rect_filled_blurred( rx, ry, row_w, row_h, xdraw::corner_radius{ r } );
 			draw_list.rect_filled( rx, ry, row_w, row_h, s.window_bg, xdraw::corner_radius{ r } );

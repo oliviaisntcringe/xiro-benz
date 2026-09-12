@@ -71,6 +71,7 @@ namespace rendering {
         void draw_skins( float group_w ) const;
         void draw_misc( float group_w ) const;
         void draw_config( float group_w );
+        void draw_profile_panel( );
 
         bool m_open{ true };
         bool m_config_modal_open{};

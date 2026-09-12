@@ -107,12 +107,20 @@ namespace rendering {
 				features::esp::other::g_overlay.on_render( dl );
 			}
 
+			g_menu.draw( );
+
 			if ( this->m_ui_assets_ready )
 			{
-				g_widgets.draw( );
+				if ( g_menu.is_open( ) )
+				{
+					g_widgets.draw( );
+					features::esp::other::g_overlay.draw_spectators( xdraw::get( ) );
+				}
+				else
+				{
+					g_widgets.draw( );
+				}
 			}
-
-			g_menu.draw( );
 		}
 		xdraw::end_frame( );
 	}

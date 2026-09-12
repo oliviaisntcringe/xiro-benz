@@ -267,6 +267,7 @@ namespace features::esp {
 		{
 		public:
 			void on_render( xdraw::draw_list& draw_list );
+			void draw_spectators( xdraw::draw_list& draw_list );
 
 		private:
 			void add_bomb( xdraw::draw_list& draw_list );

@@ -1293,6 +1293,12 @@ namespace rendering {
 
 			const auto menu_reveal = xui::ease::out_cubic( this->m_open_anim );
 
+			if ( this->m_open && menu_reveal >= 0.98f )
+			{
+				this->try_load_user_avatar( );
+				this->draw_profile_panel( );
+			}
+
 			if ( !xui::begin_window( "##menu", this->m_x, this->m_y, this->m_w, this->m_h, false, 200.0f, 200.0f, menu_reveal ) )
 			{
 				return;
@@ -1373,6 +1379,47 @@ namespace rendering {
 
 		}
 		xui::end( );
+	}
+
+	void menu::draw_profile_panel( )
+	{
+		const auto [screen_w, screen_h] = xdraw::viewport_size( );
+		constexpr auto panel_w{ 360.0f };
+		constexpr auto panel_h{ 64.0f };
+		constexpr auto gap{ 10.0f };
+		auto panel_x = ( static_cast< float >( screen_w ) - panel_w ) * 0.5f;
+		auto panel_y = std::max( 8.0f, this->m_y - panel_h - gap );
+
+		if ( !xui::begin_window( "##profile_panel", panel_x, panel_y, panel_w, panel_h, false, panel_w, panel_h ) )
+		{
+			return;
+		}
+
+		auto& dl = xui::draw::current( );
+		const auto avatar_size = 40.0f;
+		const auto avatar_x = panel_x + 12.0f;
+		const auto avatar_y = panel_y + ( panel_h - avatar_size ) * 0.5f;
+		if ( this->m_textures.user.resource )
+		{
+			dl.image( avatar_x, avatar_y, avatar_size, avatar_size, this->m_textures.user.resource.Get( ), xdraw::corner_radius{ 20.0f } );
+		}
+
+		const auto persona = steam::friends::get_persona_name( );
+		dl.text( avatar_x + avatar_size + 12.0f, panel_y + 16.0f, persona && persona[ 0 ] ? persona : "steam user", tokens::col_text );
+
+		xui::layout::set_cursor( panel_w - 96.0f, 20.0f );
+		if ( xui::button( "settings##profile", 80.0f, 24.0f ) )
+		{
+			xui::ctx( ).inside_overlay = xui::fnv1a( "profile_settings" );
+		}
+
+		if ( xui::begin_popup( "##profile_settings_popup", 220.0f ) )
+		{
+			xui::keybind( "open / close menu", settings::g_misc.menu_key.value );
+			xui::end_popup( );
+		}
+
+		xui::end_window( );
 	}
 
 	void menu::shutdown( ) const

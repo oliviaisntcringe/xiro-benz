@@ -106,6 +106,8 @@ namespace settings {
 			struct weapon_group
 			{
 				xui::setting aimbot{ false, { VK_XBUTTON2, xui::bind_mode::hold_on }, "aimbot", "legitbot" };
+				xui::setting silent{ false, {}, "silent", "legitbot" };
+				xui::setting no_spread{ false, {}, "no spread", "legitbot" };
 				config::val<float> fov{ 5.0f };
 				config::val<int> smooth{ 5 };
 				config::bools<5> hitboxes{ { true, false, false, false, false } };
@@ -136,6 +138,8 @@ namespace settings {
 					const auto s = std::string( cat );
 
 					this->aimbot.category = s;
+					this->silent.category = s;
+					this->no_spread.category = s;
 					this->rcs.category = s;
 					this->standalone_rcs.category = s;
 					this->triggerbot.category = s;

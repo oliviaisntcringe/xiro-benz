@@ -20,4 +20,8 @@ namespace steam {
 		return memory::call<int> (MODULE_EXPORT ("steam_api64.dll:SteamAPI_ISteamFriends_GetMediumFriendAvatar"), detail::friends_interface, steam_id);
 	}
 
+	const char* friends::get_persona_name ( ) {
+		return memory::call<const char*> (MODULE_EXPORT ("steam_api64.dll:SteamAPI_ISteamFriends_GetPersonaName"), detail::friends_interface);
+	}
+
 } // namespace steam
