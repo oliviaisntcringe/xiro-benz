@@ -7,6 +7,8 @@
 
 #include "../imgui_menu.hpp"
 
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam );
+
 namespace rendering {
 
 	bool imgui_menu::initialize( IDXGISwapChain* swap_chain, HWND window )
