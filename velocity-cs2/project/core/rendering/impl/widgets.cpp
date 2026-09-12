@@ -26,12 +26,13 @@ namespace rendering {
 
 	void widgets::watermark( xdraw::draw_list& draw_list )
 	{
-		const auto screen_w = xdraw::viewport_size( ).first;
+		const auto screen_w = static_cast<float>( xdraw::viewport_size( ).first );
+		const auto scale = retro::viewport_scale( );
 		const auto& wm = settings::g_misc.m_watermark;
 		const auto framerate = xdraw::framerate( );
 		const auto local = systems::g_local.get( );
 
-		constexpr auto margin{ 10.0f };
+		const auto margin = 10.0f * scale;
 
 		// ── time ────────────────────────────────────────────────────────────
 		SYSTEMTIME st{};
@@ -137,18 +138,18 @@ namespace rendering {
 		if ( wm.show_time.value ) add_stat( "TIME", time_buf );
 		if ( wm.show_user.value ) add_stat( "USER", "developer" );
 
-		constexpr auto panel_w{ 440.0f };
-		constexpr auto panel_h{ 58.0f };
-		constexpr auto header_h{ 17.0f };
-		constexpr auto grid_pad{ 10.0f };
-		constexpr auto cell_gap{ 4.0f };
-		constexpr auto cell_h{ 17.0f };
-		const auto x = static_cast<float>( screen_w ) - panel_w - margin;
+		const auto panel_w = 440.0f * scale;
+		const auto panel_h = 50.0f * scale;
+		const auto header_h = 15.0f * scale;
+		const auto grid_pad = 10.0f * scale;
+		const auto cell_gap = 3.0f * scale;
+		const auto cell_h = 15.0f * scale;
+		const auto x = screen_w - panel_w - margin;
 		const auto y = margin;
 
 		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border );
-		retro::push_font( );
-		draw_list.text( x + grid_pad, y + 3.0f, "xiro.benz // telemetry", retro::to_xdraw_color( retro::palette::accent_green ) );
+		retro::push_font( scale );
+		draw_list.text( x + grid_pad, y + 2.0f * scale, "xiro.benz // telemetry", retro::to_xdraw_color( retro::palette::accent_green ) );
 		retro::draw_rule( draw_list, x + grid_pad, y + header_h, x + panel_w - grid_pad, retro::palette::accent_green_dim );
 
 		const auto columns = 4u;
@@ -159,13 +160,13 @@ namespace rendering {
 			const auto col = i % columns;
 			const auto row = i / columns;
 			const auto cell_x = x + grid_pad + static_cast<float>( col ) * ( cell_w + cell_gap );
-			const auto cell_y = y + header_h + 4.0f + static_cast<float>( row ) * cell_h;
+			const auto cell_y = y + header_h + 3.0f * scale + static_cast<float>( row ) * cell_h;
 
 			draw_list.push_clip( cell_x, cell_y, cell_w, cell_h );
 			draw_list.text( cell_x, cell_y, stat.label, retro::to_xdraw_color( retro::palette::text_muted ) );
 			const auto [ value_w, value_h ] = xdraw::measure_text( stat.value );
 			const auto [ unit_w, unit_h ] = xdraw::measure_text( stat.unit );
-			const auto value_y = cell_y + cell_h - std::max( value_h, unit_h ) - 1.0f;
+			const auto value_y = cell_y + cell_h - std::max( value_h, unit_h );
 			draw_list.text( cell_x, value_y, stat.value, retro::to_xdraw_color( retro::palette::text ) );
 			if ( stat.unit[ 0 ] != '\0' )
 				draw_list.text( cell_x + value_w + 3.0f, value_y, stat.unit, retro::to_xdraw_color( retro::palette::accent_green_dim ) );
@@ -189,13 +190,14 @@ namespace rendering {
 		static animation::spring smoothed_base_y;
 
 		const auto screen_h = static_cast<float>( xdraw::viewport_size( ).second );
+		const auto scale = retro::viewport_scale( );
 
-		constexpr auto margin{ 10.0f };
-		constexpr auto row_spacing{ 2.0f };
-		constexpr auto row_h{ 18.0f };
-		constexpr auto header_h{ 21.0f };
-		constexpr auto panel_w{ 300.0f };
-		constexpr auto text_pad_x{ 10.0f };
+		const auto margin = 10.0f * scale;
+		const auto row_spacing = 2.0f * scale;
+		const auto row_h = 18.0f * scale;
+		const auto header_h = 21.0f * scale;
+		const auto panel_w = 300.0f * scale;
+		const auto text_pad_x = 10.0f * scale;
 
 		struct bind_entry
 		{
@@ -380,8 +382,8 @@ namespace rendering {
 			with_alpha( retro::palette::border, master_alpha )
 		);
 
-		retro::push_font( );
-		draw_list.text( x + text_pad_x, base_ry + 5.0f, "> keybinds", retro::to_xdraw_color( with_alpha( retro::palette::accent_green, master_alpha ) ) );
+		retro::push_font( scale );
+		draw_list.text( x + text_pad_x, base_ry + 5.0f * scale, "> keybinds", retro::to_xdraw_color( with_alpha( retro::palette::accent_green, master_alpha ) ) );
 		retro::draw_rule( draw_list, x + text_pad_x, base_ry + header_h, x + panel_w - text_pad_x, with_alpha( retro::palette::accent_green_dim, master_alpha ) );
 
 		for ( auto& [ name, state ] : row_states )

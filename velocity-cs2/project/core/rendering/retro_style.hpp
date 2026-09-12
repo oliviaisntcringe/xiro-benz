@@ -1,11 +1,19 @@
 #pragma once
 
+#include <algorithm>
+
 #include <external/xdraw/xdraw.hpp>
 #include "retro_style_tokens.hpp"
 #include "rendering.hpp"
 
 namespace rendering::retro
 {
+	[[nodiscard]] inline float viewport_scale( )
+	{
+		const auto [width, height] = xdraw::viewport_size( );
+		return std::clamp( std::min( static_cast<float>( width ) / 1920.0f, static_cast<float>( height ) / 1080.0f ), 0.75f, 1.25f );
+	}
+
 	[[nodiscard]] constexpr xdraw::color to_xdraw_color( color value )
 	{
 		return { value.r, value.g, value.b, value.a };
@@ -22,9 +30,10 @@ namespace rendering::retro
 		draw_list.line( x0, y, x1, y, to_xdraw_color( token_color ), 1.0f );
 	}
 
-	inline void push_font( )
+	inline void push_font( float scale = 1.0f )
 	{
-		xdraw::push_font( rendering::g_fonts.smallest_pixel7[ rendering::fonts::size::normal ] );
+		const auto size = scale < 0.9f ? rendering::fonts::size::petite : rendering::fonts::size::normal;
+		xdraw::push_font( rendering::g_fonts.smallest_pixel7[ size ] );
 	}
 
 	inline void pop_font( )
