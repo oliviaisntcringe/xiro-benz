@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 
 namespace rendering {
 
@@ -60,6 +61,7 @@ namespace rendering {
         void apply_theme_preset( int preset );
         void sync_theme_style( ) const;
         void draw_search_results( float x, float y, float w, float h );
+        void draw_backdrop( );
         void rebuild_search_index( );
         void close_search( );
         void activate_search_result( std::size_t index );
@@ -71,7 +73,6 @@ namespace rendering {
         void draw_skins( float group_w ) const;
         void draw_misc( float group_w ) const;
         void draw_config( float group_w );
-        void draw_profile_panel( );
 
         bool m_open{ true };
         bool m_config_modal_open{};
@@ -86,8 +87,18 @@ namespace rendering {
 
         float m_x{ 100.0f };
         float m_y{ 100.0f };
-        float m_w{ 700.0f };
-        float m_h{ 550.0f };
+        float m_w{ 820.0f };
+        float m_h{ 600.0f };
+        bool m_backdrop_initialized{};
+        struct backdrop_particle
+        {
+            float x{};
+            float y{};
+            float speed{};
+            float phase{};
+            const char* glyph{};
+        };
+        std::array<backdrop_particle, 18> m_backdrop_particles{};
         float m_body_x{};
         float m_body_y{};
         float m_body_w{};
@@ -95,6 +106,7 @@ namespace rendering {
 
         int m_tab{};
         int m_subtab{};
+        int m_visual_section{};
         int m_subtab_pill_tab{ -1 };
         float m_subtab_pill_x{ -1.0f };
 		float m_intro_elapsed{};
@@ -154,11 +166,11 @@ namespace rendering {
         {
             { { "pistol", "smg", "rifle", "shotgun", "sniper", "lmg" }, 6 },
             { { "pistol", "smg", "rifle", "shotgun", "sniper", "lmg" }, 6 },
-            { { "enemies", "allies", "local" },                         3 },
-            { { "esp", "scene", "weather" },                            3 },
-            { { "guns", "knives", "gloves", "agents" },                 4 },
-            { { "main", "removals", "camera", "hud" },                  4 },
-            { { "general" },                                            1 }
+            { { "enemies", "allies", "local", "esp", "scene", "weather" }, 6 },
+            { { "guns", "knives", "gloves", "agents" },                  4 },
+            { { "main", "removals", "camera", "hud" },                   4 },
+            { { "general" },                                             1 },
+            { { },                                                        0 }
         };
     };
 

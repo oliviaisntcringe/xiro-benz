@@ -228,18 +228,18 @@ namespace xdraw {
 
 namespace tokens {
 
-	inline xdraw::color col_accent{ 173, 192, 255, 255 };
-	inline xdraw::color col_dark{ 17, 17, 17, 255 };
-	inline xdraw::color col_text{ 221, 229, 255, 235 };
-	inline xdraw::color col_text_dim{ 173, 192, 255, 82 };
-	inline xdraw::color col_card{ 17, 17, 17, 82 };
-	inline xdraw::color col_elevated{ 31, 31, 35, 118 };
+	inline xdraw::color col_accent{ 119, 200, 74, 255 };
+	inline xdraw::color col_dark{ 23, 23, 23, 255 };
+	inline xdraw::color col_text{ 228, 228, 228, 235 };
+	inline xdraw::color col_text_dim{ 144, 144, 144, 190 };
+	inline xdraw::color col_card{ 32, 32, 32, 235 };
+	inline xdraw::color col_elevated{ 41, 41, 41, 245 };
 
-	constexpr auto sidebar_w{ 42.0f };
-	constexpr auto tab_icon_size{ 35.0f };
+	constexpr auto sidebar_w{ 132.0f };
+	constexpr auto tab_icon_size{ 18.0f };
 	constexpr auto subtab_bar_h{ 35.0f };
 	constexpr auto gap{ 8.0f };
-	constexpr auto card_rounding{ 10.0f };
-	constexpr auto btn_rounding{ 8.0f };
+	constexpr auto card_rounding{ 0.0f };
+	constexpr auto btn_rounding{ 0.0f };
 
 } // namespace tokens

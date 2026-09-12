@@ -61,40 +61,40 @@ namespace rendering {
 
 			if ( category_lower.find( "scene" ) != std::string::npos )
 			{
-				return { 3, 1 };
+				return { 2, 4 };
 			}
 			if ( category_lower.find( "weather" ) != std::string::npos )
 			{
-				return { 3, 2 };
+				return { 2, 5 };
 			}
 			if ( category_lower.find( "world" ) != std::string::npos || category_lower.find( "projectile" ) != std::string::npos || category_lower.find( "item" ) != std::string::npos || category_lower.find( "bomb" ) != std::string::npos || category_lower.find( "spectator" ) != std::string::npos )
 			{
-				return { 3, 0 };
+				return { 2, 3 };
 			}
 
 			if ( category_lower.find( "knife" ) != std::string::npos )
 			{
-				return { 4, 1 };
+				return { 3, 1 };
 			}
 			if ( category_lower.find( "glove" ) != std::string::npos )
 			{
-				return { 4, 2 };
+				return { 3, 2 };
 			}
 			if ( category_lower.find( "agent" ) != std::string::npos )
 			{
-				return { 4, 3 };
+				return { 3, 3 };
 			}
 			if ( category_lower.find( "skin" ) != std::string::npos || category_lower.find( "paint" ) != std::string::npos || category_lower.find( "sticker" ) != std::string::npos || category_lower.find( "wear" ) != std::string::npos )
 			{
-				return { 4, 0 };
+				return { 3, 0 };
 			}
 
 			if ( category_lower.find( "config" ) != std::string::npos )
 			{
-				return { 6, 0 };
+				return { 5, 0 };
 			}
 
-			return { 5, 0 };
+			return { 4, 0 };
 		}
 
 	} // namespace detail
@@ -1003,7 +1003,7 @@ namespace rendering {
 		}
 
 		const auto& chosen = this->m_search_entries[ this->m_search_visible_indices[ index ] ];
-		this->m_tab = std::clamp( chosen.tab, 0, 6 );
+		this->m_tab = std::clamp( chosen.tab, 0, 5 );
 		this->m_subtab = std::clamp( chosen.subtab, 0, k_subtab_defs[ this->m_tab ].count - 1 );
 		xui::set_highlight_target( chosen.name, 1.2f );
 		this->close_search( );
@@ -1298,10 +1298,11 @@ namespace rendering {
 			if ( this->m_open && menu_reveal >= 0.98f )
 			{
 				this->try_load_user_avatar( );
-				this->draw_profile_panel( );
 			}
 
-			if ( !xui::begin_window( "##menu", this->m_x, this->m_y, this->m_w, this->m_h, false, 200.0f, 200.0f, menu_reveal ) )
+			this->draw_backdrop( );
+
+			if ( !xui::begin_window( "##menu", this->m_x, this->m_y, this->m_w, this->m_h, true, 560.0f, 420.0f, menu_reveal ) )
 			{
 				return;
 			}
@@ -1369,11 +1370,19 @@ namespace rendering {
 			{
 			case 0: this->draw_ragebot( col_w ); break;
 			case 1: this->draw_legitbot( col_w ); break;
-			case 2: this->draw_player( col_w ); break;
-			case 3: this->draw_world( col_w ); break;
-			case 4: this->draw_skins( col_w ); break;
-			case 5: this->draw_misc( col_w ); break;
-			case 6: this->draw_config( col_w ); break;
+			case 2:
+				if ( this->m_subtab < 3 )
+					this->draw_player( col_w );
+				else
+				{
+					this->m_subtab -= 3;
+					this->draw_world( col_w );
+					this->m_subtab += 3;
+				}
+				break;
+			case 3: this->draw_skins( col_w ); break;
+			case 4: this->draw_misc( col_w ); break;
+			case 5: this->draw_config( col_w ); break;
 			}
 
 			xui::end_window( );
@@ -1383,47 +1392,52 @@ namespace rendering {
 		xui::end( );
 	}
 
-	void menu::draw_profile_panel( )
+	void menu::draw_backdrop( )
 	{
-		const auto [screen_w, screen_h] = xdraw::viewport_size( );
-		constexpr auto panel_w{ 360.0f };
-		constexpr auto panel_h{ 64.0f };
-		constexpr auto gap{ 10.0f };
-		auto panel_x = ( static_cast< float >( screen_w ) - panel_w ) * 0.5f;
-		auto panel_y = std::max( 8.0f, this->m_y - panel_h - gap );
-		auto window_w = panel_w;
-		auto window_h = panel_h;
-
-		if ( !xui::begin_window( "##profile_panel", panel_x, panel_y, window_w, window_h, false, window_w, window_h ) )
+		if ( !this->m_open )
 		{
 			return;
 		}
 
 		auto& dl = xui::draw::current( );
-		const auto avatar_size = 40.0f;
-		const auto avatar_x = panel_x + 12.0f;
-		const auto avatar_y = panel_y + ( panel_h - avatar_size ) * 0.5f;
-		if ( this->m_textures.user.resource )
+		const auto [screen_w, screen_h] = xdraw::viewport_size( );
+		const auto width = static_cast< float >( screen_w );
+		const auto height = static_cast< float >( screen_h );
+		const auto alpha = static_cast< std::uint8_t >( 150.0f * this->m_open_anim );
+		dl.rect_filled( 0.0f, 0.0f, width, height, xdraw::color{ 0, 0, 0, alpha } );
+
+		if ( !this->m_backdrop_initialized )
 		{
-			dl.image( avatar_x, avatar_y, avatar_size, avatar_size, this->m_textures.user.resource.Get( ), xdraw::corner_radius{ 20.0f } );
+			constexpr const char* glyphs[ 2 ]{ "*", "8" };
+			for ( auto i = 0u; i < this->m_backdrop_particles.size( ); ++i )
+			{
+				auto& particle = this->m_backdrop_particles[ i ];
+				particle.x = std::fmod( 83.0f + i * 137.0f, std::max( 1.0f, width - 20.0f ) ) + 10.0f;
+				particle.y = std::fmod( 41.0f + i * 89.0f, std::max( 1.0f, height ) );
+				particle.speed = 18.0f + static_cast< float >( i % 5 ) * 7.0f;
+				particle.phase = static_cast< float >( i ) * 0.7f;
+				particle.glyph = glyphs[ i % 2 ];
+			}
+			this->m_backdrop_initialized = true;
 		}
 
-		const auto persona = steam::friends::get_persona_name( );
-		dl.text( avatar_x + avatar_size + 12.0f, panel_y + 16.0f, persona && persona[ 0 ] ? persona : "steam user", tokens::col_text );
-
-		xui::layout::set_cursor( panel_w - 96.0f, 20.0f );
-		if ( xui::button( "settings##profile", 80.0f, 24.0f ) )
+		const auto dt = xdraw::delta_time( );
+		for ( auto& particle : this->m_backdrop_particles )
 		{
-			xui::ctx( ).inside_overlay = xui::fnv1a( "profile_settings" );
+			particle.y += particle.speed * dt;
+			if ( particle.y > height + 16.0f )
+				particle.y = -16.0f;
+
+			const auto col = ( particle.glyph[ 0 ] == '*' ) ? tokens::col_accent.alpha( 100 ) : tokens::col_accent.alpha( 65 );
+			dl.text( std::floor( particle.x ), std::floor( particle.y ), particle.glyph, col );
 		}
 
-		if ( xui::begin_popup( "##profile_settings_popup", 220.0f ) )
+		if ( this->m_textures.logo.resource )
 		{
-			xui::keybind( "open / close menu", settings::g_misc.menu_key.value );
-			xui::end_popup( );
+			const auto logo_w = std::min( 180.0f, width * 0.18f );
+			const auto logo_h = logo_w * static_cast< float >( this->m_textures.logo.height ) / std::max( 1.0f, static_cast< float >( this->m_textures.logo.width ) );
+			dl.image( std::floor( ( width - logo_w ) * 0.5f ), std::floor( ( height - logo_h ) * 0.5f ), logo_w, logo_h, this->m_textures.logo.resource.Get( ), tokens::col_accent.alpha( 70 ) );
 		}
-
-		xui::end_window( );
 	}
 
 	void menu::shutdown( ) const
@@ -1461,7 +1475,7 @@ namespace rendering {
 		const auto sb_x = this->m_x + tokens::gap;
 		const auto logo_h = tokens::subtab_bar_h;
 		const auto tabs_y = this->m_y + tokens::gap + logo_h + tokens::gap;
-		static constexpr const char* tab_names[ 7 ]{ "RAGE", "LEGIT", "PLAYER", "WORLD", "SKINS", "MISC", "CONFIG" };
+		static constexpr const char* tab_names[ 6 ]{ "RAGEBOT", "LEGITBOT", "VISUALS", "SKINS", "MISC", "CONFIG" };
 
 		{
 			const auto logo_x = sb_x + 8.0f;
@@ -1474,12 +1488,17 @@ namespace rendering {
 
 			dl.text( logo_x + 22.0f, logo_y - 1.0f, "XI.BENZ // MENU", tokens::col_text );
 			dl.image( lx, ly, lw, lh, this->m_textures.logo.resource.Get( ), tokens::col_accent );
+			if ( this->m_textures.user.resource )
+			{
+				const auto avatar_d = 20.0f;
+				dl.image( sb_x + tokens::sidebar_w - avatar_d - 8.0f, logo_y - 3.0f, avatar_d, avatar_d, this->m_textures.user.resource.Get( ), xdraw::corner_radius{ 0.0f } );
+			}
 			dl.line( sb_x + 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,
 				sb_x + tokens::sidebar_w - 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,
 				tokens::col_accent, 1.0f );
 		}
 
-		constexpr auto tab_count{ 7 };
+		constexpr auto tab_count{ 6 };
 		const auto tab_h = 31.0f;
 		const auto tab_gap = 2.0f;
 
@@ -1672,6 +1691,13 @@ namespace rendering {
 	void menu::sync_theme_style( ) const
 	{
 		auto& style = xui::ctx( ).style;
+		style.rounding = 0.0f;
+		style.checkbox_rounding = 0.0f;
+		style.button_rounding = 0.0f;
+		style.keybind_rounding = 0.0f;
+		style.combo_rounding = 0.0f;
+		style.popup_rounding = 0.0f;
+		style.combo_popup_rounding = 0.0f;
 		style.window_bg = tokens::col_elevated.alpha( 175 );
 		style.child_bg = tokens::col_card;
 		style.checkbox_bg = tokens::col_card;
