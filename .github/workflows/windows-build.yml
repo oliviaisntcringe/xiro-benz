@@ -54,6 +54,14 @@ jobs:
           "PLATFORM_TOOLSET=$platformToolset" >> $env:GITHUB_ENV
           Write-Host "Using MSVC platform toolset: $platformToolset"
 
+      - name: Restore MSBuild intermediates
+        uses: actions/cache@v4
+        with:
+          path: velocity-cs2/bin/intermediates/${{ matrix.configuration }}
+          key: msvc-intermediates-${{ runner.os }}-${{ matrix.configuration }}-${{ hashFiles('velocity-cs2/velocity-cs2.vcxproj', 'velocity-cs2.slnx', '.github/workflows/windows-build.yml') }}
+          restore-keys: |
+            msvc-intermediates-${{ runner.os }}-${{ matrix.configuration }}-
+
       - name: Build ${{ matrix.configuration }}
         shell: pwsh
         run: |
