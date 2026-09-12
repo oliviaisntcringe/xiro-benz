@@ -49,7 +49,7 @@ namespace rendering {
 
         enum class tab : int
         {
-            ragebot, legitbot, player, world, skins, misc, config, count
+            ragebot, legitbot, visuals, skins, misc, config, count
         };
 
     private:
@@ -90,6 +90,7 @@ namespace rendering {
         float m_y{ 100.0f };
         float m_w{ 820.0f };
         float m_h{ 600.0f };
+        bool m_layout_initialized{};
         bool m_backdrop_initialized{};
         struct backdrop_particle
         {
@@ -97,9 +98,10 @@ namespace rendering {
             float y{};
             float speed{};
             float phase{};
+            float drift{};
             const char* glyph{};
         };
-        std::array<backdrop_particle, 18> m_backdrop_particles{};
+        std::array<backdrop_particle, 48> m_backdrop_particles{};
         float m_body_x{};
         float m_body_y{};
         float m_body_w{};
@@ -155,7 +157,7 @@ namespace rendering {
 			entry intro_splash{};
         } m_textures{};
 
-        static constexpr auto k_max_subtabs{ 6 };
+        static constexpr auto k_max_subtabs{ 7 };
 
         struct subtab_info
         {
@@ -165,13 +167,12 @@ namespace rendering {
 
         static constexpr subtab_info k_subtab_defs[ static_cast< int >( tab::count ) ]
         {
+            { { "pistol", "smg", "rifle", "shotgun", "sniper", "lmg", "anti-aim" }, 7 },
             { { "pistol", "smg", "rifle", "shotgun", "sniper", "lmg" }, 6 },
-            { { "pistol", "smg", "rifle", "shotgun", "sniper", "lmg" }, 6 },
-            { { "enemies", "allies", "local", "esp", "scene", "weather" }, 6 },
+            { { "player enemies", "player allies", "player local", "world", "scene", "weather" }, 6 },
             { { "guns", "knives", "gloves", "agents" },                  4 },
             { { "main", "removals", "camera", "hud" },                   4 },
             { { "general" },                                             1 },
-            { { },                                                        0 }
         };
     };
 

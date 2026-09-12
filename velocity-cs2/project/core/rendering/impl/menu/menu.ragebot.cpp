@@ -24,7 +24,8 @@ namespace rendering {
 		auto& autos = s.m_autos;
 		auto& lg = s.m_lagcomp;
 
-		auto& wg = rb.groups[ this->m_subtab ];
+		const auto anti_aim_tab = this->m_subtab == 6;
+		auto& wg = rb.groups[ std::clamp( this->m_subtab, 0, 5 ) ];
 
 		const auto wx = this->m_x;
 		const auto wy = this->m_y;
@@ -36,6 +37,32 @@ namespace rendering {
 
 		xui::layout::set_cursor( content_x - wx, body_y - wy );
 
+		if ( anti_aim_tab )
+		{
+			if ( xui::begin_child( "##ragebot_antiaim_focus", content_w ) )
+			{
+				xui::checkbox( "anti aim", aa.enabled );
+				xui::combo( "pitch", aa.pitch.value, detail::pitch_items, 3 );
+				xui::checkbox( "compensate roll", aa.auto_yaw_adjust );
+				xui::checkbox( "force left", aa.manual_left );
+				xui::checkbox( "force right", aa.manual_right );
+				xui::checkbox( "hide onshot", aa.hide_shots );
+				xui::checkbox( "avoid backstab", aa.avoid_backstab );
+				xui::checkbox( "direction indicator", aa.direction_indicator );
+
+				if ( xui::begin_popup( "##aa_indicator_focus", 220.0f ) )
+				{
+					xui::color_picker( "color##aa_ind_focus", aa.direction_indicator_color );
+					xui::checkbox( "glow##aa_ind_focus", aa.direction_indicator_glow );
+					xui::slider_float( "glow strength##aa_ind_focus", aa.direction_indicator_glow_strength, 0.1f, 1.0f, "%.2f" );
+					xui::end_popup( );
+				}
+
+				xui::end_child( );
+			}
+			return;
+		}
+
 		if ( xui::begin_child( "##ragebot_aimbot", col_w ) )
 		{
 			xui::checkbox( "enabled", rb.enabled );
@@ -45,7 +72,7 @@ namespace rendering {
 			//xui::checkbox( "on ground forceshot", wg.force_shot );
 			xui::checkbox( "extrapolation", lg.extrapolation);
 			xui::checkbox( "autostop", wg.autostop );
-			if ( this->m_subtab == 4 )
+			if ( !anti_aim_tab && this->m_subtab == 4 )
 			{
 				xui::checkbox( "autoscope", autos.scope );
 			}

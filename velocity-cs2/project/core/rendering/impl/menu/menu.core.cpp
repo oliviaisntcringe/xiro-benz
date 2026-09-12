@@ -36,7 +36,12 @@ namespace rendering {
 
 		[[nodiscard]] static std::pair<int, int> map_category_to_tab( const std::string& category_lower )
 		{
-			if ( category_lower.find( "ragebot" ) != std::string::npos || category_lower.find( "anti aim" ) != std::string::npos || category_lower.find( "peek assistance" ) != std::string::npos || category_lower.find( "zeusbot" ) != std::string::npos || category_lower.find( "knifebot" ) != std::string::npos || category_lower.find( "autos" ) != std::string::npos )
+			if ( category_lower.find( "anti aim" ) != std::string::npos || category_lower.find( "anti-aim" ) != std::string::npos )
+			{
+				return { 0, 6 };
+			}
+
+			if ( category_lower.find( "ragebot" ) != std::string::npos || category_lower.find( "peek assistance" ) != std::string::npos || category_lower.find( "zeusbot" ) != std::string::npos || category_lower.find( "knifebot" ) != std::string::npos || category_lower.find( "autos" ) != std::string::npos )
 			{
 				return { 0, parse_weapon_subtab( category_lower ) };
 			}
@@ -1306,8 +1311,29 @@ namespace rendering {
 				this->draw_profile_bar( );
 			}
 
-			if ( !xui::begin_window( "##menu", this->m_x, this->m_y, this->m_w, this->m_h, true, 560.0f, 420.0f, menu_reveal ) )
+			const auto [screen_w, screen_h] = xdraw::viewport_size( );
+			const auto viewport_w = static_cast< float >( screen_w );
+			const auto viewport_h = static_cast< float >( screen_h );
+			const auto min_w = std::min( 560.0f, std::max( 320.0f, viewport_w - 24.0f ) );
+			const auto min_h = std::min( 420.0f, std::max( 260.0f, viewport_h - 24.0f ) );
+
+			if ( !this->m_layout_initialized )
 			{
+				this->m_w = std::clamp( this->m_w, min_w, std::max( min_w, viewport_w - 24.0f ) );
+				this->m_h = std::clamp( this->m_h, min_h, std::max( min_h, viewport_h - 24.0f ) );
+				this->m_x = std::max( 12.0f, ( viewport_w - this->m_w ) * 0.5f );
+				this->m_y = std::max( 12.0f, ( viewport_h - this->m_h ) * 0.5f );
+				this->m_layout_initialized = true;
+			}
+
+			this->m_w = std::clamp( this->m_w, min_w, std::max( min_w, viewport_w - 24.0f ) );
+			this->m_h = std::clamp( this->m_h, min_h, std::max( min_h, viewport_h - 24.0f ) );
+			this->m_x = std::clamp( this->m_x, 12.0f, std::max( 12.0f, viewport_w - this->m_w - 12.0f ) );
+			this->m_y = std::clamp( this->m_y, 12.0f, std::max( 12.0f, viewport_h - this->m_h - 12.0f ) );
+
+			if ( !xui::begin_window( "##menu", this->m_x, this->m_y, this->m_w, this->m_h, true, min_w, min_h, menu_reveal ) )
+			{
+				xui::end( );
 				return;
 			}
 
@@ -1317,6 +1343,9 @@ namespace rendering {
 			const auto wy = this->m_y;
 			const auto ww = this->m_w;
 			const auto wh = this->m_h;
+
+			dl.rect( wx, wy, ww, wh, tokens::col_text_dim.alpha( 180 ), xdraw::corner_radius{ 0.0f }, 1.0f );
+			dl.line( wx + tokens::gap, wy + tokens::gap - 1.0f, wx + ww - tokens::gap, wy + tokens::gap - 1.0f, tokens::col_accent, 1.0f );
 
 			const auto sb_x = wx + tokens::gap;
 			const auto sb_y = wy + tokens::gap;
@@ -1399,8 +1428,11 @@ namespace rendering {
 	void menu::draw_profile_bar( )
 	{
 		const auto [screen_w, screen_h] = xdraw::viewport_size( );
-		constexpr auto bar_w{ 360.0f };
-		constexpr auto bar_h{ 58.0f };
+		const auto persona = steam::friends::get_persona_name( );
+		const auto name = persona && persona[ 0 ] ? persona : "steam user";
+		const auto [name_w, name_h] = xdraw::measure_text( name );
+		const auto bar_w = std::clamp( name_w + 82.0f, 190.0f, 360.0f );
+		constexpr auto bar_h{ 48.0f };
 		constexpr auto bottom_gap{ 18.0f };
 		auto bar_x = ( static_cast< float >( screen_w ) - bar_w ) * 0.5f;
 		auto bar_y = static_cast< float >( screen_h ) - bar_h - bottom_gap;
@@ -1426,10 +1458,7 @@ namespace rendering {
 			dl.image( avatar_x, avatar_y, avatar_size, avatar_size, this->m_textures.user.resource.Get( ), xdraw::corner_radius{ 0.0f } );
 		}
 
-		const auto persona = steam::friends::get_persona_name( );
-		const auto name = persona && persona[ 0 ] ? persona : "steam user";
-		dl.text( avatar_x + avatar_size + 14.0f, bar_y + 13.0f, "STEAM PROFILE", tokens::col_accent );
-		dl.text( avatar_x + avatar_size + 14.0f, bar_y + 30.0f, name, tokens::col_text );
+		dl.text( avatar_x + avatar_size + 14.0f, bar_y + ( bar_h - name_h ) * 0.5f, name, tokens::col_text );
 
 		xui::end_window( );
 	}
@@ -1445,20 +1474,32 @@ namespace rendering {
 		const auto [screen_w, screen_h] = xdraw::viewport_size( );
 		const auto width = static_cast< float >( screen_w );
 		const auto height = static_cast< float >( screen_h );
-		const auto alpha = static_cast< std::uint8_t >( 150.0f * this->m_open_anim );
+		const auto alpha = static_cast< std::uint8_t >( 122.0f * this->m_open_anim );
 		dl.rect_filled( 0.0f, 0.0f, width, height, xdraw::color{ 0, 0, 0, alpha } );
 
 		if ( !this->m_backdrop_initialized )
 		{
-			constexpr const char* glyphs[ 8 ]{ " . ", "(*)", " * ", " . ", "[X]", " /\\ ", "|0|", "\\_/ " };
+			static constexpr const char* flower_art[ 6 ]{
+				" .-. ", "( * )", "<.*.>", "{ o }", "\\|/", "(_|_)",
+			};
+			static constexpr const char* skull_art[ 6 ]{
+				" .-. ", "(o o)", "[o_o]", "/xxx\\", "| ^ |", "\\___/",
+			};
+			static constexpr const char* glyphs[ 12 ]{
+				flower_art[ 0 ], flower_art[ 1 ], flower_art[ 2 ],
+				flower_art[ 3 ], flower_art[ 4 ], flower_art[ 5 ],
+				skull_art[ 0 ], skull_art[ 1 ], skull_art[ 2 ],
+				skull_art[ 3 ], skull_art[ 4 ], skull_art[ 5 ],
+			};
 			for ( auto i = 0u; i < this->m_backdrop_particles.size( ); ++i )
 			{
 				auto& particle = this->m_backdrop_particles[ i ];
-				particle.x = std::fmod( 83.0f + i * 137.0f, std::max( 1.0f, width - 20.0f ) ) + 10.0f;
+				particle.x = std::fmod( 83.0f + i * 137.0f, std::max( 1.0f, width - 40.0f ) ) + 20.0f;
 				particle.y = std::fmod( 41.0f + i * 89.0f, std::max( 1.0f, height ) );
-				particle.speed = 18.0f + static_cast< float >( i % 5 ) * 7.0f;
+				particle.speed = 15.0f + static_cast< float >( i % 7 ) * 5.0f;
 				particle.phase = static_cast< float >( i ) * 0.7f;
-				particle.glyph = glyphs[ i % 8 ];
+				particle.drift = 7.0f + static_cast< float >( i % 4 ) * 3.0f;
+				particle.glyph = glyphs[ i % std::size( glyphs ) ];
 			}
 			this->m_backdrop_initialized = true;
 		}
@@ -1467,18 +1508,22 @@ namespace rendering {
 		for ( auto& particle : this->m_backdrop_particles )
 		{
 			particle.y += particle.speed * dt;
-			if ( particle.y > height + 16.0f )
-				particle.y = -16.0f;
+			particle.phase += dt;
+			if ( particle.y > height + 24.0f )
+				particle.y = -24.0f;
 
-			const auto col = ( particle.glyph[ 0 ] == '(' || particle.glyph[ 0 ] == '*' ) ? tokens::col_accent.alpha( 115 ) : tokens::col_accent.alpha( 75 );
-			dl.text( std::floor( particle.x ), std::floor( particle.y ), particle.glyph, col );
+			const auto x = particle.x + std::sin( particle.phase ) * particle.drift;
+			const auto is_skull = std::strstr( particle.glyph, "o o" ) != nullptr || std::strstr( particle.glyph, "xxx" ) != nullptr;
+			const auto col = is_skull ? tokens::col_accent.alpha( 105 ) : tokens::col_accent.alpha( 82 );
+			dl.text( std::floor( x ), std::floor( particle.y ), particle.glyph, col );
 		}
 
-		if ( this->m_textures.logo.resource )
+		auto& logo = this->m_textures.intro_splash.resource ? this->m_textures.intro_splash : this->m_textures.logo;
+		if ( logo.resource )
 		{
-			const auto logo_w = std::min( 180.0f, width * 0.18f );
-			const auto logo_h = logo_w * static_cast< float >( this->m_textures.logo.height ) / std::max( 1.0f, static_cast< float >( this->m_textures.logo.width ) );
-			dl.image( std::floor( ( width - logo_w ) * 0.5f ), std::floor( ( height - logo_h ) * 0.5f ), logo_w, logo_h, this->m_textures.logo.resource.Get( ), tokens::col_accent.alpha( 70 ) );
+			const auto logo_w = std::min( 320.0f, width * 0.28f );
+			const auto logo_h = logo_w * static_cast< float >( logo.height ) / std::max( 1.0f, static_cast< float >( logo.width ) );
+			dl.image( std::floor( ( width - logo_w ) * 0.5f ), std::floor( ( height - logo_h ) * 0.5f ), logo_w, logo_h, logo.resource.Get( ), tokens::col_accent.alpha( 48 ) );
 		}
 	}
 
@@ -1533,16 +1578,6 @@ namespace rendering {
 			dl.image( lx, ly, lw, lh, this->m_textures.logo.resource.Get( ), tokens::col_accent );
 			dl.text( logo_x + 22.0f, logo_y - 1.0f, "XI.BENZ", tokens::col_text );
 			dl.text( logo_x + 22.0f, logo_y + 11.0f, "TACTICAL CONSOLE", tokens::col_text_dim );
-			if ( this->m_textures.user.resource )
-			{
-				const auto avatar_d = 20.0f;
-				dl.image( sb_x + tokens::sidebar_w - avatar_d - 8.0f, logo_y - 3.0f, avatar_d, avatar_d, this->m_textures.user.resource.Get( ), xdraw::corner_radius{ 0.0f } );
-			}
-			const auto persona = steam::friends::get_persona_name( );
-			if ( persona && persona[ 0 ] )
-			{
-				dl.text( sb_x + tokens::sidebar_w - 92.0f, logo_y + 19.0f, persona, tokens::col_text_dim );
-			}
 			dl.line( sb_x + 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,
 				sb_x + tokens::sidebar_w - 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,
 				tokens::col_accent, 1.0f );
@@ -1551,6 +1586,7 @@ namespace rendering {
 		constexpr auto tab_count{ 6 };
 		const auto tab_h = 31.0f;
 		const auto tab_gap = 2.0f;
+		static constexpr int tab_icons[ tab_count ]{ 0, 1, 2, 4, 5, 6 };
 
 		for ( auto i = 0; i < tab_count; ++i )
 		{
@@ -1572,7 +1608,7 @@ namespace rendering {
 			if ( is_active )
 				dl.rect_filled( btn.x, btn.y, 3.0f, btn.h, tokens::col_accent, xdraw::corner_radius{ 0.0f } );
 
-			const auto& tex = this->m_textures.tabs[ i ];
+			const auto& tex = this->m_textures.tabs[ tab_icons[ i ] ];
 			const auto iw = static_cast< float >( tex.width );
 			const auto ih = static_cast< float >( tex.height );
 			const auto icon_col = is_active ? tokens::col_accent : xui::lerp( tokens::col_text_dim, tokens::col_text, hover_anim );
@@ -1794,7 +1830,7 @@ namespace rendering {
 		const auto normal_interactive = search_anim < 0.03f;
 
 		const auto subtabs_w = w - util_w - tokens::gap;
-		const auto btn_w = ( subtabs_w - inner_pad * 2.0f ) / static_cast< float >( subtab_count );
+		const auto btn_w = subtab_count > 0 ? ( subtabs_w - inner_pad * 2.0f ) / static_cast< float >( subtab_count ) : 0.0f;
 
 		dl.rect_filled( content_x, bar_y, subtabs_w, tokens::subtab_bar_h, tokens::col_card, xdraw::corner_radius{ 0.0f } );
 		dl.rect( content_x, bar_y, subtabs_w, tokens::subtab_bar_h, tokens::col_text_dim, xdraw::corner_radius{ 0.0f }, 1.0f );
@@ -1802,7 +1838,7 @@ namespace rendering {
 		dl.rect( content_x + subtabs_w + tokens::gap, bar_y, util_w, tokens::subtab_bar_h, tokens::col_text_dim, xdraw::corner_radius{ 0.0f }, 1.0f );
 
 		const auto by = bar_y + ( tokens::subtab_bar_h - subtab_h ) * 0.5f;
-		const auto pill_target_x = content_x + inner_pad + btn_w * static_cast< float >( this->m_subtab );
+		const auto pill_target_x = content_x + inner_pad + btn_w * static_cast< float >( std::max( 0, this->m_subtab ) );
 
 		if ( this->m_subtab_pill_tab != this->m_tab || this->m_subtab_pill_x < 0.0f )
 		{
@@ -1857,11 +1893,11 @@ namespace rendering {
 				if ( vk == VK_HOME )
 					this->m_subtab = 0;
 				else if ( vk == VK_END )
-					this->m_subtab = subtab_count - 1;
+					this->m_subtab = std::max( 0, subtab_count - 1 );
 				else if ( vk == VK_PRIOR )
-					this->m_subtab = ( this->m_subtab + subtab_count - 1 ) % subtab_count;
+					this->m_subtab = subtab_count > 0 ? ( this->m_subtab + subtab_count - 1 ) % subtab_count : 0;
 				else if ( vk == VK_NEXT )
-					this->m_subtab = ( this->m_subtab + 1 ) % subtab_count;
+					this->m_subtab = subtab_count > 0 ? ( this->m_subtab + 1 ) % subtab_count : 0;
 			}
 		}
 
