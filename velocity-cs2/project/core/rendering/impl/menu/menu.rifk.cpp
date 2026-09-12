@@ -1457,10 +1457,10 @@ namespace rendering {
 
 		if ( this->m_profile_actions_open )
 		{
-			const auto popup_w = 190.0f;
-			const auto popup_h = 72.0f;
-			const auto popup_x = bar_x + bar_w - popup_w;
-			const auto popup_y = bar_y - popup_h - 8.0f;
+			auto popup_w = 190.0f;
+			auto popup_h = 72.0f;
+			auto popup_x = bar_x + bar_w - popup_w;
+			auto popup_y = bar_y - popup_h - 8.0f;
 
 			if ( xui::begin_window( "##profile_actions", popup_x, popup_y, popup_w, popup_h, false, popup_w, popup_h ) )
 			{
