@@ -147,10 +147,145 @@ namespace rendering {
 	void imgui_menu::draw_panel( )
 	{
 		static constexpr const char* tab_names[ 6 ]{ "Visuals", "Aiming", "Misc", "Skins", "Config", "Info" };
+		static constexpr const char* visual_sections[ 4 ]{ "Enemy", "Team", "Local", "Viewmodel" };
 		ImGui::TextColored( ImVec4{ 0.47f, 0.78f, 0.29f, 1.0f }, "%s // operator console", tab_names[ this->m_tab ] );
 		ImGui::Spacing( );
 		ImGui::BeginChild( "##imgui_content", ImVec2{ 0.0f, 0.0f }, true );
-		if ( this->m_tab == 1 )
+		if ( this->m_tab == 0 )
+		{
+			auto& esp = settings::g_esp;
+			auto& player = esp.m_player;
+
+			for ( auto i = 0; i < 4; ++i )
+			{
+				if ( i > 0 )
+				{
+					ImGui::SameLine( );
+				}
+
+				if ( ImGui::Selectable( visual_sections[ i ], this->m_visual_section == i, 0, ImVec2{ 92.0f, 28.0f } ) )
+				{
+					this->m_visual_section = i;
+				}
+			}
+			ImGui::Separator( );
+
+			auto draw_color = [ ]( const char* label, config::col& color )
+			{
+				float rgba[ 4 ]{
+					static_cast< float >( color.value.r ) / 255.0f,
+					static_cast< float >( color.value.g ) / 255.0f,
+					static_cast< float >( color.value.b ) / 255.0f,
+					static_cast< float >( color.value.a ) / 255.0f
+				};
+				if ( ImGui::ColorEdit4( label, rgba, ImGuiColorEditFlags_AlphaBar ) )
+				{
+					color.value.r = static_cast< std::uint8_t >( rgba[ 0 ] * 255.0f );
+					color.value.g = static_cast< std::uint8_t >( rgba[ 1 ] * 255.0f );
+					color.value.b = static_cast< std::uint8_t >( rgba[ 2 ] * 255.0f );
+					color.value.a = static_cast< std::uint8_t >( rgba[ 3 ] * 255.0f );
+				}
+			};
+
+			auto draw_layer = [ &draw_color ]( const char* label, settings::esp::chams_layer& layer )
+			{
+				ImGui::Checkbox( label, &layer.enabled.value );
+				if ( layer.enabled.value && ImGui::TreeNode( label ) )
+				{
+					static constexpr const char* materials[ ]{
+						"liquid", "metallic", "matte", "flat", "bloom", "outlines", "glow", "electric", "distortion", "hologram", "pearl",
+						"liquid (iz)", "matte (iz)", "flat (iz)", "bloom (iz)", "outlines (iz)", "glow (iz)", "distortion (iz)", "hologram (iz)"
+					};
+					auto material = static_cast< int >( layer.material.value );
+					if ( ImGui::Combo( "Material", &material, materials, IM_ARRAYSIZE( materials ) ) )
+					{
+						layer.material.value = static_cast< settings::esp::cham_ids >( material );
+					}
+					draw_color( "Color", layer.color );
+					ImGui::TreePop( );
+				}
+			};
+
+			auto draw_chams = [ &draw_layer ]( const char* label, settings::esp::chams_config& chams, bool overlay )
+			{
+				ImGui::Checkbox( label, &chams.enabled.value );
+				if ( !chams.enabled.value || !ImGui::TreeNode( label ) )
+				{
+					return;
+				}
+				draw_layer( "Primary layer", chams.primary );
+				draw_layer( "Secondary layer", chams.secondary );
+				if ( overlay )
+				{
+					draw_layer( "Overlay layer", chams.overlay );
+				}
+				ImGui::TreePop( );
+			};
+
+			if ( this->m_visual_section < 2 )
+			{
+				auto& overlay = player.m_overlay[ this->m_visual_section ];
+				auto& glow = this->m_visual_section == 0 ? player.m_glow.enemy : player.m_glow.team;
+				auto& glow_ragdoll = this->m_visual_section == 0 ? player.m_glow.enemy_ragdoll : player.m_glow.team_ragdoll;
+				auto& chams = this->m_visual_section == 0 ? player.m_chams.enemy : player.m_chams.team;
+				auto& chams_ragdoll = this->m_visual_section == 0 ? player.m_chams.enemy_ragdoll : player.m_chams.team_ragdoll;
+
+				ImGui::BeginGroup( );
+				ImGui::Text( "Player ESP" );
+				ImGui::Checkbox( "Enable ESP", &overlay.enabled.value );
+				ImGui::Checkbox( "Box", &overlay.m_box.enabled.value );
+				ImGui::Checkbox( "Skeleton", &overlay.m_skeleton.enabled.value );
+				ImGui::Checkbox( "Health bar", &overlay.m_health_bar.enabled.value );
+				ImGui::Checkbox( "Ammo bar", &overlay.m_ammo_bar.enabled.value );
+				ImGui::Checkbox( "Name", &overlay.m_name.enabled.value );
+				ImGui::Checkbox( "Weapon", &overlay.m_weapon.enabled.value );
+				ImGui::Checkbox( "Info flags", &overlay.m_info_flags.enabled.value );
+				ImGui::Checkbox( "Out-of-view arrows", &overlay.m_oof_arrow.enabled.value );
+				ImGui::EndGroup( );
+
+				ImGui::SameLine( );
+				ImGui::BeginGroup( );
+				ImGui::Text( "Chams and glow" );
+				draw_chams( "Chams", chams, true );
+				draw_chams( "Ragdoll chams", chams_ragdoll, false );
+				ImGui::Checkbox( "Glow", &glow.enabled.value );
+				if ( glow.enabled.value )
+				{
+					draw_color( "Glow color", glow.color );
+				}
+				ImGui::Checkbox( "Ragdoll glow", &glow_ragdoll.enabled.value );
+				if ( glow_ragdoll.enabled.value )
+				{
+					draw_color( "Ragdoll glow color", glow_ragdoll.color );
+				}
+				ImGui::EndGroup( );
+			}
+			else if ( this->m_visual_section == 2 )
+			{
+				ImGui::Text( "Local player" );
+				draw_chams( "Chams", player.m_chams.local, true );
+				ImGui::Checkbox( "Lower opacity", &esp.m_local_alpha.enabled.value );
+				if ( esp.m_local_alpha.enabled.value )
+				{
+					ImGui::SliderFloat( "Opacity", &esp.m_local_alpha.opacity.value, 0.0f, 1.0f, "%.2f" );
+					ImGui::Checkbox( "Only when scoped", &esp.m_local_alpha.only_scoped.value );
+				}
+				draw_chams( "Ragdoll chams", player.m_chams.local_ragdoll, false );
+				ImGui::Checkbox( "Glow", &player.m_glow.local.enabled.value );
+				if ( player.m_glow.local.enabled.value )
+				{
+					draw_color( "Glow color", player.m_glow.local.color );
+				}
+				ImGui::Checkbox( "Ragdoll glow", &player.m_glow.local_ragdoll.enabled.value );
+			}
+			else
+			{
+				ImGui::Text( "Viewmodel" );
+				draw_chams( "Weapon chams", esp.m_viewmodel.weapon, true );
+				draw_chams( "Arms chams", esp.m_viewmodel.arms, true );
+			}
+		}
+		else if ( this->m_tab == 1 )
 		{
 			ImGui::Text( "Legitbot prototype" );
 			ImGui::Checkbox( "Enable legitbot", &settings::g_combat.m_legitbot.enabled.value );

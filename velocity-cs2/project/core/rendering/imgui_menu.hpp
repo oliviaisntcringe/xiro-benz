@@ -22,6 +22,7 @@ namespace rendering {
 		bool m_initialized{};
 		bool m_open{};
 		int m_tab{};
+		int m_visual_section{};
 	};
 
 	inline imgui_menu g_imgui_menu{};
