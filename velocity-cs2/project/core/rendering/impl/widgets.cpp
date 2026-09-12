@@ -146,11 +146,40 @@ namespace rendering {
 		const auto cell_h = 13.0f * scale;
 		const auto x = screen_w - panel_w - margin;
 		const auto y = margin;
+		static float brand_anim{ 0.0f };
+		brand_anim = std::min( brand_anim + xdraw::delta_time( ), 1.6f );
 
 		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border_strong );
 		retro::push_font( scale );
 		draw_list.rect_filled( x, y, 3.0f * scale, panel_h, retro::to_xdraw_color( retro::palette::accent_green ) );
-		draw_list.text( x + grid_pad + 2.0f * scale, y + 1.0f * scale, "XI/RO.BENZ", retro::to_xdraw_color( retro::palette::accent_green ) );
+
+		constexpr std::string_view brand{ "xiro.benz" };
+		constexpr std::string_view slot_chars{ "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" };
+		const auto brand_x = x + grid_pad + 2.0f * scale;
+		const auto brand_y = y + 1.0f * scale;
+		auto brand_cursor = brand_x;
+		for ( std::size_t i = 0; i < brand.size( ); ++i )
+		{
+			const auto local_time = brand_anim - static_cast<float>( i ) * 0.075f;
+			const auto progress = std::clamp( local_time / 0.34f, 0.0f, 1.0f );
+			const auto eased = 1.0f - std::pow( 1.0f - progress, 3.0f );
+			const auto glyph_w = xdraw::measure_text( "x" ).first;
+			const auto glyph_y = brand_y - ( 1.0f - eased ) * 28.0f * scale;
+			const auto glyph_alpha = static_cast<std::uint8_t>( eased * 255.0f );
+			char glyph[ 2 ]{ brand[ i ], '\0' };
+			if ( progress < 1.0f && local_time > 0.0f )
+			{
+				const auto slot_index = static_cast<std::size_t>( std::fmod( local_time * 42.0f + static_cast<float>( i * 7 ), static_cast<float>( slot_chars.size( ) ) ) );
+				glyph[ 0 ] = slot_chars[ slot_index ];
+			}
+			const auto glyph_color = i == 4 ? retro::color{ 0x8D, 0x4A, 0xB0, glyph_alpha } : retro::color{ 0x77, 0xC8, 0x4A, glyph_alpha };
+			draw_list.text( brand_cursor, glyph_y, glyph, retro::to_xdraw_color( glyph_color ) );
+			brand_cursor += glyph_w;
+			if ( i == 4 )
+			{
+				brand_cursor += glyph_w * 0.45f;
+			}
+		}
 		const auto live_w = xdraw::measure_text( "LIVE" ).first;
 		draw_list.text( x + panel_w - grid_pad - live_w, y + 1.0f * scale, "LIVE", retro::to_xdraw_color( retro::palette::focus ) );
 		retro::draw_rule( draw_list, x + grid_pad, y + header_h, x + panel_w - grid_pad, retro::palette::accent_green_dim );
