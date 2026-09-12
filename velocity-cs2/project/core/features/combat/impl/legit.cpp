@@ -361,21 +361,24 @@ namespace features::combat {
 		{
 			if ( config.no_spread.value )
 			{
-				const auto tick_base = memory::read<std::int32_t>( local.controller + SCHEMA( "CBasePlayerController", "m_nTickBase"_hash ) );
-				const auto command_tick = base->client_tick( ) != 0 ? base->client_tick( ) : tick_base;
-				const auto corrected = g_shared.find_spread_correction( aim_angle, command_tick );
-				if ( corrected.x != 0.0f || corrected.y != 0.0f || corrected.z != 0.0f )
+				const auto tick_base = memory::read<int>( local.controller + SCHEMA( "CBasePlayerController", "m_nTickBase"_hash ) );
+				const auto corrected = g_shared.find_spread_correction( aim_angle, tick_base );
+				if ( corrected.x == 0.0f && corrected.y == 0.0f && corrected.z == 0.0f )
 				{
-					aim_angle = corrected;
+					return;
 				}
+
+				aim_angle = corrected;
 			}
 
-			const auto command_angle = aim_angle - aim_punch;
 			if ( const auto angles = base->mutable_viewangles( ) )
 			{
-				angles->set_x( command_angle.x );
-				angles->set_y( command_angle.y );
-				angles->set_z( command_angle.z );
+				angles->set_x( aim_angle.x - aim_punch.x );
+				angles->set_y( aim_angle.y - aim_punch.y );
+				if ( config.no_spread.value )
+				{
+					angles->set_z( aim_angle.z );
+				}
 			}
 
 			const auto history_size = cmd->csgo_user_cmd.input_history_size( );
@@ -384,9 +387,12 @@ namespace features::combat {
 				const auto entry = cmd->csgo_user_cmd.mutable_input_history( i );
 				if ( entry && entry->mutable_view_angles( ) )
 				{
-					entry->mutable_view_angles( )->set_x( command_angle.x );
-					entry->mutable_view_angles( )->set_y( command_angle.y );
-					entry->mutable_view_angles( )->set_z( command_angle.z );
+					entry->mutable_view_angles( )->set_x( aim_angle.x - aim_punch.x );
+					entry->mutable_view_angles( )->set_y( aim_angle.y - aim_punch.y );
+					if ( config.no_spread.value )
+					{
+						entry->mutable_view_angles( )->set_z( aim_angle.z );
+					}
 				}
 			}
 
