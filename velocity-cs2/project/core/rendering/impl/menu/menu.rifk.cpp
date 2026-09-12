@@ -1455,6 +1455,8 @@ namespace rendering {
 		dl.rect( action.x, action.y, action.w, action.h, action_hovered ? tokens::col_accent : tokens::col_text_dim, xdraw::corner_radius{ 0.0f }, 1.0f );
 		dl.text( action.x + 13.0f, action.y + 9.0f, "...", action_hovered ? tokens::col_accent : tokens::col_text_dim );
 
+		xui::end_window( );
+
 		if ( this->m_profile_actions_open )
 		{
 			auto popup_w = 190.0f;
@@ -1469,8 +1471,6 @@ namespace rendering {
 				xui::end_window( );
 			}
 		}
-
-		xui::end_window( );
 	}
 
 	void menu::draw_backdrop( )
