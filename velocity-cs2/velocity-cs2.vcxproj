@@ -268,6 +268,11 @@
     <ClInclude Include="project\external\config.hpp" />
     <ClInclude Include="project\external\inline-syscall\inline_syscall.hpp" />
     <ClInclude Include="project\external\imgui\imgui.h" />
+    <ClInclude Include="project\external\imgui\imgui_internal.h" />
+    <ClInclude Include="project\external\imgui\imconfig.h" />
+    <ClInclude Include="project\external\imgui\imstb_rectpack.h" />
+    <ClInclude Include="project\external\imgui\imstb_textedit.h" />
+    <ClInclude Include="project\external\imgui\imstb_truetype.h" />
     <ClInclude Include="project\external\imgui\backends\imgui_impl_dx11.h" />
     <ClInclude Include="project\external\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="project\external\lz4\lz4.h" />
