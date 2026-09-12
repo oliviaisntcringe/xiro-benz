@@ -49,13 +49,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Development|x64'">
     <OutDir>$(ProjectDir)..\bin\</OutDir>
     <IntDir>$(ProjectDir)..\bin\intermediates\</IntDir>
-    <IncludePath>project/external/phnt;project/external/xdraw/dependencies/freetype;project/;$(IncludePath)</IncludePath>
+    <IncludePath>project/external/phnt;project/external/xdraw/dependencies/freetype;project/external/imgui;project/;$(IncludePath)</IncludePath>
     <TargetName>velocity-debug</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(ProjectDir)..\bin\</OutDir>
     <IntDir>$(ProjectDir)..\bin\intermediates\</IntDir>
-    <IncludePath>project/external/phnt;project/external/xdraw/dependencies/freetype;project/;$(IncludePath)</IncludePath>
+    <IncludePath>project/external/phnt;project/external/xdraw/dependencies/freetype;project/external/imgui;project/;$(IncludePath)</IncludePath>
     <TargetName>velocity</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Development|x64'">
@@ -176,6 +176,7 @@
     <ClCompile Include="project\core\hooks\impl\cheat.cpp" />
     <ClCompile Include="project\core\hooks\impl\utility.cpp" />
     <ClCompile Include="project\core\rendering\impl\context.cpp" />
+    <ClCompile Include="project\core\rendering\impl\imgui_menu.cpp" />
     <ClCompile Include="project\core\rendering\impl\fonts.cpp" />
     <ClCompile Include="project\core\rendering\impl\menu\menu.config.cpp" />
     <ClCompile Include="project\core\rendering\impl\menu\menu.rifk.cpp" />
@@ -212,6 +213,12 @@
     <ClCompile Include="project\external\stackwalker\stackwalker.cpp" />
     <ClCompile Include="project\external\xdraw\xdraw.cpp" />
     <ClCompile Include="project\external\xdraw\xui\xui.cpp" />
+    <ClCompile Include="project\external\imgui\imgui.cpp" />
+    <ClCompile Include="project\external\imgui\imgui_draw.cpp" />
+    <ClCompile Include="project\external\imgui\imgui_tables.cpp" />
+    <ClCompile Include="project\external\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="project\external\imgui\backends\imgui_impl_dx11.cpp" />
+    <ClCompile Include="project\external\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="project\external\zydis\zydis.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Development|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
@@ -250,6 +257,7 @@
     <ClInclude Include="project\core\features\world\world.hpp" />
     <ClInclude Include="project\core\hooks\hooks.hpp" />
     <ClInclude Include="project\core\rendering\rendering.hpp" />
+    <ClInclude Include="project\core\rendering\imgui_menu.hpp" />
     <ClInclude Include="project\core\resources\fonts\inter.hpp" />
     <ClInclude Include="project\core\resources\fonts\pixel7.hpp" />
     <ClInclude Include="project\core\resources\particles\effects.hpp" />
@@ -259,6 +267,9 @@
     <ClInclude Include="project\external\bc7.hpp" />
     <ClInclude Include="project\external\config.hpp" />
     <ClInclude Include="project\external\inline-syscall\inline_syscall.hpp" />
+    <ClInclude Include="project\external\imgui\imgui.h" />
+    <ClInclude Include="project\external\imgui\backends\imgui_impl_dx11.h" />
+    <ClInclude Include="project\external\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="project\external\lz4\lz4.h" />
     <ClInclude Include="project\external\nlohmann\json.hpp" />
     <ClInclude Include="project\external\phnt\ntafd.h" />

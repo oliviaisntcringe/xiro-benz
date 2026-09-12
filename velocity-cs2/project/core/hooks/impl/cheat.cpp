@@ -177,8 +177,41 @@ namespace hooks {
 
 		if ( msg == WM_KEYDOWN && !( lparam & ( 1 << 30 ) ) && static_cast< int >( wparam ) == settings::g_misc.menu_key )
 		{
+			if ( rendering::g_imgui_menu.is_open( ) )
+			{
+				rendering::g_imgui_menu.toggle( );
+			}
 			rendering::g_menu.toggle( );
 			return 0;
+		}
+
+		if ( msg == WM_KEYDOWN && !( lparam & ( 1 << 30 ) ) && static_cast< int >( wparam ) == VK_F7 )
+		{
+			rendering::g_imgui_menu.toggle( );
+			if ( rendering::g_menu.is_open( ) )
+			{
+				rendering::g_menu.toggle( );
+			}
+			return 0;
+		}
+
+		if ( rendering::g_imgui_menu.wndproc( hwnd, msg, wparam, lparam ) )
+		{
+			return 0;
+		}
+
+		if ( rendering::g_imgui_menu.is_open( ) )
+		{
+			switch ( msg )
+			{
+			case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_LBUTTONDBLCLK:
+			case WM_RBUTTONDOWN: case WM_RBUTTONUP: case WM_RBUTTONDBLCLK:
+			case WM_MBUTTONDOWN: case WM_MBUTTONUP: case WM_MBUTTONDBLCLK:
+			case WM_MOUSEWHEEL: case WM_MOUSEHWHEEL: case WM_MOUSEMOVE:
+				return 0;
+			default:
+				break;
+			}
 		}
 
 		xui::wndproc( msg, wparam, lparam );

@@ -1458,13 +1458,16 @@ namespace rendering {
 		if ( this->m_profile_actions_open )
 		{
 			const auto popup_w = 190.0f;
-			const auto popup_h = 42.0f;
+			const auto popup_h = 72.0f;
 			const auto popup_x = bar_x + bar_w - popup_w;
 			const auto popup_y = bar_y - popup_h - 8.0f;
-			dl.rect_filled( popup_x, popup_y, popup_w, popup_h, tokens::col_dark.alpha( 250 ), xdraw::corner_radius{ 0.0f } );
-			dl.rect( popup_x, popup_y, popup_w, popup_h, tokens::col_accent, xdraw::corner_radius{ 0.0f }, 1.0f );
-			dl.text( popup_x + 10.0f, popup_y + 8.0f, "menu toggle", tokens::col_text_dim );
-			dl.text( popup_x + 10.0f, popup_y + 22.0f, xui::vk_name( settings::g_misc.menu_key ), tokens::col_accent );
+
+			if ( xui::begin_window( "##profile_actions", popup_x, popup_y, popup_w, popup_h, false, popup_w, popup_h ) )
+			{
+				xui::text( "menu", tokens::col_text );
+				xui::keybind( "open / close", settings::g_misc.menu_key.value );
+				xui::end_window( );
+			}
 		}
 
 		xui::end_window( );

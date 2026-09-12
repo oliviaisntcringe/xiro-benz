@@ -355,12 +355,15 @@ namespace features::combat {
 			math::helpers::normalize_angles( aim_angle );
 		}
 
-		if ( ( config.silent.value || config.no_spread.value ) && ( cmd->buttons.value & cstypes::command_buttons::in_attack ) )
+		const auto base = cmd->csgo_user_cmd.mutable_base( );
+		const auto is_firing = ( cmd->buttons.value & cstypes::command_buttons::in_attack ) != 0;
+		if ( base && ( config.silent.value || config.no_spread.value ) && is_firing )
 		{
-			if ( config.no_spread.value && ( cmd->buttons.value & cstypes::command_buttons::in_attack ) )
+			if ( config.no_spread.value )
 			{
 				const auto tick_base = memory::read<std::int32_t>( local.controller + SCHEMA( "CBasePlayerController", "m_nTickBase"_hash ) );
-				const auto corrected = g_shared.find_spread_correction( aim_angle, tick_base );
+				const auto command_tick = base->client_tick( ) != 0 ? base->client_tick( ) : tick_base;
+				const auto corrected = g_shared.find_spread_correction( aim_angle, command_tick );
 				if ( corrected.x != 0.0f || corrected.y != 0.0f || corrected.z != 0.0f )
 				{
 					aim_angle = corrected;
@@ -368,7 +371,7 @@ namespace features::combat {
 			}
 
 			const auto command_angle = aim_angle - aim_punch;
-			if ( const auto angles = cmd->csgo_user_cmd.mutable_base( )->mutable_viewangles( ) )
+			if ( const auto angles = base->mutable_viewangles( ) )
 			{
 				angles->set_x( command_angle.x );
 				angles->set_y( command_angle.y );

@@ -40,6 +40,7 @@ namespace rendering {
 
 		this->create_rtv( swap_chain );
 		this->setup_zdraw( this->m_window );
+		g_imgui_menu.initialize( swap_chain, this->m_window );
 
 		g_menu.initialize_graphics( );
 		this->try_bind_ui_assets( );
@@ -50,6 +51,8 @@ namespace rendering {
 
 	void context::shutdown( )
 	{
+		g_imgui_menu.shutdown( );
+
 		if ( this->m_rtv )
 		{
 			this->m_rtv->Release( );
@@ -123,6 +126,7 @@ namespace rendering {
 			}
 		}
 		xdraw::end_frame( );
+		g_imgui_menu.draw( );
 	}
 
 	void context::on_resize_buffers( )
