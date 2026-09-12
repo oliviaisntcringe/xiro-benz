@@ -23,6 +23,7 @@ namespace rendering {
 		bool m_open{};
 		int m_tab{};
 		int m_visual_section{};
+		int m_aim_weapon_group{};
 	};
 
 	inline imgui_menu g_imgui_menu{};
