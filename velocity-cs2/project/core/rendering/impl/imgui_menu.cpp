@@ -101,6 +101,12 @@ namespace rendering {
 			viewport->WorkPos.x + ( viewport->WorkSize.x - sidebar_width - panel_width ) * 0.5f,
 			viewport->WorkPos.y + ( viewport->WorkSize.y - panel_height ) * 0.5f
 		};
+		const auto max_panel_width = viewport->WorkSize.x > sidebar_width + 420.0f
+			? viewport->WorkSize.x - sidebar_width - 16.0f
+			: 420.0f;
+		const auto max_panel_height = viewport->WorkSize.y > 320.0f
+			? viewport->WorkSize.y - 16.0f
+			: 320.0f;
 
 		ImGui::SetNextWindowPos( ImVec2{ viewport->WorkPos.x + viewport->WorkSize.x - sidebar_width, viewport->WorkPos.y } );
 		ImGui::SetNextWindowSize( ImVec2{ sidebar_width, viewport->WorkSize.y } );
@@ -108,9 +114,13 @@ namespace rendering {
 		this->draw_sidebar( );
 		ImGui::End( );
 
-		ImGui::SetNextWindowPos( panel_pos );
-		ImGui::SetNextWindowSize( ImVec2{ panel_width, panel_height } );
-		ImGui::Begin( "XI.BENZ // RIFK7", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings );
+		ImGui::SetNextWindowPos( panel_pos, ImGuiCond_FirstUseEver );
+		ImGui::SetNextWindowSize( ImVec2{ panel_width, panel_height }, ImGuiCond_FirstUseEver );
+		ImGui::SetNextWindowSizeConstraints(
+			ImVec2{ 420.0f, 320.0f },
+			ImVec2{ max_panel_width, max_panel_height }
+		);
+		ImGui::Begin( "XI.BENZ // RIFK7", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings );
 		ImGui::TextColored( ImVec4{ 0.47f, 0.78f, 0.29f, 1.0f }, "XI.BENZ" );
 		ImGui::SameLine( );
 		ImGui::TextColored( ImVec4{ 0.55f, 0.29f, 0.69f, 1.0f }, "RIFK7" );
