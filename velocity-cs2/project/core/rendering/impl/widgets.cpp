@@ -138,18 +138,21 @@ namespace rendering {
 		if ( wm.show_time.value ) add_stat( "TIME", time_buf );
 		if ( wm.show_user.value ) add_stat( "USER", "developer" );
 
-		const auto panel_w = 440.0f * scale;
-		const auto panel_h = 50.0f * scale;
-		const auto header_h = 15.0f * scale;
-		const auto grid_pad = 10.0f * scale;
-		const auto cell_gap = 3.0f * scale;
-		const auto cell_h = 15.0f * scale;
+		const auto panel_w = 400.0f * scale;
+		const auto panel_h = 44.0f * scale;
+		const auto header_h = 14.0f * scale;
+		const auto grid_pad = 9.0f * scale;
+		const auto cell_gap = 5.0f * scale;
+		const auto cell_h = 13.0f * scale;
 		const auto x = screen_w - panel_w - margin;
 		const auto y = margin;
 
-		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border );
+		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border_strong );
 		retro::push_font( scale );
-		draw_list.text( x + grid_pad, y + 2.0f * scale, "xiro.benz // telemetry", retro::to_xdraw_color( retro::palette::accent_green ) );
+		draw_list.rect_filled( x, y, 3.0f * scale, panel_h, retro::to_xdraw_color( retro::palette::accent_green ) );
+		draw_list.text( x + grid_pad + 2.0f * scale, y + 1.0f * scale, "XI/RO.BENZ", retro::to_xdraw_color( retro::palette::accent_green ) );
+		const auto live_w = xdraw::measure_text( "LIVE" ).first;
+		draw_list.text( x + panel_w - grid_pad - live_w, y + 1.0f * scale, "LIVE", retro::to_xdraw_color( retro::palette::focus ) );
 		retro::draw_rule( draw_list, x + grid_pad, y + header_h, x + panel_w - grid_pad, retro::palette::accent_green_dim );
 
 		const auto columns = 4u;
@@ -160,7 +163,7 @@ namespace rendering {
 			const auto col = i % columns;
 			const auto row = i / columns;
 			const auto cell_x = x + grid_pad + static_cast<float>( col ) * ( cell_w + cell_gap );
-			const auto cell_y = y + header_h + 3.0f * scale + static_cast<float>( row ) * cell_h;
+			const auto cell_y = y + header_h + 2.0f * scale + static_cast<float>( row ) * cell_h;
 
 			draw_list.push_clip( cell_x, cell_y, cell_w, cell_h );
 			draw_list.text( cell_x, cell_y, stat.label, retro::to_xdraw_color( retro::palette::text_muted ) );

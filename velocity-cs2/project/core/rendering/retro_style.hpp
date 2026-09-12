@@ -11,7 +11,7 @@ namespace rendering::retro
 	[[nodiscard]] inline float viewport_scale( )
 	{
 		const auto [width, height] = xdraw::viewport_size( );
-		return std::clamp( std::min( static_cast<float>( width ) / 1920.0f, static_cast<float>( height ) / 1080.0f ), 0.75f, 1.25f );
+		return std::clamp( std::min( static_cast<float>( width ) / 1920.0f, static_cast<float>( height ) / 1080.0f ), 0.75f, 2.0f );
 	}
 
 	[[nodiscard]] constexpr xdraw::color to_xdraw_color( color value )
@@ -32,7 +32,7 @@ namespace rendering::retro
 
 	inline void push_font( float scale = 1.0f )
 	{
-		const auto size = scale < 0.9f ? rendering::fonts::size::petite : rendering::fonts::size::normal;
+		const auto size = scale < 0.9f ? rendering::fonts::size::petite : scale >= 1.35f ? rendering::fonts::size::big : rendering::fonts::size::normal;
 		xdraw::push_font( rendering::g_fonts.smallest_pixel7[ size ] );
 	}
 
