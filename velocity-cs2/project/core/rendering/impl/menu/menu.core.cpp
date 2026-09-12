@@ -1042,7 +1042,8 @@ namespace rendering {
 
 				auto& dl = xui::draw::current( );
 				const auto row_bg = xui::lerp( tokens::col_card, tokens::col_accent.alpha( 90 ), row_anim * 0.35f );
-				dl.rect_filled( row.x, row.y, row.w, row.h, row_bg, xdraw::corner_radius{ 8.0f } );
+				dl.rect_filled( row.x, row.y, row.w, row.h, row_bg, xdraw::corner_radius{ 0.0f } );
+				dl.rect( row.x, row.y, row.w, row.h, tokens::col_text_dim.alpha( 90 ), xdraw::corner_radius{ 0.0f } );
 
 				const auto label_col = xui::lerp( tokens::col_text, tokens::col_dark, row_anim * 0.2f );
 				const auto sub_col = tokens::col_text_dim;
@@ -1065,7 +1066,8 @@ namespace rendering {
 					const auto bw = kw + 16.0f;
 					const auto bx = row.right( ) - bw - 6.0f;
 					const auto by = row.y + ( row.h - bh ) * 0.5f;
-					dl.rect_filled( bx, by, bw, bh, tokens::col_card, xdraw::corner_radius{ 5.0f } );
+					dl.rect_filled( bx, by, bw, bh, tokens::col_card, xdraw::corner_radius{ 0.0f } );
+					dl.rect( bx, by, bw, bh, tokens::col_text_dim.alpha( 90 ), xdraw::corner_radius{ 0.0f } );
 					dl.text( bx + 8.0f, by + ( bh - kh ) * 0.5f, key, tokens::col_text_dim );
 				}
 
@@ -1389,8 +1391,10 @@ namespace rendering {
 		constexpr auto gap{ 10.0f };
 		auto panel_x = ( static_cast< float >( screen_w ) - panel_w ) * 0.5f;
 		auto panel_y = std::max( 8.0f, this->m_y - panel_h - gap );
+		auto window_w = panel_w;
+		auto window_h = panel_h;
 
-		if ( !xui::begin_window( "##profile_panel", panel_x, panel_y, panel_w, panel_h, false, panel_w, panel_h ) )
+		if ( !xui::begin_window( "##profile_panel", panel_x, panel_y, window_w, window_h, false, window_w, window_h ) )
 		{
 			return;
 		}
@@ -1457,30 +1461,32 @@ namespace rendering {
 		const auto sb_x = this->m_x + tokens::gap;
 		const auto logo_h = tokens::subtab_bar_h;
 		const auto tabs_y = this->m_y + tokens::gap + logo_h + tokens::gap;
+		static constexpr const char* tab_names[ 7 ]{ "RAGE", "LEGIT", "PLAYER", "WORLD", "SKINS", "MISC", "CONFIG" };
 
 		{
-			const auto pill_x = sb_x + 4.0f;
-			const auto pill_y = this->m_y + tokens::gap + 4.0f;
-			const auto pill_w = tokens::sidebar_w - 8.0f;
-			const auto pill_h = logo_h - 8.0f;
+			const auto logo_x = sb_x + 8.0f;
+			const auto logo_y = this->m_y + tokens::gap + 8.0f;
 
 			const auto lw = static_cast< float >( this->m_textures.logo.width );
 			const auto lh = static_cast< float >( this->m_textures.logo.height );
-			const auto lx = std::floor( pill_x + ( pill_w - lw ) * 0.5f );
-			const auto ly = std::floor( pill_y + ( pill_h - lh ) * 0.5f );
+			const auto lx = std::floor( logo_x );
+			const auto ly = std::floor( logo_y );
 
-			dl.image( lx, ly, lw, lh, this->m_textures.logo.resource.Get( ) );
+			dl.text( logo_x + 22.0f, logo_y - 1.0f, "XI.BENZ // MENU", tokens::col_text );
+			dl.image( lx, ly, lw, lh, this->m_textures.logo.resource.Get( ), tokens::col_accent );
+			dl.line( sb_x + 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,
+				sb_x + tokens::sidebar_w - 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,
+				tokens::col_accent, 1.0f );
 		}
 
 		constexpr auto tab_count{ 7 };
-		const auto icon_pad{ 4.0f };
-		const auto icon_stride = tokens::tab_icon_size + 4.0f;
+		const auto tab_h = 31.0f;
+		const auto tab_gap = 2.0f;
 
 		for ( auto i = 0; i < tab_count; ++i )
 		{
-			const auto ix = sb_x + ( tokens::sidebar_w - tokens::tab_icon_size ) * 0.5f;
-			const auto iy = tabs_y + icon_pad + i * icon_stride;
-			const auto btn = xui::rect{ ix, iy, tokens::tab_icon_size, tokens::tab_icon_size };
+			const auto iy = tabs_y + i * ( tab_h + tab_gap );
+			const auto btn = xui::rect{ sb_x + 4.0f, iy, tokens::sidebar_w - 8.0f, tab_h };
 
 			const auto hovered = input.in_rect( btn );
 			const auto is_active = ( this->m_tab == i );
@@ -1492,32 +1498,32 @@ namespace rendering {
 			}
 
 			const auto hover_anim = xui::anim::lerp( xui::fnv1a( "sidebar" ) + i, hovered ? 1.0f : 0.0f, 12.0f );
-			const auto active_anim = xui::anim::lerp( xui::fnv1a( "sidebar_active" ) + i, is_active ? 1.0f : 0.0f, 10.0f );
-
-			if ( active_anim > 0.01f )
-			{
-				auto bg = tokens::col_accent;
-				bg.a = static_cast< std::uint8_t >( bg.a * active_anim );
-				dl.rect_filled( btn.x, btn.y, btn.w, btn.h, bg, xdraw::corner_radius{ tokens::btn_rounding } );
-			}
-
-			auto icon_col = xui::lerp( tokens::col_text_dim, tokens::col_accent, hover_anim );
+			if ( hovered || is_active )
+				dl.rect_filled( btn.x, btn.y, btn.w, btn.h, tokens::col_elevated.alpha( is_active ? 255 : 110 ), xdraw::corner_radius{ 0.0f } );
 			if ( is_active )
-			{
-				icon_col = xui::lerp( icon_col, tokens::col_dark, active_anim );
-			}
+				dl.rect_filled( btn.x, btn.y, 3.0f, btn.h, tokens::col_accent, xdraw::corner_radius{ 0.0f } );
 
-			{
-				const auto& tex = this->m_textures.tabs[ i ];
-				const auto iw = static_cast< float >( tex.width );
-				const auto ih = static_cast< float >( tex.height );
-				const auto icon_x = std::floor( btn.x + ( btn.w - iw ) * 0.5f );
-				const auto icon_y = std::floor( btn.y + ( btn.h - ih ) * 0.5f );
-
-				dl.image( icon_x, icon_y, iw, ih, tex.resource.Get( ), icon_col );
-			}
+			const auto& tex = this->m_textures.tabs[ i ];
+			const auto iw = static_cast< float >( tex.width );
+			const auto ih = static_cast< float >( tex.height );
+			const auto icon_col = is_active ? tokens::col_accent : xui::lerp( tokens::col_text_dim, tokens::col_text, hover_anim );
+			dl.image( btn.x + 12.0f, std::floor( btn.y + ( btn.h - ih ) * 0.5f ), iw, ih, tex.resource.Get( ), icon_col );
+			dl.text( btn.x + 40.0f, btn.y + 9.0f, tab_names[ i ], is_active ? tokens::col_accent : tokens::col_text_dim );
 		}
 
+		// Arrow keys provide a predictable keyboard path through the same tab state as mouse clicks.
+		if ( !this->m_search_open && !xui::ctx( ).overlay_blocking( ) )
+		{
+			for ( const auto vk : input.key_presses( ) )
+			{
+				if ( vk == VK_UP || vk == VK_LEFT )
+					this->m_tab = ( this->m_tab + tab_count - 1 ) % tab_count;
+				else if ( vk == VK_DOWN || vk == VK_RIGHT )
+					this->m_tab = ( this->m_tab + 1 ) % tab_count;
+				if ( vk == VK_UP || vk == VK_DOWN || vk == VK_LEFT || vk == VK_RIGHT )
+					this->m_subtab = 0;
+			}
+		}
 	}
 
 	void menu::try_load_user_avatar( )
@@ -1621,12 +1627,12 @@ namespace rendering {
 		{
 		default:
 		case 0:
-			tokens::col_accent = xdraw::color{ 173, 192, 255, 255 };
-			tokens::col_dark = xdraw::color{ 17, 17, 17, 255 };
-			tokens::col_text = xdraw::color{ 221, 229, 255, 235 };
-			tokens::col_text_dim = xdraw::color{ 173, 192, 255, 82 };
-			tokens::col_card = xdraw::color{ 17, 17, 17, 82 };
-			tokens::col_elevated = xdraw::color{ 31, 31, 35, 118 };
+			tokens::col_accent = xdraw::color{ 119, 200, 74, 255 };
+			tokens::col_dark = xdraw::color{ 23, 23, 23, 255 };
+			tokens::col_text = xdraw::color{ 228, 228, 228, 235 };
+			tokens::col_text_dim = xdraw::color{ 144, 144, 144, 190 };
+			tokens::col_card = xdraw::color{ 32, 32, 32, 235 };
+			tokens::col_elevated = xdraw::color{ 41, 41, 41, 245 };
 			break;
 		case 1:
 			tokens::col_accent = xdraw::color{ 190, 164, 255, 255 };
@@ -1714,8 +1720,10 @@ namespace rendering {
 		const auto subtabs_w = w - util_w - tokens::gap;
 		const auto btn_w = ( subtabs_w - inner_pad * 2.0f ) / static_cast< float >( subtab_count );
 
-		dl.rect_filled( content_x, bar_y, subtabs_w, tokens::subtab_bar_h, tokens::col_card, xdraw::corner_radius{ tokens::card_rounding } );
-		dl.rect_filled( content_x + subtabs_w + tokens::gap, bar_y, util_w, tokens::subtab_bar_h, tokens::col_card, xdraw::corner_radius{ tokens::card_rounding } );
+		dl.rect_filled( content_x, bar_y, subtabs_w, tokens::subtab_bar_h, tokens::col_card, xdraw::corner_radius{ 0.0f } );
+		dl.rect( content_x, bar_y, subtabs_w, tokens::subtab_bar_h, tokens::col_text_dim, xdraw::corner_radius{ 0.0f }, 1.0f );
+		dl.rect_filled( content_x + subtabs_w + tokens::gap, bar_y, util_w, tokens::subtab_bar_h, tokens::col_card, xdraw::corner_radius{ 0.0f } );
+		dl.rect( content_x + subtabs_w + tokens::gap, bar_y, util_w, tokens::subtab_bar_h, tokens::col_text_dim, xdraw::corner_radius{ 0.0f }, 1.0f );
 
 		const auto by = bar_y + ( tokens::subtab_bar_h - subtab_h ) * 0.5f;
 		const auto pill_target_x = content_x + inner_pad + btn_w * static_cast< float >( this->m_subtab );
@@ -1733,7 +1741,7 @@ namespace rendering {
 
 		if ( subtab_count > 0 )
 		{
-			dl.rect_filled( this->m_subtab_pill_x, by, btn_w, subtab_h, tokens::col_accent, xdraw::corner_radius{ tokens::btn_rounding } );
+			dl.rect_filled( this->m_subtab_pill_x, by + subtab_h - 2.0f, btn_w, 2.0f, tokens::col_accent, xdraw::corner_radius{ 0.0f } );
 		}
 
 		for ( auto i = 0; i < subtab_count; ++i )
@@ -1761,9 +1769,24 @@ namespace rendering {
 			const auto tx = std::floor( btn.x + ( btn.w - tw ) * 0.5f );
 			const auto ty = std::floor( btn.y + ( btn.h - th ) * 0.5f );
 
-			auto text_col = xui::lerp( tokens::col_text_dim, tokens::col_dark, active_anim );
+			auto text_col = xui::lerp( tokens::col_text_dim, tokens::col_accent, active_anim );
 			text_col = xui::lerp( text_col, tokens::col_text, hover_anim * 0.35f );
 			dl.text( tx, ty, def.names[ i ], text_col );
+		}
+
+		if ( normal_interactive && !xui::ctx( ).overlay_blocking( ) )
+		{
+			for ( const auto vk : input.key_presses( ) )
+			{
+				if ( vk == VK_HOME )
+					this->m_subtab = 0;
+				else if ( vk == VK_END )
+					this->m_subtab = subtab_count - 1;
+				else if ( vk == VK_PRIOR )
+					this->m_subtab = ( this->m_subtab + subtab_count - 1 ) % subtab_count;
+				else if ( vk == VK_NEXT )
+					this->m_subtab = ( this->m_subtab + 1 ) % subtab_count;
+			}
 		}
 
 		const auto util_x = content_x + subtabs_w + tokens::gap;
@@ -1802,12 +1825,11 @@ namespace rendering {
 			const auto panel_x = content_x + w - panel_w;
 			const auto panel_y = bar_y;
 			const auto panel_h = tokens::subtab_bar_h;
-			const auto panel_rounding = tokens::card_rounding;
 			const auto panel_alpha = static_cast< std::uint8_t >( std::clamp( 190.0f + 55.0f * t, 0.0f, 245.0f ) );
 
-			dl.rect_filled( panel_x, panel_y, panel_w, panel_h, tokens::col_dark.alpha( static_cast< std::uint8_t >( 225.0f * t ) ), xdraw::corner_radius{ panel_rounding } );
-			dl.rect_filled_blurred( panel_x, panel_y, panel_w, panel_h, xdraw::corner_radius{ panel_rounding }, xdraw::color{ 255, 255, 255, static_cast< std::uint8_t >( 130.0f * t ) } );
-			dl.rect_filled( panel_x, panel_y, panel_w, panel_h, tokens::col_elevated.alpha( panel_alpha ), xdraw::corner_radius{ panel_rounding } );
+			dl.rect_filled( panel_x, panel_y, panel_w, panel_h, tokens::col_dark.alpha( static_cast< std::uint8_t >( 225.0f * t ) ), xdraw::corner_radius{ 0.0f } );
+			dl.rect_filled( panel_x, panel_y, panel_w, panel_h, tokens::col_elevated.alpha( panel_alpha ), xdraw::corner_radius{ 0.0f } );
+			dl.rect( panel_x, panel_y, panel_w, panel_h, tokens::col_accent, xdraw::corner_radius{ 0.0f }, 1.0f );
 
 			const auto close_w = subtab_h;
 			const auto close_x = panel_x + panel_w - inner_pad - close_w;
