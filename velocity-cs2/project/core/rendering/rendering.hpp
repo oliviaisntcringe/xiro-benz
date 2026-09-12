@@ -62,6 +62,7 @@ namespace rendering {
         void sync_theme_style( ) const;
         void draw_search_results( float x, float y, float w, float h );
         void draw_backdrop( );
+        void draw_profile_bar( );
         void rebuild_search_index( );
         void close_search( );
         void activate_search_result( std::size_t index );

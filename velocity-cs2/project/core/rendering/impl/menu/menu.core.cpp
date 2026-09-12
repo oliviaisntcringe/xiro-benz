@@ -1301,6 +1301,10 @@ namespace rendering {
 			}
 
 			this->draw_backdrop( );
+			if ( this->m_open && menu_reveal >= 0.98f )
+			{
+				this->draw_profile_bar( );
+			}
 
 			if ( !xui::begin_window( "##menu", this->m_x, this->m_y, this->m_w, this->m_h, true, 560.0f, 420.0f, menu_reveal ) )
 			{
@@ -1390,6 +1394,44 @@ namespace rendering {
 
 		}
 		xui::end( );
+	}
+
+	void menu::draw_profile_bar( )
+	{
+		const auto [screen_w, screen_h] = xdraw::viewport_size( );
+		constexpr auto bar_w{ 360.0f };
+		constexpr auto bar_h{ 58.0f };
+		constexpr auto bottom_gap{ 18.0f };
+		auto bar_x = ( static_cast< float >( screen_w ) - bar_w ) * 0.5f;
+		auto bar_y = static_cast< float >( screen_h ) - bar_h - bottom_gap;
+		auto window_w = bar_w;
+		auto window_h = bar_h;
+
+		if ( !xui::begin_window( "##profile_bar", bar_x, bar_y, window_w, window_h, false, window_w, window_h ) )
+		{
+			return;
+		}
+
+		auto& dl = xui::draw::current( );
+		const auto border = tokens::col_accent.alpha( 170 );
+		dl.rect_filled( bar_x, bar_y, bar_w, bar_h, tokens::col_dark.alpha( 235 ), xdraw::corner_radius{ 0.0f } );
+		dl.rect( bar_x, bar_y, bar_w, bar_h, border, xdraw::corner_radius{ 0.0f }, 1.0f );
+		dl.rect_filled( bar_x, bar_y, 3.0f, bar_h, tokens::col_accent, xdraw::corner_radius{ 0.0f } );
+
+		const auto avatar_size = 36.0f;
+		const auto avatar_x = bar_x + 14.0f;
+		const auto avatar_y = bar_y + ( bar_h - avatar_size ) * 0.5f;
+		if ( this->m_textures.user.resource )
+		{
+			dl.image( avatar_x, avatar_y, avatar_size, avatar_size, this->m_textures.user.resource.Get( ), xdraw::corner_radius{ 0.0f } );
+		}
+
+		const auto persona = steam::friends::get_persona_name( );
+		const auto name = persona && persona[ 0 ] ? persona : "steam user";
+		dl.text( avatar_x + avatar_size + 14.0f, bar_y + 13.0f, "STEAM PROFILE", tokens::col_accent );
+		dl.text( avatar_x + avatar_size + 14.0f, bar_y + 30.0f, name, tokens::col_text );
+
+		xui::end_window( );
 	}
 
 	void menu::draw_backdrop( )
