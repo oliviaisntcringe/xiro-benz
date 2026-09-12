@@ -65,6 +65,7 @@ namespace rendering {
         void draw_search_results( float x, float y, float w, float h );
         void draw_backdrop( );
         void draw_profile_bar( );
+        void draw_profile_actions( );
         void rebuild_search_index( );
         void close_search( );
         void activate_search_result( std::size_t index );

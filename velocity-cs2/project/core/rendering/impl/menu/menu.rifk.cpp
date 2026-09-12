@@ -1403,6 +1403,7 @@ namespace rendering {
 			xdraw::pop_font( );
 
 		}
+		this->draw_profile_actions( );
 		xui::end( );
 	}
 
@@ -1456,20 +1457,34 @@ namespace rendering {
 		dl.text( action.x + 13.0f, action.y + 9.0f, "...", action_hovered ? tokens::col_accent : tokens::col_text_dim );
 
 		xui::end_window( );
+	}
 
-		if ( this->m_profile_actions_open )
+	void menu::draw_profile_actions( )
+	{
+		if ( !this->m_profile_actions_open )
 		{
-			auto popup_w = 190.0f;
-			auto popup_h = 72.0f;
-			auto popup_x = bar_x + bar_w - popup_w;
-			auto popup_y = bar_y - popup_h - 8.0f;
+			return;
+		}
 
-			if ( xui::begin_window( "##profile_actions", popup_x, popup_y, popup_w, popup_h, false, popup_w, popup_h ) )
-			{
-				xui::text( "menu", tokens::col_text );
-				xui::keybind( "open / close", settings::g_misc.menu_key.value );
-				xui::end_window( );
-			}
+		const auto [screen_w, screen_h] = xdraw::viewport_size( );
+		const auto persona = steam::friends::get_persona_name( );
+		const auto name = persona && persona[ 0 ] ? persona : "steam user";
+		const auto [name_w, name_h] = xdraw::measure_text( name );
+		const auto bar_w = std::clamp( name_w + 130.0f, 240.0f, 420.0f );
+		constexpr auto bar_h{ 48.0f };
+		constexpr auto bottom_gap{ 18.0f };
+		const auto bar_x = ( static_cast< float >( screen_w ) - bar_w ) * 0.5f;
+		const auto bar_y = static_cast< float >( screen_h ) - bar_h - bottom_gap;
+		auto popup_w = 190.0f;
+		auto popup_h = 72.0f;
+		auto popup_x = bar_x + bar_w - popup_w;
+		auto popup_y = bar_y - popup_h - 8.0f;
+
+		if ( xui::begin_window( "##profile_actions", popup_x, popup_y, popup_w, popup_h, false, popup_w, popup_h ) )
+		{
+			xui::text( "menu", tokens::col_text );
+			xui::keybind( "open / close", settings::g_misc.menu_key.value );
+			xui::end_window( );
 		}
 	}
 
