@@ -241,6 +241,99 @@ namespace rendering {
 				ImGui::Checkbox( "Weapon", &overlay.m_weapon.enabled.value );
 				ImGui::Checkbox( "Info flags", &overlay.m_info_flags.enabled.value );
 				ImGui::Checkbox( "Out-of-view arrows", &overlay.m_oof_arrow.enabled.value );
+
+				if ( overlay.m_box.enabled.value && ImGui::TreeNode( "Box settings" ) )
+				{
+					static constexpr const char* box_styles[ ]{ "Full", "Cornered" };
+					auto style = static_cast< int >( overlay.m_box.style.value );
+					ImGui::Combo( "Style", &style, box_styles, IM_ARRAYSIZE( box_styles ) );
+					overlay.m_box.style.value = style;
+					ImGui::Checkbox( "Fill", &overlay.m_box.fill.value );
+					ImGui::Checkbox( "Outline", &overlay.m_box.outline.value );
+					ImGui::SliderFloat( "Corner length", &overlay.m_box.corner_length.value, 2.0f, 20.0f, "%.0f" );
+					draw_color( "Visible##box", overlay.m_box.visible_color );
+					draw_color( "Occluded##box", overlay.m_box.occluded_color );
+					ImGui::TreePop( );
+				}
+
+				if ( overlay.m_skeleton.enabled.value && ImGui::TreeNode( "Skeleton settings" ) )
+				{
+					static constexpr const char* skeleton_modes[ ]{ "Normal", "Backtrack" };
+					auto mode = static_cast< int >( overlay.m_skeleton.type.value );
+					ImGui::Combo( "Mode", &mode, skeleton_modes, IM_ARRAYSIZE( skeleton_modes ) );
+					overlay.m_skeleton.type.value = mode;
+					ImGui::SliderFloat( "Thickness", &overlay.m_skeleton.thickness.value, 0.5f, 4.0f, "%.1f" );
+					draw_color( "Visible##skeleton", overlay.m_skeleton.visible_color );
+					draw_color( "Occluded##skeleton", overlay.m_skeleton.occluded_color );
+					ImGui::TreePop( );
+				}
+
+				if ( overlay.m_health_bar.enabled.value && ImGui::TreeNode( "Health bar settings" ) )
+				{
+					static constexpr const char* bar_positions[ ]{ "Left", "Top", "Bottom" };
+					auto position = static_cast< int >( overlay.m_health_bar.position.value );
+					ImGui::Combo( "Position##health", &position, bar_positions, IM_ARRAYSIZE( bar_positions ) );
+					overlay.m_health_bar.position.value = position;
+					ImGui::Checkbox( "Outline##health", &overlay.m_health_bar.outline_setting.value );
+					ImGui::Checkbox( "Gradient##health", &overlay.m_health_bar.gradient.value );
+					ImGui::Checkbox( "Show value##health", &overlay.m_health_bar.show_value.value );
+					ImGui::Checkbox( "Glow##health", &overlay.m_health_bar.glow.value );
+					draw_color( "Full##health", overlay.m_health_bar.full_color );
+					draw_color( "Low##health", overlay.m_health_bar.low_color );
+					draw_color( "Background##health", overlay.m_health_bar.background_color );
+					ImGui::SliderFloat( "Glow strength##health", &overlay.m_health_bar.glow_strength.value, 0.1f, 1.0f, "%.2f" );
+					ImGui::TreePop( );
+				}
+
+				if ( overlay.m_ammo_bar.enabled.value && ImGui::TreeNode( "Ammo bar settings" ) )
+				{
+					static constexpr const char* bar_positions[ ]{ "Left", "Top", "Bottom" };
+					auto position = static_cast< int >( overlay.m_ammo_bar.position.value );
+					ImGui::Combo( "Position##ammo", &position, bar_positions, IM_ARRAYSIZE( bar_positions ) );
+					overlay.m_ammo_bar.position.value = position;
+					ImGui::Checkbox( "Outline##ammo", &overlay.m_ammo_bar.outline_setting.value );
+					ImGui::Checkbox( "Gradient##ammo", &overlay.m_ammo_bar.gradient.value );
+					ImGui::Checkbox( "Show value##ammo", &overlay.m_ammo_bar.show_value.value );
+					ImGui::Checkbox( "Glow##ammo", &overlay.m_ammo_bar.glow.value );
+					draw_color( "Full##ammo", overlay.m_ammo_bar.full_color );
+					draw_color( "Low##ammo", overlay.m_ammo_bar.low_color );
+					draw_color( "Background##ammo", overlay.m_ammo_bar.background_color );
+					ImGui::SliderFloat( "Glow strength##ammo", &overlay.m_ammo_bar.glow_strength.value, 0.1f, 1.0f, "%.2f" );
+					ImGui::TreePop( );
+				}
+
+				if ( overlay.m_weapon.enabled.value && ImGui::TreeNode( "Weapon settings" ) )
+				{
+					static constexpr const char* weapon_display[ ]{ "Text", "Icon", "Text + icon" };
+					auto display = static_cast< int >( overlay.m_weapon.display.value );
+					ImGui::Combo( "Display", &display, weapon_display, IM_ARRAYSIZE( weapon_display ) );
+					overlay.m_weapon.display.value = display;
+					draw_color( "Text color##weapon", overlay.m_weapon.text_color );
+					draw_color( "Icon color##weapon", overlay.m_weapon.icon_color );
+					ImGui::TreePop( );
+				}
+
+				if ( overlay.m_info_flags.enabled.value && ImGui::TreeNode( "Info flag settings" ) )
+				{
+					static constexpr const char* flags[ ]{ "Money", "Armor", "Kit", "Scoped", "Defusing", "Flashed", "Ping", "Distance" };
+					for ( auto flag = 0; flag < IM_ARRAYSIZE( flags ); ++flag )
+					{
+						ImGui::Checkbox( flags[ flag ], &overlay.m_info_flags.flags.values[ flag ] );
+					}
+					ImGui::TreePop( );
+				}
+
+				if ( overlay.m_oof_arrow.enabled.value && ImGui::TreeNode( "Out-of-view settings" ) )
+				{
+					ImGui::Checkbox( "Glow##oof", &overlay.m_oof_arrow.glow.value );
+					ImGui::SliderFloat( "Width##oof", &overlay.m_oof_arrow.width.value, 4.0f, 40.0f, "%.0f" );
+					ImGui::SliderFloat( "Height##oof", &overlay.m_oof_arrow.height.value, 4.0f, 40.0f, "%.0f" );
+					ImGui::SliderFloat( "Radius X##oof", &overlay.m_oof_arrow.radius_x.value, 50.0f, 600.0f, "%.0f" );
+					ImGui::SliderFloat( "Radius Y##oof", &overlay.m_oof_arrow.radius_y.value, 50.0f, 600.0f, "%.0f" );
+					draw_color( "Visible##oof", overlay.m_oof_arrow.visible_color );
+					draw_color( "Occluded##oof", overlay.m_oof_arrow.occluded_color );
+					ImGui::TreePop( );
+				}
 				ImGui::EndGroup( );
 
 				ImGui::SameLine( );
