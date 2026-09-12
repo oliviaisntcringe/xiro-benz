@@ -247,7 +247,7 @@ namespace rendering {
 					static constexpr const char* box_styles[ ]{ "Full", "Cornered" };
 					auto style = static_cast< int >( overlay.m_box.style.value );
 					ImGui::Combo( "Style", &style, box_styles, IM_ARRAYSIZE( box_styles ) );
-					overlay.m_box.style.value = style;
+					overlay.m_box.style.value = static_cast< decltype( overlay.m_box.style.value ) >( style );
 					ImGui::Checkbox( "Fill", &overlay.m_box.fill.value );
 					ImGui::Checkbox( "Outline", &overlay.m_box.outline.value );
 					ImGui::SliderFloat( "Corner length", &overlay.m_box.corner_length.value, 2.0f, 20.0f, "%.0f" );
@@ -261,7 +261,7 @@ namespace rendering {
 					static constexpr const char* skeleton_modes[ ]{ "Normal", "Backtrack" };
 					auto mode = static_cast< int >( overlay.m_skeleton.type.value );
 					ImGui::Combo( "Mode", &mode, skeleton_modes, IM_ARRAYSIZE( skeleton_modes ) );
-					overlay.m_skeleton.type.value = mode;
+					overlay.m_skeleton.type.value = static_cast< decltype( overlay.m_skeleton.type.value ) >( mode );
 					ImGui::SliderFloat( "Thickness", &overlay.m_skeleton.thickness.value, 0.5f, 4.0f, "%.1f" );
 					draw_color( "Visible##skeleton", overlay.m_skeleton.visible_color );
 					draw_color( "Occluded##skeleton", overlay.m_skeleton.occluded_color );
@@ -273,7 +273,7 @@ namespace rendering {
 					static constexpr const char* bar_positions[ ]{ "Left", "Top", "Bottom" };
 					auto position = static_cast< int >( overlay.m_health_bar.position.value );
 					ImGui::Combo( "Position##health", &position, bar_positions, IM_ARRAYSIZE( bar_positions ) );
-					overlay.m_health_bar.position.value = position;
+					overlay.m_health_bar.position.value = static_cast< decltype( overlay.m_health_bar.position.value ) >( position );
 					ImGui::Checkbox( "Outline##health", &overlay.m_health_bar.outline_setting.value );
 					ImGui::Checkbox( "Gradient##health", &overlay.m_health_bar.gradient.value );
 					ImGui::Checkbox( "Show value##health", &overlay.m_health_bar.show_value.value );
@@ -290,7 +290,7 @@ namespace rendering {
 					static constexpr const char* bar_positions[ ]{ "Left", "Top", "Bottom" };
 					auto position = static_cast< int >( overlay.m_ammo_bar.position.value );
 					ImGui::Combo( "Position##ammo", &position, bar_positions, IM_ARRAYSIZE( bar_positions ) );
-					overlay.m_ammo_bar.position.value = position;
+					overlay.m_ammo_bar.position.value = static_cast< decltype( overlay.m_ammo_bar.position.value ) >( position );
 					ImGui::Checkbox( "Outline##ammo", &overlay.m_ammo_bar.outline_setting.value );
 					ImGui::Checkbox( "Gradient##ammo", &overlay.m_ammo_bar.gradient.value );
 					ImGui::Checkbox( "Show value##ammo", &overlay.m_ammo_bar.show_value.value );
@@ -307,7 +307,7 @@ namespace rendering {
 					static constexpr const char* weapon_display[ ]{ "Text", "Icon", "Text + icon" };
 					auto display = static_cast< int >( overlay.m_weapon.display.value );
 					ImGui::Combo( "Display", &display, weapon_display, IM_ARRAYSIZE( weapon_display ) );
-					overlay.m_weapon.display.value = display;
+					overlay.m_weapon.display.value = static_cast< decltype( overlay.m_weapon.display.value ) >( display );
 					draw_color( "Text color##weapon", overlay.m_weapon.text_color );
 					draw_color( "Icon color##weapon", overlay.m_weapon.icon_color );
 					ImGui::TreePop( );
