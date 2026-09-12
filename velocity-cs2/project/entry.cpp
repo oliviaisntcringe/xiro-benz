@@ -302,6 +302,7 @@ namespace {
 
 		diag::step( "stage: thread start" );
 		diag::initialize_crash_dumps( );
+		logging::console::initialize( );
 
 		g_previous_exception_filter.store(
 			SetUnhandledExceptionFilter( diag_unhandled_exception_filter ),
@@ -558,6 +559,7 @@ extern "C" int __stdcall entry( HMODULE module_handle, DWORD reason, LPVOID rese
 		CoUninitialize( );
 #endif
 
+		logging::console::shutdown( );
 		diag::shutdown( );
 
 #if defined( DEV )

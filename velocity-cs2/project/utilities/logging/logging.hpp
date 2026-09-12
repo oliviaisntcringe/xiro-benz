@@ -5,6 +5,7 @@ namespace logging {
 	namespace console {
 
 		bool initialize( );
+		void shutdown( );
 
 		void print_raw( const char* text );
 
