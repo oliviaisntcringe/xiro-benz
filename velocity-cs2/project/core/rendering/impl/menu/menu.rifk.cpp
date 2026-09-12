@@ -1412,7 +1412,7 @@ namespace rendering {
 		const auto persona = steam::friends::get_persona_name( );
 		const auto name = persona && persona[ 0 ] ? persona : "steam user";
 		const auto [name_w, name_h] = xdraw::measure_text( name );
-		const auto bar_w = std::clamp( name_w + 82.0f, 190.0f, 360.0f );
+		const auto bar_w = std::clamp( name_w + 130.0f, 240.0f, 420.0f );
 		constexpr auto bar_h{ 48.0f };
 		constexpr auto bottom_gap{ 18.0f };
 		auto bar_x = ( static_cast< float >( screen_w ) - bar_w ) * 0.5f;
@@ -1439,7 +1439,33 @@ namespace rendering {
 			dl.image( avatar_x, avatar_y, avatar_size, avatar_size, this->m_textures.user.resource.Get( ), xdraw::corner_radius{ 0.0f } );
 		}
 
-		dl.text( avatar_x + avatar_size + 14.0f, bar_y + ( bar_h - name_h ) * 0.5f, name, tokens::col_text );
+		const auto name_x = avatar_x + avatar_size + 14.0f;
+		dl.text( name_x, bar_y + ( bar_h - name_h ) * 0.5f, name, tokens::col_text );
+
+		const auto action_w = 42.0f;
+		const auto action = xui::rect{ bar_x + bar_w - action_w - 8.0f, bar_y + 7.0f, action_w, bar_h - 14.0f };
+		const auto action_hovered = xui::ctx( ).input.in_rect( action );
+		if ( action_hovered && xui::ctx( ).input.mouse_clicked )
+		{
+			this->m_profile_actions_open = !this->m_profile_actions_open;
+		}
+
+		dl.line( action.x - 8.0f, action.y + 4.0f, action.x - 8.0f, action.y + action.h - 4.0f, tokens::col_text_dim, 1.0f );
+		dl.rect_filled( action.x, action.y, action.w, action.h, action_hovered ? tokens::col_elevated : tokens::col_dark, xdraw::corner_radius{ 0.0f } );
+		dl.rect( action.x, action.y, action.w, action.h, action_hovered ? tokens::col_accent : tokens::col_text_dim, xdraw::corner_radius{ 0.0f }, 1.0f );
+		dl.text( action.x + 13.0f, action.y + 9.0f, "...", action_hovered ? tokens::col_accent : tokens::col_text_dim );
+
+		if ( this->m_profile_actions_open )
+		{
+			const auto popup_w = 190.0f;
+			const auto popup_h = 42.0f;
+			const auto popup_x = bar_x + bar_w - popup_w;
+			const auto popup_y = bar_y - popup_h - 8.0f;
+			dl.rect_filled( popup_x, popup_y, popup_w, popup_h, tokens::col_dark.alpha( 250 ), xdraw::corner_radius{ 0.0f } );
+			dl.rect( popup_x, popup_y, popup_w, popup_h, tokens::col_accent, xdraw::corner_radius{ 0.0f }, 1.0f );
+			dl.text( popup_x + 10.0f, popup_y + 8.0f, "menu toggle", tokens::col_text_dim );
+			dl.text( popup_x + 10.0f, popup_y + 22.0f, xui::vk_name( settings::g_misc.menu_key ), tokens::col_accent );
+		}
 
 		xui::end_window( );
 	}

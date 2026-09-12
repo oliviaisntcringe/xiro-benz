@@ -178,7 +178,7 @@
     <ClCompile Include="project\core\rendering\impl\context.cpp" />
     <ClCompile Include="project\core\rendering\impl\fonts.cpp" />
     <ClCompile Include="project\core\rendering\impl\menu\menu.config.cpp" />
-    <ClCompile Include="project\core\rendering\impl\menu\menu.core.cpp" />
+    <ClCompile Include="project\core\rendering\impl\menu\menu.rifk.cpp" />
     <ClCompile Include="project\core\rendering\impl\menu\menu.legitbot.cpp" />
     <ClCompile Include="project\core\rendering\impl\menu\menu.misc.cpp" />
     <ClCompile Include="project\core\rendering\impl\menu\menu.player.cpp" />

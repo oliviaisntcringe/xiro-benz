@@ -118,6 +118,7 @@ namespace rendering {
 		bool m_intro_base_graphics_ready{};
 		bool m_intro_finished{};
 		bool m_search_open{};
+		bool m_profile_actions_open{};
 		int m_theme_preset{};
 		float m_user_avatar_retry_delay{};
 		std::string m_search_query{};
