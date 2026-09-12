@@ -147,7 +147,7 @@ namespace rendering {
 		const auto x = screen_w - panel_w - margin;
 		const auto y = margin;
 		static float brand_anim{ 0.0f };
-		brand_anim = std::min( brand_anim + xdraw::delta_time( ), 1.6f );
+		brand_anim = std::fmod( brand_anim + xdraw::delta_time( ), 6.6f );
 
 		retro::draw_frame( draw_list, { x, y, panel_w, panel_h }, retro::palette::panel, retro::palette::border_strong );
 		retro::push_font( scale );

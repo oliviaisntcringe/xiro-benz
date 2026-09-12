@@ -4,6 +4,7 @@
 
 - Redesigned the watermark as a compact XI/RO.BENZ status rail with a live marker and left accent rail.
 - Added a one-shot slot-style brand animation that assembles `xiro.benz` character by character.
+- The watermark brand animation now repeats after a five-second hold.
 - Extended widget scaling up to 2x for high-resolution displays and selected the large Pixel7 tier on 4K-style viewports.
 - Added resolution-aware HUD scaling based on a 1920x1080 reference viewport.
 - Reduced watermark height and moved telemetry values upward inside the panel.
