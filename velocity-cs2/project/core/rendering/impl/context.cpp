@@ -114,7 +114,7 @@ namespace rendering {
 				if ( g_menu.is_open( ) )
 				{
 					g_widgets.draw( );
-					features::esp::other::g_overlay.draw_spectators( xdraw::get( ) );
+					features::esp::other::g_overlay.draw_spectators( xdraw::get( xdraw::layer::top ) );
 				}
 				else
 				{

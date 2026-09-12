@@ -1408,7 +1408,7 @@ namespace rendering {
 
 		if ( !this->m_backdrop_initialized )
 		{
-			constexpr const char* glyphs[ 2 ]{ "*", "8" };
+			constexpr const char* glyphs[ 8 ]{ " . ", "(*)", " * ", " . ", "[X]", " /\\ ", "|0|", "\\_/ " };
 			for ( auto i = 0u; i < this->m_backdrop_particles.size( ); ++i )
 			{
 				auto& particle = this->m_backdrop_particles[ i ];
@@ -1416,7 +1416,7 @@ namespace rendering {
 				particle.y = std::fmod( 41.0f + i * 89.0f, std::max( 1.0f, height ) );
 				particle.speed = 18.0f + static_cast< float >( i % 5 ) * 7.0f;
 				particle.phase = static_cast< float >( i ) * 0.7f;
-				particle.glyph = glyphs[ i % 2 ];
+				particle.glyph = glyphs[ i % 8 ];
 			}
 			this->m_backdrop_initialized = true;
 		}
@@ -1428,7 +1428,7 @@ namespace rendering {
 			if ( particle.y > height + 16.0f )
 				particle.y = -16.0f;
 
-			const auto col = ( particle.glyph[ 0 ] == '*' ) ? tokens::col_accent.alpha( 100 ) : tokens::col_accent.alpha( 65 );
+			const auto col = ( particle.glyph[ 0 ] == '(' || particle.glyph[ 0 ] == '*' ) ? tokens::col_accent.alpha( 115 ) : tokens::col_accent.alpha( 75 );
 			dl.text( std::floor( particle.x ), std::floor( particle.y ), particle.glyph, col );
 		}
 
@@ -1486,12 +1486,20 @@ namespace rendering {
 			const auto lx = std::floor( logo_x );
 			const auto ly = std::floor( logo_y );
 
-			dl.text( logo_x + 22.0f, logo_y - 1.0f, "XI.BENZ // MENU", tokens::col_text );
+			dl.rect_filled( sb_x, this->m_y + tokens::gap, tokens::sidebar_w, logo_h, tokens::col_dark, xdraw::corner_radius{ 0.0f } );
+			dl.rect( sb_x, this->m_y + tokens::gap, tokens::sidebar_w, logo_h, tokens::col_text_dim, xdraw::corner_radius{ 0.0f }, 1.0f );
 			dl.image( lx, ly, lw, lh, this->m_textures.logo.resource.Get( ), tokens::col_accent );
+			dl.text( logo_x + 22.0f, logo_y - 1.0f, "XI.BENZ", tokens::col_text );
+			dl.text( logo_x + 22.0f, logo_y + 11.0f, "TACTICAL CONSOLE", tokens::col_text_dim );
 			if ( this->m_textures.user.resource )
 			{
 				const auto avatar_d = 20.0f;
 				dl.image( sb_x + tokens::sidebar_w - avatar_d - 8.0f, logo_y - 3.0f, avatar_d, avatar_d, this->m_textures.user.resource.Get( ), xdraw::corner_radius{ 0.0f } );
+			}
+			const auto persona = steam::friends::get_persona_name( );
+			if ( persona && persona[ 0 ] )
+			{
+				dl.text( sb_x + tokens::sidebar_w - 92.0f, logo_y + 19.0f, persona, tokens::col_text_dim );
 			}
 			dl.line( sb_x + 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,
 				sb_x + tokens::sidebar_w - 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,

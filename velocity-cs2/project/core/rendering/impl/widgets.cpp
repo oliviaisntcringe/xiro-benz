@@ -13,7 +13,7 @@ namespace rendering {
 
 	void widgets::draw( )
 	{
-		auto& dl = xdraw::get( );
+		auto& dl = xdraw::get( xdraw::layer::top );
 
 		if ( !g_menu.is_open( ) && settings::g_misc.m_watermark.enabled.value )
 		{
