@@ -235,7 +235,7 @@ namespace tokens {
 	inline xdraw::color col_card{ 32, 32, 32, 235 };
 	inline xdraw::color col_elevated{ 41, 41, 41, 245 };
 
-	constexpr auto sidebar_w{ 132.0f };
+	constexpr auto sidebar_w{ 0.0f };
 	constexpr auto tab_icon_size{ 18.0f };
 	constexpr auto subtab_bar_h{ 35.0f };
 	constexpr auto gap{ 8.0f };

@@ -1347,35 +1347,16 @@ namespace rendering {
 			dl.rect( wx, wy, ww, wh, tokens::col_text_dim.alpha( 180 ), xdraw::corner_radius{ 0.0f }, 1.0f );
 			dl.line( wx + tokens::gap, wy + tokens::gap - 1.0f, wx + ww - tokens::gap, wy + tokens::gap - 1.0f, tokens::col_accent, 1.0f );
 
-			const auto sb_x = wx + tokens::gap;
-			const auto sb_y = wy + tokens::gap;
-			const auto sb_w = tokens::sidebar_w;
-			const auto sb_h = wh - tokens::gap * 2.0f;
+			const auto content_x = wx + tokens::gap;
+			const auto content_y = wy + tokens::gap;
+			const auto content_w = ww - tokens::gap * 2.0f;
+			const auto content_h = wh - tokens::gap * 2.0f;
 
-			const auto logo_h = tokens::subtab_bar_h;
-			dl.rect_filled( sb_x, sb_y, sb_w, logo_h, tokens::col_card, xdraw::corner_radius{ tokens::card_rounding } );
-
-			const auto logo_pill_x = sb_x + 4.0f;
-			const auto logo_pill_y = sb_y + 4.0f;
-			const auto logo_pill_w = sb_w - 8.0f;
-			const auto logo_pill_h = logo_h - 8.0f;
-			dl.rect_filled( logo_pill_x, logo_pill_y, logo_pill_w, logo_pill_h, tokens::col_accent, xdraw::corner_radius{ tokens::btn_rounding } );
-
-			const auto tabs_y = sb_y + logo_h + tokens::gap;
-			const auto tabs_h = sb_h - logo_h - tokens::gap;
-			dl.rect_filled( sb_x, tabs_y, sb_w, tabs_h, tokens::col_card, xdraw::corner_radius{ tokens::card_rounding } );
-
-			this->draw_side_bar( tabs_h );
-
-			const auto content_x = sb_x + sb_w + tokens::gap;
-			const auto content_y = sb_y;
-			const auto content_w = ww - tokens::gap * 2.0f - sb_w - tokens::gap;
-			const auto content_h = sb_h;
-
+			this->draw_side_bar( content_w );
 			this->draw_top_bar( content_w );
 
-			const auto body_y = content_y + tokens::subtab_bar_h + tokens::gap;
-			const auto body_h = content_h - tokens::subtab_bar_h - tokens::gap;
+			const auto body_y = content_y + tokens::subtab_bar_h * 2.0f + tokens::gap;
+			const auto body_h = content_h - tokens::subtab_bar_h * 2.0f - tokens::gap;
 			const auto col_w = ( content_w - tokens::gap ) * 0.5f;
 
 			const auto left_x = content_x;
@@ -1559,39 +1540,27 @@ namespace rendering {
 		auto& dl = xui::draw::current( );
 		const auto& input = xui::ctx( ).input;
 
-		const auto sb_x = this->m_x + tokens::gap;
-		const auto logo_h = tokens::subtab_bar_h;
-		const auto tabs_y = this->m_y + tokens::gap + logo_h + tokens::gap;
+		const auto bar_x = this->m_x + tokens::gap;
+		const auto bar_y = this->m_y + tokens::gap;
 		static constexpr const char* tab_names[ 6 ]{ "RAGEBOT", "LEGITBOT", "VISUALS", "SKINS", "MISC", "CONFIG" };
-
-		{
-			const auto logo_x = sb_x + 8.0f;
-			const auto logo_y = this->m_y + tokens::gap + 8.0f;
-
-			const auto lw = static_cast< float >( this->m_textures.logo.width );
-			const auto lh = static_cast< float >( this->m_textures.logo.height );
-			const auto lx = std::floor( logo_x );
-			const auto ly = std::floor( logo_y );
-
-			dl.rect_filled( sb_x, this->m_y + tokens::gap, tokens::sidebar_w, logo_h, tokens::col_dark, xdraw::corner_radius{ 0.0f } );
-			dl.rect( sb_x, this->m_y + tokens::gap, tokens::sidebar_w, logo_h, tokens::col_text_dim, xdraw::corner_radius{ 0.0f }, 1.0f );
-			dl.image( lx, ly, lw, lh, this->m_textures.logo.resource.Get( ), tokens::col_accent );
-			dl.text( logo_x + 22.0f, logo_y - 1.0f, "XI.BENZ", tokens::col_text );
-			dl.text( logo_x + 22.0f, logo_y + 11.0f, "TACTICAL CONSOLE", tokens::col_text_dim );
-			dl.line( sb_x + 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,
-				sb_x + tokens::sidebar_w - 8.0f, this->m_y + tokens::gap + logo_h - 1.0f,
-				tokens::col_accent, 1.0f );
-		}
-
 		constexpr auto tab_count{ 6 };
-		const auto tab_h = 31.0f;
-		const auto tab_gap = 2.0f;
-		static constexpr int tab_icons[ tab_count ]{ 0, 1, 2, 4, 5, 6 };
+		const auto tab_h = tokens::subtab_bar_h;
+		const auto brand_w = 148.0f;
+		const auto tab_w = std::max( 92.0f, ( h - brand_w ) / static_cast< float >( tab_count ) );
+
+		dl.rect_filled( bar_x, bar_y, h, tab_h, tokens::col_dark, xdraw::corner_radius{ 0.0f } );
+		dl.rect( bar_x, bar_y, h, tab_h, tokens::col_text_dim, xdraw::corner_radius{ 0.0f }, 1.0f );
+		if ( this->m_textures.logo.resource )
+		{
+			dl.image( bar_x + 10.0f, bar_y + 9.0f, 18.0f, 18.0f, this->m_textures.logo.resource.Get( ), tokens::col_accent );
+		}
+		dl.text( bar_x + 36.0f, bar_y + 10.0f, "XI.BENZ", tokens::col_text );
+		dl.text( bar_x + 36.0f, bar_y + 21.0f, "CONSOLE", tokens::col_text_dim );
+		dl.line( bar_x + brand_w - 8.0f, bar_y + 7.0f, bar_x + brand_w - 8.0f, bar_y + tab_h - 7.0f, tokens::col_accent, 1.0f );
 
 		for ( auto i = 0; i < tab_count; ++i )
 		{
-			const auto iy = tabs_y + i * ( tab_h + tab_gap );
-			const auto btn = xui::rect{ sb_x + 4.0f, iy, tokens::sidebar_w - 8.0f, tab_h };
+			const auto btn = xui::rect{ bar_x + brand_w + static_cast< float >( i ) * tab_w, bar_y, tab_w, tab_h };
 
 			const auto hovered = input.in_rect( btn );
 			const auto is_active = ( this->m_tab == i );
@@ -1606,14 +1575,10 @@ namespace rendering {
 			if ( hovered || is_active )
 				dl.rect_filled( btn.x, btn.y, btn.w, btn.h, tokens::col_elevated.alpha( is_active ? 255 : 110 ), xdraw::corner_radius{ 0.0f } );
 			if ( is_active )
-				dl.rect_filled( btn.x, btn.y, 3.0f, btn.h, tokens::col_accent, xdraw::corner_radius{ 0.0f } );
+				dl.rect_filled( btn.x, btn.y + btn.h - 2.0f, btn.w, 2.0f, tokens::col_accent, xdraw::corner_radius{ 0.0f } );
 
-			const auto& tex = this->m_textures.tabs[ tab_icons[ i ] ];
-			const auto iw = static_cast< float >( tex.width );
-			const auto ih = static_cast< float >( tex.height );
-			const auto icon_col = is_active ? tokens::col_accent : xui::lerp( tokens::col_text_dim, tokens::col_text, hover_anim );
-			dl.image( btn.x + 12.0f, std::floor( btn.y + ( btn.h - ih ) * 0.5f ), iw, ih, tex.resource.Get( ), icon_col );
-			dl.text( btn.x + 40.0f, btn.y + 9.0f, tab_names[ i ], is_active ? tokens::col_accent : tokens::col_text_dim );
+			const auto [tw, th] = xdraw::measure_text( tab_names[ i ] );
+			dl.text( std::floor( btn.x + ( btn.w - tw ) * 0.5f ), std::floor( btn.y + ( btn.h - th ) * 0.5f ), tab_names[ i ], is_active ? tokens::col_accent : xui::lerp( tokens::col_text_dim, tokens::col_text, hover_anim ) );
 		}
 
 		// Arrow keys provide a predictable keyboard path through the same tab state as mouse clicks.
@@ -1817,8 +1782,8 @@ namespace rendering {
 		auto& dl = xui::draw::current( );
 		const auto& input = xui::ctx( ).input;
 
-		const auto content_x = this->m_x + tokens::gap + tokens::sidebar_w + tokens::gap;
-		const auto bar_y = this->m_y + tokens::gap;
+		const auto content_x = this->m_x + tokens::gap;
+		const auto bar_y = this->m_y + tokens::gap + tokens::subtab_bar_h + tokens::gap;
 
 		const auto& def = k_subtab_defs[ this->m_tab ];
 		const auto subtab_count = def.count;
