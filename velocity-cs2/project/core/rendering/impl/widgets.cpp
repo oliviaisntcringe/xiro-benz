@@ -122,15 +122,11 @@ namespace rendering {
 			smoothed_velocity = 0.0f;
 		}
 
-		const auto h = std::max( { name_th, user_th, ping_vh, fps_vh, time_th, map_th, tick_vh, vel_vh, logo_icon_size } ) + inner_pad * 2.0f + 1.0f;
-
-
 		// ── logo ────────────────────────────────────────────────────────────
 		const auto logo_scale = logo_icon_size / 12.0f;
 		static auto logo_w = 0, logo_h = 0;
 		static const auto logo = xdraw::load_svg( R"(<svg width="15" height="12" viewBox="0 0 15 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.131688 9.02626L6.40009 0.551371C6.94385 -0.18379 8.07861 -0.18379 8.62237 0.551371L14.8681 8.99564C15.2003 9.44476 14.8666 10.0674 14.2937 10.0674H12.9205C12.5679 10.0674 12.2512 9.86022 12.1214 9.54481L10.2638 5.0302C10.1631 4.78558 9.91739 4.62489 9.64393 4.62489C9.52346 4.62489 9.43618 4.73535 9.46834 4.84701L11.2808 11.1405C11.4053 11.5727 11.0674 12 10.6014 12H9.36667C9.09606 12 8.86578 11.8102 8.82422 11.5529L7.71627 3.99646C7.68733 3.81739 7.36739 3.82052 7.33103 3.99836L5.84387 11.5738C5.79319 11.8214 5.56756 12 5.30526 12H4.07334C3.594 12 3.25442 11.5497 3.40311 11.1112L5.4932 4.94752C5.54344 4.79932 5.42867 4.64708 5.26665 4.64708H5.22153C4.95747 4.64708 4.71827 4.79707 4.61165 5.02955L2.5027 9.62798C2.36225 9.93422 2.04374 10.1288 1.69595 10.1208L0.689398 10.0978C0.124293 10.0848 -0.195983 9.46937 0.131756 9.02626H0.131688Z" fill="#111111"/></svg>)", logo_scale, &logo_w, &logo_h );
 
-		const auto inner_h     = h - inner_pad * 2.0f;
 		const auto logo_draw_w = static_cast<float>( logo_w );
 
 		// ── measure text ─────────────────────────────────────────────────────
@@ -158,6 +154,9 @@ namespace rendering {
 			std::tie( vel_vw, vel_vh ) = xdraw::measure_text( vel_val );
 			std::tie( vel_uw, vel_uh ) = xdraw::measure_text( " u/s" );
 		}
+
+		const auto h = std::max( { name_th, user_th, ping_vh, fps_vh, time_th, map_th, tick_vh, vel_vh, logo_icon_size } ) + inner_pad * 2.0f + 1.0f;
+		const auto inner_h = h - inner_pad * 2.0f;
 
 
 		// ── pill widths ──────────────────────────────────────────────────────
@@ -425,7 +424,7 @@ namespace rendering {
 		smoothed_base_y.set_target( target_base_y );
 		smoothed_base_y.update( );
 
-		const auto header_w = inner_pad + icon_size + inner_pad + header_tw + text_pad_x * 2.0f + inner_pad;
+		const auto [header_tw, header_th] = xdraw::measure_text( "keybinds" );
 		const auto input = xui::ctx( ).input;
 		const auto default_x = margin;
 		const auto default_y = smoothed_base_y.value( );
@@ -455,7 +454,7 @@ namespace rendering {
 		static auto icon_w_px = 0, icon_h_px = 0;
 		static const auto kb_icon = xdraw::load_svg( R"(<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.78571 4.07143C2.53142 4.07143 2.28285 3.99602 2.07141 3.85475C1.85998 3.71347 1.69518 3.51267 1.59787 3.27774C1.50056 3.0428 1.4751 2.78429 1.52471 2.53488C1.57431 2.28548 1.69677 2.05639 1.87658 1.87658C2.05639 1.69677 2.28548 1.57431 2.53488 1.52471C2.78429 1.4751 3.0428 1.50056 3.27774 1.59787C3.51267 1.69518 3.71347 1.85998 3.85475 2.07141C3.99602 2.28285 4.07143 2.53142 4.07143 2.78571V9.21429C4.07143 9.46858 3.99602 9.71716 3.85475 9.92859C3.71347 10.14 3.51267 10.3048 3.27774 10.4021C3.0428 10.4994 2.78429 10.5249 2.53488 10.4753C2.28548 10.4257 2.05639 10.3032 1.87658 10.1234C1.69677 9.94361 1.57431 9.71452 1.52471 9.46512C1.4751 9.21571 1.50056 8.9572 1.59787 8.72226C1.69518 8.48733 1.85998 8.28653 2.07141 8.14525C2.28285 8.00398 2.53142 7.92857 2.78571 7.92857H9.21429C9.46858 7.92857 9.71716 8.00398 9.92859 8.14525C10.14 8.28653 10.3048 8.48733 10.4021 8.72226C10.4994 8.9572 10.5249 9.21571 10.4753 9.46512C10.4257 9.71452 10.3032 9.94361 10.1234 10.1234C9.94361 10.3032 9.71452 10.4257 9.46512 10.4753C9.21571 10.5249 8.9572 10.4994 8.72226 10.4021C8.48733 10.3048 8.28653 10.14 8.14525 9.92859C8.00398 9.71716 7.92857 9.46858 7.92857 9.21429V2.78571C7.92857 2.53142 8.00398 2.28285 8.14525 2.07141C8.28653 1.85998 8.48733 1.69518 8.72226 1.59787C8.9572 1.50056 9.21571 1.4751 9.46512 1.52471C9.71452 1.57431 9.94361 1.69677 10.1234 1.87658C10.3032 2.05639 10.4257 2.28548 10.4753 2.53488C10.5249 2.78429 10.4994 3.0428 10.4021 3.27774C10.3048 3.51267 10.14 3.71347 9.92859 3.85475C9.71716 3.99602 9.46858 4.07143 9.21429 4.07143H2.78571Z" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round"/></svg>)", 1.0f, &icon_w_px, &icon_h_px );
 
-		const auto [header_tw, header_th] = xdraw::measure_text( "keybinds" );
+		const auto header_w = inner_pad + icon_size + inner_pad + header_tw + text_pad_x * 2.0f + inner_pad;
 		const auto header_inner_h = header_h - inner_pad * 2.0f;
 		const auto inner_h = row_h - inner_pad * 2.0f;
 		const auto master_u8 = static_cast< std::uint8_t >( 255.0f * master_alpha );
