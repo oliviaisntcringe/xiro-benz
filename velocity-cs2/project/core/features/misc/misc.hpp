@@ -353,7 +353,6 @@ namespace features::misc {
 
 	private:
 		void do_autobuy( ) const;
-		void do_custom_hud( );
 		void do_player_alpha_changing( );
 		void do_reveal_radar( ) const;
 		void do_name_changing( );
@@ -369,8 +368,6 @@ namespace features::misc {
 		float m_cached_vm_z{ std::numeric_limits<float>::quiet_NaN( ) };
 		float m_cached_vm_fov{ std::numeric_limits<float>::quiet_NaN( ) };
 		std::deque<killfeed_entry> m_killfeed{};
-		bool m_custom_hud_changed{};
-		bool m_original_hud_visible{ true };
 	};
 
 	// this is so ghetto but fuck it for now it works

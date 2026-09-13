@@ -306,25 +306,38 @@ namespace rendering {
 				: 0ull;
 			const auto ammo = weapon ? memory::read<int>( weapon + SCHEMA( "C_BasePlayerWeapon", "m_iClip1"_hash ) ) : 0;
 			const auto max_ammo = weapon_vdata ? memory::read<int>( weapon_vdata + SCHEMA( "CBasePlayerWeaponVData", "m_iMaxClip1"_hash ) ) : 0;
-			const auto x = viewport->WorkPos.x + viewport->WorkSize.x * 0.5f - 110.0f;
-			auto y = viewport->WorkPos.y + viewport->WorkSize.y - local_status.bottom_offset.value;
-			constexpr auto width = 220.0f;
-			constexpr auto height = 6.0f;
+			constexpr auto card_width = 260.0f;
+			constexpr auto card_height = 112.0f;
+			const auto x = viewport->WorkPos.x + 24.0f;
+			const auto y = viewport->WorkPos.y + viewport->WorkSize.y - local_status.bottom_offset.value - card_height;
+			constexpr auto padding = 14.0f;
+			constexpr auto bar_width = card_width - padding * 2.0f;
+			constexpr auto bar_height = 8.0f;
+			const auto health_color = ImColor( local_status.health_color.value.r, local_status.health_color.value.g, local_status.health_color.value.b, local_status.health_color.value.a );
+			const auto ammo_color = ImColor( local_status.ammo_color.value.r, local_status.ammo_color.value.g, local_status.ammo_color.value.b, local_status.ammo_color.value.a );
+
+			draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + card_width, y + card_height }, IM_COL32( 12, 15, 22, 235 ), 8.0f );
+			draw->AddRect( ImVec2{ x, y }, ImVec2{ x + card_width, y + card_height }, IM_COL32( 90, 105, 130, 220 ), 8.0f, 0, 1.0f );
+			draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + 4.0f, y + card_height }, health_color, 8.0f );
+			draw->AddText( ImVec2{ x + padding, y + 10.0f }, IM_COL32( 235, 238, 248, 255 ), "PLAYER STATUS" );
 
 			if ( local_status.health.value )
 			{
-				draw->AddText( ImVec2{ x, y - 17.0f }, IM_COL32_WHITE, std::format( "HEALTH {}", health ).c_str( ) );
-				draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + width, y + height }, IM_COL32( 20, 20, 20, 180 ) );
-				draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + width * health / 100.0f, y + height }, ImColor( local_status.health_color.value.r, local_status.health_color.value.g, local_status.health_color.value.b, local_status.health_color.value.a ) );
-				y += 20.0f;
+				const auto health_y = y + 38.0f;
+				const auto health_text = std::format( "HEALTH  {}", health );
+				draw->AddText( ImVec2{ x + padding, health_y }, IM_COL32( 235, 238, 248, 255 ), health_text.c_str( ) );
+				draw->AddRectFilled( ImVec2{ x + padding, health_y + 20.0f }, ImVec2{ x + padding + bar_width, health_y + 20.0f + bar_height }, IM_COL32( 35, 40, 52, 255 ), 3.0f );
+				draw->AddRectFilled( ImVec2{ x + padding, health_y + 20.0f }, ImVec2{ x + padding + bar_width * health / 100.0f, health_y + 20.0f + bar_height }, health_color, 3.0f );
 			}
 
 			if ( local_status.ammo.value && max_ammo > 0 )
 			{
 				const auto clamped_ammo = std::clamp( ammo, 0, max_ammo );
-				draw->AddText( ImVec2{ x, y - 17.0f }, IM_COL32_WHITE, std::format( "AMMO {}/{}", clamped_ammo, max_ammo ).c_str( ) );
-				draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + width, y + height }, IM_COL32( 20, 20, 20, 180 ) );
-				draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + width * clamped_ammo / static_cast<float>( max_ammo ), y + height }, ImColor( local_status.ammo_color.value.r, local_status.ammo_color.value.g, local_status.ammo_color.value.b, local_status.ammo_color.value.a ) );
+				const auto ammo_y = y + 38.0f;
+				const auto ammo_text = std::format( "AMMO    {}/{}", clamped_ammo, max_ammo );
+				draw->AddText( ImVec2{ x + padding, ammo_y }, IM_COL32( 235, 238, 248, 255 ), ammo_text.c_str( ) );
+				draw->AddRectFilled( ImVec2{ x + padding, ammo_y + 20.0f }, ImVec2{ x + padding + bar_width, ammo_y + 20.0f + bar_height }, IM_COL32( 35, 40, 52, 255 ), 3.0f );
+				draw->AddRectFilled( ImVec2{ x + padding, ammo_y + 20.0f }, ImVec2{ x + padding + bar_width * clamped_ammo / static_cast<float>( max_ammo ), ammo_y + 20.0f + bar_height }, ammo_color, 3.0f );
 			}
 		}
 
