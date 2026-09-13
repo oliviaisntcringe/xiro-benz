@@ -44,7 +44,9 @@ namespace systems
                     const char* model_path = memory::read<const char*>( model_imp + 0x8 );
                     if ( model_path )
                     {
-                        if ( std::string_view{ model_path }.find( "characters/models/tm_" ) == std::string_view::npos )
+                        const std::string_view model{ model_path };
+                        if ( model.find( "characters/models/tm_" ) == std::string_view::npos
+                            && model.find( "characters/models/ctm_" ) == std::string_view::npos )
                             return false;
                     }
                 }

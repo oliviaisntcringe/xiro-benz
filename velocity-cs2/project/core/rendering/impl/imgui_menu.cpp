@@ -29,6 +29,12 @@ namespace rendering {
 		device->GetImmediateContext( &context );
 		IMGUI_CHECKVERSION( );
 		ImGui::CreateContext( );
+		auto& io = ImGui::GetIO( );
+		const auto font_path = std::filesystem::path{ "C:\\Windows\\Fonts\\segoeui.ttf" };
+		if ( std::filesystem::exists( font_path ) )
+		{
+			io.Fonts->AddFontFromFileTTF( font_path.string( ).c_str( ), 16.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic( ) );
+		}
 		auto& style = ImGui::GetStyle( );
 		style.WindowRounding = 0.0f;
 		style.ChildRounding = 0.0f;
@@ -54,7 +60,7 @@ namespace rendering {
 		colors[ ImGuiCol_CheckMark ] = ImVec4{ 0.71f, 0.97f, 0.42f, 1.0f };
 		colors[ ImGuiCol_SliderGrab ] = ImVec4{ 0.47f, 0.78f, 0.29f, 1.0f };
 		colors[ ImGuiCol_SliderGrabActive ] = ImVec4{ 0.71f, 0.97f, 0.42f, 1.0f };
-		ImGui::GetIO( ).IniFilename = nullptr;
+		io.IniFilename = nullptr;
 
 		if ( !ImGui_ImplWin32_Init( window ) || !ImGui_ImplDX11_Init( device, context ) )
 		{
@@ -1307,7 +1313,7 @@ namespace rendering {
 
 			ImGui::SameLine( );
 			ImGui::BeginGroup( );
-			ImGui::Text( "Terrorist preview" );
+			ImGui::Text( "Agent preview" );
 			ImGui::BeginChild( "##personal_model_preview", ImVec2{ 320.0f, 390.0f }, true );
 			const auto preview_srv = systems::g_model_preview.get_current_texture_srv( );
 			const auto preview_origin = ImGui::GetCursorScreenPos( );
@@ -1357,7 +1363,7 @@ namespace rendering {
 			}
 			else
 			{
-				ImGui::TextDisabled( "Waiting for terrorist preview..." );
+				ImGui::TextDisabled( "Waiting for agent preview..." );
 			}
 			ImGui::EndChild( );
 			ImGui::EndGroup( );
