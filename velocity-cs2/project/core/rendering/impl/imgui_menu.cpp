@@ -121,7 +121,7 @@ namespace rendering {
 			ImVec2{ 420.0f, 320.0f },
 			ImVec2{ max_panel_width, max_panel_height }
 		);
-		ImGui::Begin( "XI.BENZ // RIFK7", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings );
+		ImGui::Begin( "TRIADA.BENZ", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings );
 		ImGui::TextColored( ImVec4{ 0.47f, 0.78f, 0.29f, 1.0f }, "XI.BENZ" );
 		ImGui::SameLine( );
 		ImGui::TextColored( ImVec4{ 0.55f, 0.29f, 0.69f, 1.0f }, "RIFK7" );
@@ -148,7 +148,7 @@ namespace rendering {
 	void imgui_menu::draw_panel( )
 	{
 		static constexpr const char* tab_names[ 7 ]{ "Visuals", "Legit", "Rage", "Misc", "Skins", "Config", "Info" };
-		static constexpr const char* visual_sections[ 4 ]{ "Enemy", "Team", "Local", "Viewmodel" };
+		static constexpr const char* visual_sections[ 7 ]{ "Enemy", "Team", "Local", "Viewmodel", "Items", "Projectiles", "Other" };
 		auto draw_config_color = [ ]( const char* label, config::col& color )
 		{
 			float rgba[ 4 ]{
@@ -173,7 +173,7 @@ namespace rendering {
 			auto& esp = settings::g_esp;
 			auto& player = esp.m_player;
 
-			for ( auto i = 0; i < 4; ++i )
+			for ( auto i = 0; i < 7; ++i )
 			{
 				if ( i > 0 )
 				{
@@ -388,11 +388,83 @@ namespace rendering {
 				}
 				ImGui::Checkbox( "Ragdoll glow", &player.m_glow.local_ragdoll.enabled.value );
 			}
-			else
+			else if ( this->m_visual_section == 3 )
 			{
 				ImGui::Text( "Viewmodel" );
 				draw_chams( "Weapon chams", esp.m_viewmodel.weapon, true );
 				draw_chams( "Arms chams", esp.m_viewmodel.arms, true );
+			}
+			else if ( this->m_visual_section == 4 )
+			{
+				auto& item = esp.m_item;
+				static int item_group{};
+				static constexpr const char* item_groups[ 6 ]{ "Pistol", "SMG", "Rifle", "Shotgun", "Sniper", "Utility" };
+				ImGui::Text( "World items" );
+				ImGui::Combo( "Group##item", &item_group, item_groups, IM_ARRAYSIZE( item_groups ) );
+				ImGui::Checkbox( "Item ESP", &item.m_overlay.group_toggle( item_group ).value );
+				if ( ImGui::TreeNode( "Item ESP settings" ) )
+				{
+					auto& group = item.m_overlay.get_group( item_group );
+					static constexpr const char* display_types[ 3 ]{ "Text", "Icon", "Text + icon" };
+					auto display = static_cast< int >( group.display.value );
+					ImGui::Combo( "Display##item", &display, display_types, IM_ARRAYSIZE( display_types ) );
+					group.display.value = static_cast< decltype( group.display.value ) >( display );
+					ImGui::SliderFloat( "Max distance##item", &group.max_distance.value, 1.0f, 200.0f, "%.0f m" );
+					draw_color( "Text color##item", group.text_color );
+					draw_color( "Icon color##item", group.icon_color );
+					ImGui::TreePop( );
+				}
+				ImGui::Checkbox( "Item chams", &item.m_chams.group_toggle( item_group ).value );
+				draw_chams( "Item chams layers", item.m_chams.get_group( item_group ), false );
+				ImGui::Checkbox( "Item glow", &item.m_glow.group_toggle( item_group ).value );
+				if ( item.m_glow.group_toggle( item_group ).value )
+				{
+					draw_color( "Item glow color", item.m_glow.groups[ item_group ].color );
+				}
+			}
+			else if ( this->m_visual_section == 5 )
+			{
+				auto& projectile = esp.m_projectile;
+				auto& impacts = settings::g_misc.m_impacts;
+				static int projectile_group{};
+				static constexpr const char* projectile_groups[ 6 ]{ "HE grenade", "Flashbang", "Smoke", "Molotov", "Decoy", "Inferno" };
+				ImGui::Text( "Projectiles" );
+				ImGui::Checkbox( "Bullet tracers", &impacts.bullet_tracers.value );
+				if ( impacts.bullet_tracers.value )
+				{
+					draw_color( "Tracer color", impacts.bullet_tracer_color );
+					ImGui::SliderFloat( "Tracer duration", &impacts.bullet_tracer_duration.value, 0.1f, 5.0f, "%.1f s" );
+				}
+				ImGui::Checkbox( "Projectile ESP", &projectile.m_overlay.enabled.value );
+				ImGui::Combo( "Group##projectile", &projectile_group, projectile_groups, IM_ARRAYSIZE( projectile_groups ) );
+				ImGui::Checkbox( "Enabled##projectile", &projectile.m_overlay.group_toggle( projectile_group ).value );
+				if ( projectile_group == 5 )
+				{
+					auto& inferno = projectile.m_overlay.m_infernos;
+					draw_color( "Fill color##inferno", inferno.fill_color );
+					draw_color( "Outline color##inferno", inferno.outline_color );
+					ImGui::SliderFloat( "Outline thickness##inferno", &inferno.outline_thickness.value, 0.5f, 5.0f, "%.1f" );
+					ImGui::Checkbox( "Glow##inferno", &inferno.glow.value );
+					ImGui::SliderFloat( "Glow strength##inferno", &inferno.glow_strength.value, 0.1f, 1.0f, "%.2f" );
+				}
+				else
+				{
+					auto& group = projectile.m_overlay.get_group( projectile_group );
+					static constexpr const char* display_types[ 3 ]{ "Text", "Icon", "Text + icon" };
+					auto display = static_cast< int >( group.display.value );
+					ImGui::Combo( "Display##projectile", &display, display_types, IM_ARRAYSIZE( display_types ) );
+					group.display.value = static_cast< decltype( group.display.value ) >( display );
+					ImGui::SliderFloat( "Max distance##projectile", &group.max_distance.value, 1.0f, 200.0f, "%.0f m" );
+					draw_color( "Text color##projectile", group.text_color );
+					draw_color( "Icon color##projectile", group.icon_color );
+				}
+			}
+			else
+			{
+				auto& other = esp.m_other;
+				ImGui::Text( "Other ESP" );
+				ImGui::Checkbox( "Bomb timer", &other.bomb_timer.value );
+				ImGui::Checkbox( "Spectator list", &other.spectator_list.value );
 			}
 		}
 		else if ( this->m_tab == 3 )
