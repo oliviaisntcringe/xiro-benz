@@ -26,7 +26,7 @@ namespace rendering {
 			bool skull{};
 		};
 
-		void draw_imgui_backdrop( const ImGuiViewport* viewport )
+		void draw_imgui_backdrop( ImGuiViewport* viewport )
 		{
 			if ( !viewport )
 			{
@@ -53,7 +53,7 @@ namespace rendering {
 			}
 
 			const auto dt = ImGui::GetIO( ).DeltaTime;
-			const auto* draw = ImGui::GetBackgroundDrawList( );
+			auto* draw = ImGui::GetBackgroundDrawList( );
 			const auto viewport_max = ImVec2{
 				viewport->WorkPos.x + viewport->WorkSize.x,
 				viewport->WorkPos.y + viewport->WorkSize.y
@@ -315,11 +315,8 @@ namespace rendering {
 		draw_animated_window_separator( );
 		const auto header_pos = ImGui::GetCursorScreenPos( );
 		const auto header_width = ImGui::GetContentRegionAvail( ).x;
-		const auto header_rect = ImRect{
-			header_pos,
-			ImVec2{ header_pos.x + header_width, header_pos.y + 76.0f }
-		};
-		rendering::retro::draw_retro_header( ImGui::GetWindowDrawList( ), header_rect );
+		const auto header_max = ImVec2{ header_pos.x + header_width, header_pos.y + 76.0f };
+		rendering::retro::draw_retro_header( ImGui::GetWindowDrawList( ), header_pos, header_max );
 		if ( this->m_mono_font )
 		{
 			ImGui::PushFont( this->m_mono_font );
@@ -334,7 +331,7 @@ namespace rendering {
 		{
 			ImGui::PopFont( );
 		}
-		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x, header_rect.Max.y + 10.0f } );
+		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x, header_max.y + 10.0f } );
 		this->draw_panel( );
 		ImGui::End( );
 

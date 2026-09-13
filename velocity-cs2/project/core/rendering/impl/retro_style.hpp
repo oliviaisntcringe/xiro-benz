@@ -44,21 +44,21 @@ namespace rendering {
         }
 
         // Simple helper to draw a retro header bar (wordmark area) using the ImDrawList
-        inline void draw_retro_header( ImDrawList* draw_list, const ImRect& rect )
+        inline void draw_retro_header( ImDrawList* draw_list, const ImVec2& min, const ImVec2& max )
         {
             if ( !draw_list )
                 return;
 
-            draw_list->AddRectFilled( rect.Min, rect.Max, IM_COL32(20, 20, 20, 220), 0.0f );
-            draw_list->AddRect( rect.Min, rect.Max, IM_COL32(96, 96, 96, 230), 0.0f, 0, 1.0f );
+            draw_list->AddRectFilled( min, max, IM_COL32(20, 20, 20, 220), 0.0f );
+            draw_list->AddRect( min, max, IM_COL32(96, 96, 96, 230), 0.0f, 0, 1.0f );
             draw_list->AddRectFilled(
-                ImVec2{ rect.Min.x, rect.Max.y - 2.0f },
-                ImVec2{ rect.Max.x, rect.Max.y },
+                ImVec2{ min.x, max.y - 2.0f },
+                ImVec2{ max.x, max.y },
                 IM_COL32(119, 200, 74, 230 )
             );
             draw_list->AddRectFilled(
-                ImVec2{ rect.Max.x - 28.0f, rect.Max.y - 2.0f },
-                rect.Max,
+                ImVec2{ max.x - 28.0f, max.y - 2.0f },
+                max,
                 IM_COL32(141, 74, 176, 230 )
             );
         }
