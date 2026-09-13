@@ -602,7 +602,6 @@ namespace rendering {
 					ImGui::EndGroup( );
 				}
 			}
-		}
 		else if ( this->m_tab == 4 )
 		{
 			auto& changer = settings::g_changer;
