@@ -241,13 +241,18 @@ namespace rendering {
 		ImGui::Begin( "##imgui_profile_hud", nullptr,
 			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
 			| ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing );
+		if ( ImGui::IsKeyPressed( ImGuiKey_F9, false ) )
+		{
+			profile_actions_open = !profile_actions_open;
+		}
 		if ( this->m_avatar )
 		{
 			ImGui::Image( reinterpret_cast< ImTextureID >( this->m_avatar.Get( ) ), ImVec2{ 28.0f, 28.0f } );
 			ImGui::SameLine( );
 		}
 		ImGui::Text( "%s", profile_name );
-		ImGui::SameLine( profile_width - 52.0f );
+		ImGui::SameLine( );
+		ImGui::SetCursorPosX( profile_width - 58.0f );
 		if ( ImGui::Button( "...", ImVec2{ 42.0f, 28.0f } ) )
 		{
 			profile_actions_open = !profile_actions_open;
@@ -262,8 +267,22 @@ namespace rendering {
 			ImGui::Begin( "##imgui_profile_actions", &profile_actions_open,
 				ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
 				| ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize );
-			ImGui::Text( "Menu" );
+			ImGui::TextColored( rendering::retro::accent_green, "PROFILE / INPUT" );
+			ImGui::Separator( );
 			ImGui::Text( "Open / close: %s", menu_key_name( settings::g_misc.menu_key.value ) );
+			if ( this->m_rebinding_menu_key )
+			{
+				ImGui::TextColored( rendering::retro::accent_purple, "Press any key to bind..." );
+				if ( ImGui::Button( "Cancel rebind", ImVec2{ -1.0f, 0.0f } ) )
+				{
+					this->m_rebinding_menu_key = false;
+				}
+			}
+			else if ( ImGui::Button( "Rebind menu key", ImVec2{ -1.0f, 0.0f } ) )
+			{
+				this->m_rebinding_menu_key = true;
+			}
+			ImGui::TextDisabled( "F9 toggles this panel" );
 			ImGui::End( );
 		}
 		ImGui::End( );
@@ -1857,6 +1876,19 @@ namespace rendering {
 		if ( !this->m_initialized || !this->m_open )
 		{
 			return false;
+		}
+
+		if ( this->m_rebinding_menu_key && msg == WM_KEYDOWN && !( lparam & ( 1 << 30 ) ) )
+		{
+			if ( wparam == VK_ESCAPE )
+			{
+				this->m_rebinding_menu_key = false;
+				return true;
+			}
+
+			settings::g_misc.menu_key.value = static_cast< int >( wparam );
+			this->m_rebinding_menu_key = false;
+			return true;
 		}
 
 		return ImGui_ImplWin32_WndProcHandler( hwnd, msg, wparam, lparam ) != 0;

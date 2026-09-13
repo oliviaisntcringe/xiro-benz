@@ -26,6 +26,7 @@ namespace rendering {
 
 		bool m_initialized{};
 		bool m_open{};
+		bool m_rebinding_menu_key{};
 		int m_tab{};
 		int m_visual_section{};
 		int m_aim_weapon_group{};

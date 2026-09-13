@@ -166,10 +166,7 @@ namespace hooks {
 	{
 		if ( msg == WM_KEYDOWN && !( lparam & ( 1 << 30 ) ) && static_cast< int >( wparam ) == settings::g_misc.menu_key )
 		{
-			if ( rendering::g_imgui_menu.is_open( ) )
-			{
-				rendering::g_imgui_menu.toggle( );
-			}
+			rendering::g_imgui_menu.toggle( );
 			return 0;
 		}
 
