@@ -1,6 +1,7 @@
 #include <pch/pch.hpp>
 #include <core/features/features.hpp>
 #include <core/settings.hpp>
+#include <utilities/steam/steam.hpp>
 
 #include <external/imgui/imgui.h>
 #include <external/imgui/backends/imgui_impl_dx11.h>
@@ -133,6 +134,41 @@ namespace rendering {
 		ImGui::TextColored( ImVec4{ 0.55f, 0.29f, 0.69f, 1.0f }, "RIFK7" );
 		ImGui::Separator( );
 		this->draw_panel( );
+		ImGui::End( );
+
+		static bool profile_actions_open{};
+		const auto persona = steam::friends::get_persona_name( );
+		const auto profile_name = persona && persona[ 0 ] ? persona : "steam user";
+		const auto profile_width = std::clamp( ImGui::CalcTextSize( profile_name ).x + 116.0f, 240.0f, 420.0f );
+		ImGui::SetNextWindowPos(
+			ImVec2{ viewport->WorkPos.x + ( viewport->WorkSize.x - profile_width ) * 0.5f,
+				viewport->WorkPos.y + viewport->WorkSize.y - 66.0f },
+			ImGuiCond_Always
+		);
+		ImGui::SetNextWindowSize( ImVec2{ profile_width, 48.0f }, ImGuiCond_Always );
+		ImGui::Begin( "##imgui_profile_hud", nullptr,
+			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
+			| ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing );
+		ImGui::Text( "%s", profile_name );
+		ImGui::SameLine( profile_width - 52.0f );
+		if ( ImGui::Button( "...", ImVec2{ 42.0f, 28.0f } ) )
+		{
+			profile_actions_open = !profile_actions_open;
+		}
+		if ( profile_actions_open )
+		{
+			ImGui::SetNextWindowPos(
+				ImVec2{ viewport->WorkPos.x + ( viewport->WorkSize.x + profile_width ) * 0.5f - 190.0f,
+					viewport->WorkPos.y + viewport->WorkSize.y - 146.0f },
+				ImGuiCond_Always
+			);
+			ImGui::Begin( "##imgui_profile_actions", &profile_actions_open,
+				ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
+				| ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize );
+			ImGui::Text( "Menu" );
+			ImGui::Text( "Open / close: %s", ImGui::GetKeyName( static_cast< ImGuiKey >( settings::g_misc.menu_key.value ) ) );
+			ImGui::End( );
+		}
 		ImGui::End( );
 
 		ImGui::Render( );
@@ -779,6 +815,18 @@ namespace rendering {
 					ImGui::Checkbox( "Disable game logs", &misc.disable_game_logs.value );
 					ImGui::Checkbox( "Scoreboard weapons", &misc.m_scoreboard_weapons.enabled.value );
 					draw_config_color( "Scoreboard color", misc.m_scoreboard_weapons.color );
+					ImGui::Checkbox( "Watermark", &misc.m_watermark.enabled.value );
+					if ( misc.m_watermark.enabled.value )
+					{
+						ImGui::Text( "Watermark elements" );
+						ImGui::Checkbox( "FPS##watermark", &misc.m_watermark.show_fps.value );
+						ImGui::Checkbox( "Ping##watermark", &misc.m_watermark.show_ping.value );
+						ImGui::Checkbox( "Time##watermark", &misc.m_watermark.show_time.value );
+						ImGui::Checkbox( "User##watermark", &misc.m_watermark.show_user.value );
+						ImGui::Checkbox( "Map##watermark", &misc.m_watermark.show_map.value );
+						ImGui::Checkbox( "Tick rate##watermark", &misc.m_watermark.show_tick.value );
+						ImGui::Checkbox( "Velocity##watermark", &misc.m_watermark.show_velocity.value );
+					}
 					ImGui::Checkbox( "Clantag", &misc.m_name_changer.clantag.value );
 					ImGui::Checkbox( "Override name", &misc.m_name_changer.override_name.value );
 					static char name_buffer[ 64 ]{};
