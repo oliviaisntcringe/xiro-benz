@@ -1,11 +1,13 @@
 #include <pch/pch.hpp>
 #include <core/features/features.hpp>
 #include <core/settings.hpp>
+#include <utilities/memory/memory.hpp>
 #include <utilities/steam/steam.hpp>
 
 #include <external/imgui/imgui.h>
 #include <external/imgui/backends/imgui_impl_dx11.h>
 #include <external/imgui/backends/imgui_impl_win32.h>
+#include <core/rendering/rendering.hpp>
 
 #include "../imgui_menu.hpp"
 
@@ -90,9 +92,9 @@ namespace rendering {
 		this->m_initialized = false;
 	}
 
-	void imgui_menu::draw( )
+	void imgui_menu::begin_frame( )
 	{
-		if ( !this->m_initialized || !this->m_open )
+		if ( !this->m_initialized )
 		{
 			return;
 		}
@@ -100,6 +102,14 @@ namespace rendering {
 		ImGui_ImplDX11_NewFrame( );
 		ImGui_ImplWin32_NewFrame( );
 		ImGui::NewFrame( );
+	}
+
+	void imgui_menu::draw( )
+	{
+		if ( !this->m_initialized || !this->m_open )
+		{
+			return;
+		}
 
 		const auto viewport = ImGui::GetMainViewport( );
 		const auto sidebar_width = 82.0f;
@@ -170,6 +180,63 @@ namespace rendering {
 			ImGui::End( );
 		}
 		ImGui::End( );
+
+	}
+
+	void imgui_menu::draw_overlays( )
+	{
+		if ( !this->m_initialized )
+		{
+			return;
+		}
+
+		auto* draw = ImGui::GetForegroundDrawList( );
+		const auto viewport = ImGui::GetMainViewport( );
+		const auto& velocity = settings::g_misc.m_hud.m_velocity;
+		const auto local = systems::g_local.get( );
+		if ( ( velocity.counter.value || velocity.chart.value ) && local.is_valid( ) )
+		{
+			const auto speed = memory::read<math::vector3>( local.pawn + SCHEMA( "C_BaseEntity", "m_vecAbsVelocity"_hash ) ).length_2d( );
+			const auto color = ImColor( velocity.color.value.r, velocity.color.value.g, velocity.color.value.b, velocity.color.value.a );
+			const auto x = viewport->WorkPos.x + viewport->WorkSize.x * 0.5f;
+			const auto y = viewport->WorkPos.y + viewport->WorkSize.y - velocity.bottom_offset.value;
+			if ( velocity.counter.value )
+			{
+				draw->AddText( ImVec2{ x - 30.0f, y }, color, std::format( "SPEED {:03.0f}", speed ).c_str( ) );
+			}
+			if ( velocity.chart.value )
+			{
+				const auto w = velocity.chart_width.value;
+				const auto h = velocity.chart_height.value;
+				draw->AddRect( ImVec2{ x - w * 0.5f, y + 18.0f }, ImVec2{ x + w * 0.5f, y + 18.0f + h }, color );
+				draw->AddRectFilled( ImVec2{ x - w * 0.5f, y + 18.0f }, ImVec2{ x - w * 0.5f + std::min( speed / 320.0f, 1.0f ) * w, y + 18.0f + h }, color );
+			}
+		}
+
+		const auto& feed = features::misc::g_other.killfeed( );
+		float y = viewport->WorkPos.y + 48.0f;
+		const auto now = std::chrono::duration<float>( std::chrono::steady_clock::now( ).time_since_epoch( ) ).count( );
+		for ( auto it = feed.rbegin( ); it != feed.rend( ); ++it )
+		{
+			if ( now - it->time > 6.0f )
+			{
+				continue;
+			}
+
+			const auto text = std::format( "{} {} {}{} {}", it->attacker, it->weapon, it->assister.empty( ) ? "" : "+ " + it->assister, it->headshot ? " [HS]" : "", it->victim );
+			draw->AddText( ImVec2{ viewport->WorkPos.x + viewport->WorkSize.x - 360.0f, y }, IM_COL32_WHITE, text.c_str( ) );
+			y += 20.0f;
+		}
+
+		features::esp::player::g_overlay.on_render_imgui( );
+	}
+
+	void imgui_menu::render( )
+	{
+		if ( !this->m_initialized )
+		{
+			return;
+		}
 
 		ImGui::Render( );
 		ImGui_ImplDX11_RenderDrawData( ImGui::GetDrawData( ) );

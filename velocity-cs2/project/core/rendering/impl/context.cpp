@@ -89,6 +89,7 @@ namespace rendering {
 		features::misc::g_dlight.on_present( );
 
 		m_context->OMSetRenderTargets( 1, &this->m_rtv, nullptr );
+		g_imgui_menu.begin_frame( );
 
 		xdraw::begin_frame( true );
 		{
@@ -126,7 +127,9 @@ namespace rendering {
 			}
 		}
 		xdraw::end_frame( );
+		g_imgui_menu.draw_overlays( );
 		g_imgui_menu.draw( );
+		g_imgui_menu.render( );
 	}
 
 	void context::on_resize_buffers( )

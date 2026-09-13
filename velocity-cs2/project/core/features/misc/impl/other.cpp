@@ -47,8 +47,29 @@ namespace features::misc {
 			return;
 		}
 
-		const auto attacker_key = cstypes::event_hash{ 0, "attacker" };
-		const auto attacker = memory::call<std::uintptr_t>( PATTERN (patterns::game_event_get_controller), event, &attacker_key );
+		const auto get_controller = [ event ]( const char* name )
+		{
+			const auto key = cstypes::event_hash{ 0, name };
+			return memory::call<std::uintptr_t>( PATTERN( patterns::game_event_get_controller ), event, &key );
+		};
+		const auto victim = get_controller( "userid" );
+		const auto attacker = get_controller( "attacker" );
+		const auto assister = get_controller( "assister" );
+		const auto weapon = memory::call<const char*>( PATTERN( patterns::game_event_get_string ), event, "weapon", "" );
+		const auto headshot = memory::call<bool>( PATTERN( patterns::game_event_get_int ), event, "headshot", false );
+		const auto now = std::chrono::duration<float>( std::chrono::steady_clock::now( ).time_since_epoch( ) ).count( );
+		this->m_killfeed.push_back( {
+			.victim = controller_name( victim ),
+			.attacker = controller_name( attacker ),
+			.assister = controller_name( assister ),
+			.weapon = weapon ? weapon : "",
+			.headshot = headshot,
+			.time = now
+		} );
+		while ( this->m_killfeed.size( ) > 6 )
+		{
+			this->m_killfeed.pop_front( );
+		}
 	}
 
 	void other::on_frame_stage_notify( )

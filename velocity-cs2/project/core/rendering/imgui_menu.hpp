@@ -9,7 +9,10 @@ namespace rendering {
 	public:
 		bool initialize( IDXGISwapChain* swap_chain, HWND window );
 		void shutdown( );
+		void begin_frame( );
 		void draw( );
+		void draw_overlays( );
+		void render( );
 		bool wndproc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam );
 
 		void toggle( ) { this->m_open = !this->m_open; }

@@ -330,10 +330,21 @@ namespace features::misc {
 	class other
 	{
 	public:
+		struct killfeed_entry
+		{
+			std::string victim{};
+			std::string attacker{};
+			std::string assister{};
+			std::string weapon{};
+			bool headshot{};
+			float time{};
+		};
+
 		void on_round_start( );
 		void on_frame_stage_notify( );
 		void do_kill_feed_preservation( );
 		void on_player_death( std::uintptr_t event );
+		[[nodiscard]] const std::deque<killfeed_entry>& killfeed( ) const { return this->m_killfeed; }
 
 		[[nodiscard]] bool is_alpha_changed( ) const { return this->m_is_alpha_changed; }
 
@@ -356,6 +367,7 @@ namespace features::misc {
 		float m_cached_vm_y{ std::numeric_limits<float>::quiet_NaN( ) };
 		float m_cached_vm_z{ std::numeric_limits<float>::quiet_NaN( ) };
 		float m_cached_vm_fov{ std::numeric_limits<float>::quiet_NaN( ) };
+		std::deque<killfeed_entry> m_killfeed{};
 	};
 
 	// this is so ghetto but fuck it for now it works
