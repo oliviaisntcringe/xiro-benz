@@ -17,6 +17,86 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND hwnd, UINT ms
 
 namespace rendering {
 	namespace {
+		struct backdrop_particle
+		{
+			ImVec2 origin{};
+			float speed{};
+			float phase{};
+			float drift{};
+			bool skull{};
+		};
+
+		void draw_imgui_backdrop( const ImGuiViewport* viewport )
+		{
+			if ( !viewport )
+			{
+				return;
+			}
+
+			static std::array<backdrop_particle, 48> particles{};
+			static bool initialized{};
+			const auto width = viewport->WorkSize.x;
+			const auto height = viewport->WorkSize.y;
+			if ( !initialized )
+			{
+				for ( auto i = 0u; i < particles.size( ); ++i )
+				{
+					auto& particle = particles[ i ];
+					particle.origin.x = std::fmod( 83.0f + i * 137.0f, std::max( 1.0f, width - 40.0f ) ) + 20.0f;
+					particle.origin.y = std::fmod( 41.0f + i * 89.0f, std::max( 1.0f, height ) );
+					particle.speed = 15.0f + static_cast< float >( i % 7 ) * 5.0f;
+					particle.phase = static_cast< float >( i ) * 0.7f;
+					particle.drift = 7.0f + static_cast< float >( i % 4 ) * 3.0f;
+					particle.skull = ( i % 5 ) == 0;
+				}
+				initialized = true;
+			}
+
+			const auto dt = ImGui::GetIO( ).DeltaTime;
+			const auto* draw = ImGui::GetBackgroundDrawList( );
+			const auto viewport_max = ImVec2{
+				viewport->WorkPos.x + viewport->WorkSize.x,
+				viewport->WorkPos.y + viewport->WorkSize.y
+			};
+			draw->AddRectFilled( viewport->WorkPos, viewport_max, IM_COL32( 0, 0, 0, 122 ) );
+
+			static constexpr const char* flower_symbols[ 6 ]{ " .-. ", "( * )", "<.*.>", "{ o }", "\\|/", "(_|_)" };
+			static constexpr const char* skull_symbols[ 6 ]{ " .-. ", "(o o)", "[o_o]", "/xxx\\", "| ^ |", "\\___/" };
+			for ( auto& particle : particles )
+			{
+				particle.origin.y += particle.speed * dt;
+				particle.phase += dt;
+				if ( particle.origin.y > height + 24.0f )
+				{
+					particle.origin.y = -24.0f;
+				}
+
+				const auto x = particle.origin.x + std::sin( particle.phase ) * particle.drift;
+				const auto glyph_index = static_cast< int >( particle.phase * 2.0f ) % 6;
+				const auto glyph = particle.skull ? skull_symbols[ glyph_index ] : flower_symbols[ glyph_index ];
+				const auto color = particle.skull ? IM_COL32( 119, 200, 74, 105 ) : IM_COL32( 119, 200, 74, 82 );
+				draw->AddText( ImVec2{ std::floor( viewport->WorkPos.x + x ), std::floor( viewport->WorkPos.y + particle.origin.y ) }, color, glyph );
+			}
+
+			const auto center = ImVec2{
+				viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+				viewport->WorkPos.y + viewport->WorkSize.y * 0.5f
+			};
+			const auto logo = "RIFK7";
+			const auto logo_size = ImGui::CalcTextSize( logo );
+			draw->AddText(
+				ImVec2{ center.x - logo_size.x * 0.5f, center.y - logo_size.y * 0.5f },
+				IM_COL32( 119, 200, 74, 48 ),
+				logo
+			);
+			draw->AddLine(
+				ImVec2{ viewport->WorkPos.x + width * 0.22f, center.y + 24.0f },
+				ImVec2{ viewport->WorkPos.x + width * 0.78f, center.y + 24.0f },
+				IM_COL32( 119, 200, 74, 34 ),
+				1.0f
+			);
+		}
+
 		const char* menu_key_name( int key )
 		{
 			switch ( key )
@@ -187,6 +267,7 @@ namespace rendering {
 
 		this->try_load_avatar( );
 		const auto viewport = ImGui::GetMainViewport( );
+		draw_imgui_backdrop( viewport );
 		const auto panel_width = 860.0f;
 		const auto panel_height = 700.0f;
 		const auto panel_pos = ImVec2{
