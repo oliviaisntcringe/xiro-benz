@@ -359,9 +359,9 @@ namespace patterns {
 		"client.dll:A8000000488D05*????????4C89742420+78~");
 
 	const ::protection::addresses::address_t& parse_report_hit = ADDRESS_IMPL(
-		::protection::addresses::hash("client.dll:48895C24184889742420574883EC20488D058AE04A01"),
+		::protection::addresses::hash("client.dll:48895C24184889742420574883EC20488D05????????"),
 		::protection::addresses::address_type::pattern,
-		"client.dll:48895C24184889742420574883EC20488D058AE04A01");
+		"client.dll:48895C24184889742420574883EC20488D05????????");
 
 	const ::protection::addresses::address_t& particle_create_effect = ADDRESS_IMPL(
 		::protection::addresses::hash("client.dll:4C8BDC534881EC90000000F20F1005"),

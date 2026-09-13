@@ -1,4 +1,5 @@
 #include <pch/pch.hpp>
+#include <core/features/features.hpp>
 #include <core/settings.hpp>
 
 #include <external/imgui/imgui.h>
@@ -134,8 +135,8 @@ namespace rendering {
 
 	void imgui_menu::draw_sidebar( )
 	{
-		static constexpr const char* tabs[ 6 ]{ "VISUALS", "AIMING", "MISC", "SKINS", "CONFIG", "INFO" };
-		for ( auto i = 0; i < 6; ++i )
+		static constexpr const char* tabs[ 7 ]{ "VISUALS", "LEGIT", "RAGE", "MISC", "SKINS", "CONFIG", "INFO" };
+		for ( auto i = 0; i < 7; ++i )
 		{
 			if ( ImGui::Selectable( tabs[ i ], this->m_tab == i, 0, ImVec2{ 66.0f, 42.0f } ) )
 			{
@@ -146,8 +147,24 @@ namespace rendering {
 
 	void imgui_menu::draw_panel( )
 	{
-		static constexpr const char* tab_names[ 6 ]{ "Visuals", "Aiming", "Misc", "Skins", "Config", "Info" };
+		static constexpr const char* tab_names[ 7 ]{ "Visuals", "Legit", "Rage", "Misc", "Skins", "Config", "Info" };
 		static constexpr const char* visual_sections[ 4 ]{ "Enemy", "Team", "Local", "Viewmodel" };
+		auto draw_config_color = [ ]( const char* label, config::col& color )
+		{
+			float rgba[ 4 ]{
+				static_cast< float >( color.value.r ) / 255.0f,
+				static_cast< float >( color.value.g ) / 255.0f,
+				static_cast< float >( color.value.b ) / 255.0f,
+				static_cast< float >( color.value.a ) / 255.0f
+			};
+			if ( ImGui::ColorEdit4( label, rgba, ImGuiColorEditFlags_AlphaBar ) )
+			{
+				color.value.r = static_cast< std::uint8_t >( rgba[ 0 ] * 255.0f );
+				color.value.g = static_cast< std::uint8_t >( rgba[ 1 ] * 255.0f );
+				color.value.b = static_cast< std::uint8_t >( rgba[ 2 ] * 255.0f );
+				color.value.a = static_cast< std::uint8_t >( rgba[ 3 ] * 255.0f );
+			}
+		};
 		ImGui::TextColored( ImVec4{ 0.47f, 0.78f, 0.29f, 1.0f }, "%s // operator console", tab_names[ this->m_tab ] );
 		ImGui::Spacing( );
 		ImGui::BeginChild( "##imgui_content", ImVec2{ 0.0f, 0.0f }, true );
@@ -371,6 +388,313 @@ namespace rendering {
 				}
 				ImGui::Checkbox( "Ragdoll glow", &player.m_glow.local_ragdoll.enabled.value );
 			}
+			else if ( this->m_tab == 3 )
+			{
+				auto& misc = settings::g_misc;
+				auto& movement = settings::g_movement;
+				static constexpr const char* sections[ 4 ]{ "General", "Removals", "Camera", "HUD" };
+				static constexpr const char* sound_types[ 10 ]{ "Shop click", "Home click", "Bell", "Killcard", "Bullet casing", "Coin pickup", "Item drop", "Popcan", "Key press", "Custom" };
+				static constexpr const char* marker_types[ 3 ]{ "Classic", "Damage", "Both" };
+				static constexpr const char* impact_types[ 3 ]{ "Overlay", "Sparks", "Both" };
+				static constexpr const char* hat_types[ 2 ]{ "Kasa", "Bucket" };
+
+				static int section{};
+				for ( auto i = 0; i < 4; ++i )
+				{
+					if ( i > 0 )
+					{
+						ImGui::SameLine( );
+					}
+					if ( ImGui::Selectable( sections[ i ], section == i, 0, ImVec2{ 92.0f, 28.0f } ) )
+					{
+						section = i;
+					}
+				}
+				ImGui::Separator( );
+
+				if ( section == 0 )
+				{
+					auto& impacts = misc.m_impacts;
+					auto& trajectory = misc.m_projectile_trajectory;
+					auto& dlight = misc.m_dlight;
+					auto& penetration = settings::g_combat.m_penetration_crosshair;
+
+					ImGui::BeginGroup( );
+					ImGui::Text( "Impacts and logs" );
+					ImGui::Checkbox( "Hit logs", &impacts.hit_log.value );
+					ImGui::SliderFloat( "Hit log duration", &impacts.hit_log_duration.value, 0.5f, 10.0f, "%.1f s" );
+					ImGui::Checkbox( "Console logs", &impacts.console_log.value );
+					ImGui::Checkbox( "Chat logs", &impacts.chat_log.value );
+					ImGui::Checkbox( "Miss logs", &impacts.miss_log.value );
+					ImGui::SliderFloat( "Miss log duration", &impacts.miss_log_duration.value, 0.5f, 10.0f, "%.1f s" );
+					ImGui::Checkbox( "Hit sound", &impacts.hit_sound.value );
+					auto hit_sound = static_cast< int >( impacts.hit_sound_type.value );
+					if ( ImGui::Combo( "Hit sound type", &hit_sound, sound_types, IM_ARRAYSIZE( sound_types ) ) )
+					{
+						impacts.hit_sound_type.value = static_cast< settings::misc::impacts::sound_type >( hit_sound );
+					}
+					ImGui::SliderFloat( "Hit volume", &impacts.hit_sound_volume.value, 1.0f, 100.0f, "%.0f%%" );
+					ImGui::Checkbox( "Hit marker", &impacts.hit_marker.value );
+					auto marker = static_cast< int >( impacts.hit_marker_type.value );
+					if ( ImGui::Combo( "Marker type", &marker, marker_types, IM_ARRAYSIZE( marker_types ) ) )
+					{
+						impacts.hit_marker_type.value = static_cast< settings::misc::impacts::marker_type >( marker );
+					}
+					ImGui::SliderFloat( "Marker duration", &impacts.hit_marker_duration.value, 0.1f, 5.0f, "%.1f s" );
+					draw_config_color( "Marker color", impacts.hit_marker_color );
+					ImGui::Checkbox( "Hit effect", &impacts.hit_effect.value );
+					draw_config_color( "Hit effect color", impacts.hit_effect_color );
+					ImGui::SliderFloat( "Hit effect duration", &impacts.hit_effect_duration.value, 0.1f, 5.0f, "%.1f s" );
+					ImGui::SliderFloat( "Hit effect strength", &impacts.hit_effect_strength.value, 1.0f, 100.0f, "%.0f%%" );
+					ImGui::Checkbox( "Death sound", &impacts.death_sound.value );
+					auto death_sound = static_cast< int >( impacts.death_sound_type.value );
+					if ( ImGui::Combo( "Death sound type", &death_sound, sound_types, IM_ARRAYSIZE( sound_types ) ) )
+					{
+						impacts.death_sound_type.value = static_cast< settings::misc::impacts::sound_type >( death_sound );
+					}
+					ImGui::SliderFloat( "Death volume", &impacts.death_sound_volume.value, 1.0f, 100.0f, "%.0f%%" );
+					ImGui::Checkbox( "Death effect", &impacts.death_effect.value );
+					draw_config_color( "Death effect color", impacts.death_effect_color );
+					ImGui::EndGroup( );
+
+					ImGui::SameLine( );
+					ImGui::BeginGroup( );
+					ImGui::Text( "World and movement" );
+					ImGui::Checkbox( "Projectile trajectory", &trajectory.enabled.value );
+					ImGui::Checkbox( "Straight throw", &trajectory.straight_throw.value );
+					ImGui::Checkbox( "Trajectory glow", &trajectory.glow.value );
+					ImGui::SliderFloat( "Trajectory glow strength", &trajectory.glow_strength.value, 0.1f, 1.0f, "%.2f" );
+					draw_config_color( "Held color", trajectory.held_color );
+					draw_config_color( "Thrown color", trajectory.thrown_color );
+					draw_config_color( "Damage held color", trajectory.will_deal_damage_held_color );
+					draw_config_color( "Damage thrown color", trajectory.will_deal_damage_thrown_color );
+					ImGui::Checkbox( "Dynamic light", &dlight.enabled.value );
+					draw_config_color( "Dynamic light color", dlight.color );
+					ImGui::SliderFloat( "Light radius", &dlight.radius.value, 50.0f, 15000.0f, "%.0f" );
+					ImGui::SliderFloat( "Light Z offset", &dlight.z_offset.value, 0.0f, 100.0f, "%.0f" );
+					ImGui::Checkbox( "Penetration crosshair", &penetration.enabled.value );
+					ImGui::Checkbox( "Penetration glow", &penetration.glow.value );
+					ImGui::SliderFloat( "Penetration glow strength", &penetration.glow_strength.value, 0.1f, 1.0f, "%.2f" );
+					draw_config_color( "Can penetrate", penetration.can_penetrate_fill );
+					draw_config_color( "Blocked", penetration.blocked_fill );
+					ImGui::Checkbox( "Bunnyhop", &movement.bhop.value );
+					ImGui::Checkbox( "Autostrafe", &movement.m_test_strafer.enabled.value );
+					ImGui::Checkbox( "Jumpbug", &movement.jumpbug.value );
+					ImGui::Checkbox( "Fast ladder", &movement.fastladder.value );
+					ImGui::Checkbox( "Edgejump", &movement.edgejump.value );
+					ImGui::Checkbox( "Edgestop", &movement.edgestop.value );
+					ImGui::Checkbox( "Edgebug", &movement.edgebug.value );
+					ImGui::SliderInt( "Edgebug mode", &movement.edgebug_mode.value, 0, 4 );
+					ImGui::SliderInt( "Edgebug passes", &movement.edgebug_passes.value, 1, 5 );
+					ImGui::Checkbox( "Edgebug jump steps", &movement.edgebug_include_jump_steps.value );
+					ImGui::Checkbox( "Slowwalk", &movement.slowwalk.value );
+					ImGui::SliderFloat( "Slowwalk speed", &movement.slowwalk_speed.value, 1.0f, 100.0f, "%.0f" );
+					ImGui::EndGroup( );
+				}
+				else if ( section == 1 )
+				{
+					auto& removals = misc.m_removals;
+					ImGui::Text( "Removals" );
+					ImGui::Checkbox( "Remove crosshair", &removals.crosshair.value );
+					ImGui::Checkbox( "Remove scope", &removals.scope.value );
+					ImGui::Checkbox( "Remove overhead", &removals.overhead.value );
+					ImGui::Checkbox( "Remove legs", &removals.legs.value );
+					ImGui::Checkbox( "Remove recoil", &removals.recoil.value );
+					ImGui::Checkbox( "Remove skybox fog", &removals.skybox_fog.value );
+					ImGui::Checkbox( "Remove 3D skybox", &removals.skybox_3d.value );
+					ImGui::Checkbox( "Remove decals", &removals.decals.value );
+					ImGui::Checkbox( "Remove smoke", &removals.smoke.value );
+					ImGui::SliderFloat( "Flash alpha", &removals.flash_alpha.value, 0.0f, 100.0f, "%.0f%%" );
+				}
+				else if ( section == 2 )
+				{
+					auto& camera = misc.m_camera;
+					auto& viewmodel = misc.m_viewmodel_adjust;
+					ImGui::BeginGroup( );
+					ImGui::Text( "Camera" );
+					ImGui::Checkbox( "Custom FOV", &camera.change_fov.value );
+					ImGui::SliderFloat( "FOV", &camera.fov.value, 60.0f, 150.0f, "%.0f" );
+					ImGui::Checkbox( "Scoped FOV override", &camera.scoped_fov_override.value );
+					ImGui::SliderFloat( "Scoped FOV", &camera.scoped_fov.value, 10.0f, 90.0f, "%.0f" );
+					ImGui::Checkbox( "Thirdperson", &camera.thirdperson.value );
+					ImGui::SliderFloat( "Thirdperson distance", &camera.thirdperson_distance.value, 35.0f, 200.0f, "%.0f" );
+					ImGui::SliderFloat( "Thirdperson hull size", &camera.thirdperson_hull_size.value, 0.0f, 20.0f, "%.0f" );
+					ImGui::Checkbox( "Custom aspect ratio", &camera.change_aspect_ratio.value );
+					ImGui::SliderFloat( "Aspect ratio", &camera.aspect_ratio.value, 1.0f, 1.78f, "%.3f" );
+					ImGui::EndGroup( );
+					ImGui::SameLine( );
+					ImGui::BeginGroup( );
+					ImGui::Text( "Viewmodel" );
+					ImGui::Checkbox( "Viewmodel adjust", &viewmodel.enabled.value );
+					ImGui::SliderFloat( "Offset X", &viewmodel.offset_x.value, -10.0f, 10.0f, "%.1f" );
+					ImGui::SliderFloat( "Offset Y", &viewmodel.offset_y.value, -10.0f, 10.0f, "%.1f" );
+					ImGui::SliderFloat( "Offset Z", &viewmodel.offset_z.value, -10.0f, 10.0f, "%.1f" );
+					ImGui::SliderFloat( "Viewmodel FOV", &viewmodel.fov.value, 54.0f, 90.0f, "%.0f" );
+					ImGui::EndGroup( );
+				}
+				else if ( this->m_tab == 4 )
+				{
+					auto& changer = settings::g_changer;
+					auto& econ = features::changer::g_econ_item_system;
+					static constexpr const char* categories[ 4 ]{ "Weapons", "Knives", "Gloves", "Agents" };
+					static int category{};
+					static int selected_item{};
+					static int selected_paint{};
+
+					ImGui::Text( "Skin changer" );
+					for ( auto i = 0; i < 4; ++i )
+					{
+						if ( i > 0 )
+						{
+							ImGui::SameLine( );
+						}
+						if ( ImGui::Selectable( categories[ i ], category == i, 0, ImVec2{ 92.0f, 28.0f } ) )
+						{
+							category = i;
+							selected_item = 0;
+						}
+					}
+					ImGui::Separator( );
+
+					const auto& items = category == 0 ? econ.guns( ) : category == 1 ? econ.knives( ) : category == 2 ? econ.gloves( ) : econ.agents( );
+					if ( items.empty( ) )
+					{
+						ImGui::TextDisabled( "No item definitions are available yet." );
+					}
+					else
+					{
+						selected_item = std::clamp( selected_item, 0, static_cast< int >( items.size( ) ) - 1 );
+						std::vector< const char* > item_names;
+						item_names.reserve( items.size( ) );
+						for ( const auto* item : items )
+						{
+							item_names.push_back( item->localized_name.empty( ) ? item->name.c_str( ) : item->localized_name.c_str( ) );
+						}
+
+						if ( ImGui::Combo( "Item", &selected_item, item_names.data( ), static_cast< int >( item_names.size( ) ) ) )
+						{
+							selected_paint = 0;
+						}
+
+						const auto* item = items[ selected_item ];
+						if ( category == 3 )
+						{
+							if ( item->team( ) == 3 )
+							{
+								changer.agents.ct_def = item->def_index;
+							}
+							else if ( item->team( ) == 2 )
+							{
+								changer.agents.t_def = item->def_index;
+							}
+							ImGui::Text( "Selected agent: %s", item_names[ selected_item ] );
+						}
+						else
+						{
+							std::vector< const char* > paint_names;
+							std::vector< int > paint_ids;
+							for ( const auto& paint : econ.paint_kits( ) )
+							{
+								if ( category == 0 && paint.id == 0 )
+								{
+									continue;
+								}
+								paint_ids.push_back( paint.id );
+								paint_names.push_back( paint.localized_name.empty( ) ? paint.name.c_str( ) : paint.localized_name.c_str( ) );
+							}
+
+							if ( paint_names.empty( ) )
+							{
+								ImGui::TextDisabled( "No paint kits are available yet." );
+							}
+							else
+							{
+								selected_paint = std::clamp( selected_paint, 0, static_cast< int >( paint_names.size( ) ) - 1 );
+								if ( ImGui::Combo( "Paint kit", &selected_paint, paint_names.data( ), static_cast< int >( paint_names.size( ) ) ) )
+								{
+									auto& applied = changer.skins.data[ item->def_index ];
+									applied.paint_kit_id = paint_ids[ selected_paint ];
+								}
+
+								auto& applied = changer.skins.data[ item->def_index ];
+								if ( applied.paint_kit_id == 0 )
+								{
+									applied.paint_kit_id = paint_ids[ selected_paint ];
+								}
+								ImGui::SliderFloat( "Wear", &applied.wear, 0.0f, 1.0f, "%.4f" );
+								ImGui::SliderInt( "Seed", &applied.seed, 0, 1000 );
+								ImGui::Checkbox( "StatTrak", &applied.stattrak );
+								if ( ImGui::Button( "Clear selected skin" ) )
+								{
+									changer.skins.data.erase( item->def_index );
+								}
+							}
+						}
+					}
+				}
+				else
+				{
+					auto& hud = misc.m_hud;
+					ImGui::BeginGroup( );
+					ImGui::Text( "Crosshair and scope" );
+					ImGui::Checkbox( "Crosshair overlay", &hud.m_crosshair.enabled.value );
+					ImGui::SliderFloat( "Crosshair size", &hud.m_crosshair.size.value, 0.5f, 10.0f, "%.1f" );
+					ImGui::SliderFloat( "Crosshair outline", &hud.m_crosshair.outline.value, 0.0f, 4.0f, "%.1f" );
+					draw_config_color( "Crosshair color", hud.m_crosshair.color );
+					draw_config_color( "Crosshair outline color", hud.m_crosshair.outline_color );
+					ImGui::Checkbox( "Scope overlay", &hud.m_scope.enabled.value );
+					ImGui::SliderFloat( "Scope line length", &hud.m_scope.line_length.value, 10.0f, 500.0f, "%.0f" );
+					ImGui::SliderFloat( "Scope gap", &hud.m_scope.gap.value, 0.0f, 50.0f, "%.0f" );
+					ImGui::SliderFloat( "Scope thickness", &hud.m_scope.thickness.value, 0.5f, 5.0f, "%.2f" );
+					ImGui::SliderFloat( "Scope animation speed", &hud.m_scope.anim_speed.value, 1.0f, 30.0f, "%.0f" );
+					draw_config_color( "Scope color", hud.m_scope.color );
+					ImGui::Checkbox( "Scope fade in", &hud.m_scope.fade_in.value );
+					ImGui::Checkbox( "Scope glow", &hud.m_scope.glow.value );
+					ImGui::SliderFloat( "Scope glow strength", &hud.m_scope.glow_strength.value, 0.1f, 1.0f, "%.2f" );
+					ImGui::EndGroup( );
+					ImGui::SameLine( );
+					ImGui::BeginGroup( );
+					ImGui::Text( "Hat and velocity" );
+					ImGui::Checkbox( "Hat", &hud.m_hat.enabled.value );
+					auto hat = static_cast< int >( hud.m_hat.type.value );
+					if ( ImGui::Combo( "Hat type", &hat, hat_types, IM_ARRAYSIZE( hat_types ) ) )
+					{
+						hud.m_hat.type.value = static_cast< settings::misc::hud::hat::hat_type >( hat );
+					}
+					draw_config_color( "Hat color", hud.m_hat.color );
+					draw_config_color( "Hat secondary color", hud.m_hat.secondary_color );
+					ImGui::Checkbox( "Hat glow", &hud.m_hat.glow.value );
+					ImGui::SliderFloat( "Hat glow strength", &hud.m_hat.glow_strength.value, 0.1f, 1.0f, "%.2f" );
+					ImGui::Checkbox( "Velocity counter", &hud.m_velocity.counter.value );
+					ImGui::Checkbox( "Velocity chart", &hud.m_velocity.chart.value );
+					draw_config_color( "Velocity color", hud.m_velocity.color );
+					ImGui::SliderFloat( "Velocity bottom offset", &hud.m_velocity.bottom_offset.value, 0.0f, 300.0f, "%.0f" );
+					ImGui::SliderFloat( "Chart width", &hud.m_velocity.chart_width.value, 50.0f, 500.0f, "%.0f" );
+					ImGui::SliderFloat( "Chart height", &hud.m_velocity.chart_height.value, 20.0f, 150.0f, "%.0f" );
+					ImGui::Separator( );
+					ImGui::Text( "General" );
+					ImGui::Checkbox( "Reveal radar", &misc.reveal_radar.value );
+					ImGui::Checkbox( "Preserve killfeed", &misc.preserve_killfeed.value );
+					ImGui::Checkbox( "Disable game logs", &misc.disable_game_logs.value );
+					ImGui::Checkbox( "Scoreboard weapons", &misc.m_scoreboard_weapons.enabled.value );
+					draw_config_color( "Scoreboard color", misc.m_scoreboard_weapons.color );
+					ImGui::Checkbox( "Clantag", &misc.m_name_changer.clantag.value );
+					ImGui::Checkbox( "Override name", &misc.m_name_changer.override_name.value );
+					static char name_buffer[ 64 ]{};
+					static std::string name_buffer_value{};
+					if ( name_buffer_value != misc.m_name_changer.name.value )
+					{
+						std::snprintf( name_buffer, sizeof( name_buffer ), "%s", misc.m_name_changer.name.value.c_str( ) );
+						name_buffer_value = misc.m_name_changer.name.value;
+					}
+					if ( ImGui::InputText( "Name", name_buffer, sizeof( name_buffer ) ) )
+					{
+						misc.m_name_changer.name.value = name_buffer;
+						name_buffer_value = misc.m_name_changer.name.value;
+					}
+					ImGui::EndGroup( );
+				}
+			}
 			else
 			{
 				ImGui::Text( "Viewmodel" );
@@ -458,6 +782,121 @@ namespace rendering {
 				ImGui::Checkbox( "Autowall##aim", &group.autowall.value );
 				ImGui::SliderInt( "Minimum damage##aim", &group.min_damage.value, 1, 125 );
 				ImGui::EndGroup( );
+			}
+		}
+		else if ( this->m_tab == 2 )
+		{
+			auto& combat = settings::g_combat;
+			auto& ragebot = combat.m_ragebot;
+			auto& group = ragebot.groups[ this->m_aim_weapon_group ];
+			auto& anti_aim = combat.m_antiaim;
+			auto& quick_peek = combat.m_quickpeek;
+			auto& duck_peek = combat.m_duckpeek;
+			auto& zeusbot = combat.m_zeusbot;
+			auto& knifebot = combat.m_knifebot;
+			auto& autos = combat.m_autos;
+
+			static constexpr const char* weapon_groups[ 6 ]{ "Pistols", "SMG", "Rifles", "Shotguns", "Snipers", "LMG" };
+			static constexpr const char* hitboxes[ 6 ]{ "Head", "Chest", "Stomach", "Arms", "Legs", "Feet" };
+			static constexpr const char* pitch_modes[ 3 ]{ "None", "Down", "Up" };
+
+			ImGui::Checkbox( "Enable ragebot", &ragebot.enabled.value );
+			ImGui::Separator( );
+			for ( auto i = 0; i < 6; ++i )
+			{
+				if ( i > 0 )
+				{
+					ImGui::SameLine( );
+				}
+				if ( ImGui::Selectable( weapon_groups[ i ], this->m_aim_weapon_group == i, 0, ImVec2{ 82.0f, 28.0f } ) )
+				{
+					this->m_aim_weapon_group = i;
+				}
+			}
+			ImGui::Separator( );
+
+			if ( !ragebot.enabled.value )
+			{
+				ImGui::TextDisabled( "Enable ragebot to edit weapon-group settings." );
+			}
+			else
+			{
+				ImGui::BeginGroup( );
+				ImGui::Text( "Rage aimbot" );
+				ImGui::Checkbox( "Silent##rage", &group.silent.value );
+				ImGui::Checkbox( "No spread##rage", &group.no_spread.value );
+				ImGui::Checkbox( "Autostop##rage", &group.autostop.value );
+				ImGui::Checkbox( "Force shot in air##rage", &group.force_shot_air.value );
+				ImGui::Checkbox( "Force shot on ground##rage", &group.force_shot.value );
+				ImGui::Checkbox( "Extrapolation##rage", &combat.m_lagcomp.extrapolation.value );
+				ImGui::SliderFloat( "FOV##rage", &group.max_fov.value, 1.0f, 180.0f, "%.0f deg" );
+				ImGui::SliderInt( "Hitchance##rage", &group.hitchance.value, 0, 100, "%d%%" );
+				ImGui::SliderInt( "Minimum damage##rage", &group.min_damage.value, 1, 125 );
+				ImGui::Checkbox( "Hitchance override##rage", &group.hitchance_override.value );
+				if ( group.hitchance_override.value )
+				{
+					ImGui::SliderInt( "Override hitchance##rage", &group.hitchance_override_value.value, 0, 100, "%d%%" );
+				}
+				ImGui::Checkbox( "Minimum damage override##rage", &group.min_damage_override.value );
+				if ( group.min_damage_override.value )
+				{
+					ImGui::SliderInt( "Override damage##rage", &group.min_damage_override_value.value, 0, 130 );
+				}
+				ImGui::EndGroup( );
+
+				ImGui::SameLine( );
+				ImGui::BeginGroup( );
+				ImGui::Text( "Multipoint" );
+				ImGui::Checkbox( "Force body aim##rage", &group.body_aim.value );
+				ImGui::Checkbox( "Dynamic point scale##rage", &group.dynamic_pointscale.value );
+				ImGui::Checkbox( "Debug multipoints##rage", &group.debug_multipoints.value );
+				ImGui::SliderFloat( "Point scale##rage", &group.pointscale.value, 0.0f, 100.0f, "%.0f%%" );
+				for ( auto i = 0; i < 6; ++i )
+				{
+					ImGui::Checkbox( hitboxes[ i ], &group.hitboxes.values[ i ] );
+				}
+
+				ImGui::Spacing( );
+				ImGui::Text( "Other bots" );
+				ImGui::Checkbox( "Auto revolver##rage", &autos.revolver.value );
+				ImGui::Checkbox( "Auto scope##rage", &autos.scope.value );
+				ImGui::Checkbox( "Zeusbot##rage", &zeusbot.enabled.value );
+				if ( zeusbot.enabled.value )
+				{
+					ImGui::SliderFloat( "Zeus FOV##rage", &zeusbot.max_fov.value, 1.0f, 180.0f, "%.0f deg" );
+					ImGui::Checkbox( "Drop after##rage", &zeusbot.drop_after.value );
+				}
+				ImGui::Checkbox( "Knifebot##rage", &knifebot.enabled.value );
+				if ( knifebot.enabled.value )
+				{
+					ImGui::SliderFloat( "Knife FOV##rage", &knifebot.max_fov.value, 1.0f, 180.0f, "%.0f deg" );
+				}
+				ImGui::EndGroup( );
+
+				ImGui::Separator( );
+				ImGui::Text( "Anti aim" );
+				ImGui::Checkbox( "Enable anti aim##rage", &anti_aim.enabled.value );
+				auto pitch = static_cast< int >( anti_aim.pitch.value );
+				if ( ImGui::Combo( "Pitch##rage", &pitch, pitch_modes, IM_ARRAYSIZE( pitch_modes ) ) )
+				{
+					anti_aim.pitch.value = static_cast< settings::combat::antiaim::pitch_mode >( pitch );
+				}
+				ImGui::Checkbox( "Compensate roll##rage", &anti_aim.auto_yaw_adjust.value );
+				ImGui::Checkbox( "Force left##rage", &anti_aim.manual_left.value );
+				ImGui::Checkbox( "Force right##rage", &anti_aim.manual_right.value );
+				ImGui::Checkbox( "Hide onshot##rage", &anti_aim.hide_shots.value );
+				ImGui::Checkbox( "Avoid backstab##rage", &anti_aim.avoid_backstab.value );
+				ImGui::Checkbox( "Direction indicator##rage", &anti_aim.direction_indicator.value );
+				draw_config_color( "Direction color##rage", anti_aim.direction_indicator_color );
+				ImGui::Checkbox( "Direction glow##rage", &anti_aim.direction_indicator_glow.value );
+				ImGui::SliderFloat( "Direction glow strength##rage", &anti_aim.direction_indicator_glow_strength.value, 0.1f, 1.0f, "%.2f" );
+
+				ImGui::Separator( );
+				ImGui::Text( "Peek assistance" );
+				ImGui::Checkbox( "Quick peek##rage", &quick_peek.enabled.value );
+				draw_config_color( "Quick peek color##rage", quick_peek.color );
+				draw_config_color( "Retracting color##rage", quick_peek.retrack_color );
+				ImGui::Checkbox( "Duck peek##rage", &duck_peek.enabled.value );
 			}
 		}
 		else
