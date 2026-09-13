@@ -501,6 +501,42 @@ namespace rendering {
 				color.value.a = static_cast< std::uint8_t >( rgba[ 3 ] * 255.0f );
 			}
 		};
+		auto draw_function = [ this ]( const char* label, xui::setting& setting, bool expandable = false )
+		{
+			ImGui::PushID( &setting );
+			ImGui::BeginGroup( );
+			const auto changed = ImGui::Checkbox( label, &setting.value );
+			ImGui::SameLine( );
+			const auto binding = this->m_rebinding_setting == &setting;
+			const auto bind_label = binding ? "..." : menu_key_name( setting.bind.key );
+			if ( ImGui::SmallButton( bind_label ) )
+			{
+				this->m_rebinding_setting = &setting;
+			}
+			ImGui::SameLine( );
+			static constexpr const char* modes[ 3 ]{ "Toggle", "Hold", "Release" };
+			auto mode = static_cast< int >( setting.bind.mode );
+			ImGui::SetNextItemWidth( 82.0f );
+			if ( ImGui::Combo( "##bind_mode", &mode, modes, IM_ARRAYSIZE( modes ) ) )
+			{
+				setting.bind.mode = static_cast< xui::bind_mode >( mode );
+			}
+			ImGui::EndGroup( );
+			if ( expandable && setting.value )
+			{
+				ImGui::Indent( 12.0f );
+			}
+			if ( expandable && setting.value && changed )
+			{
+				ImGui::SetItemDefaultFocus( );
+			}
+			if ( expandable && setting.value )
+			{
+				ImGui::Unindent( 12.0f );
+			}
+			ImGui::PopID( );
+			return changed;
+		};
 		ImGui::TextDisabled( "module loaded // all controls are contained in this scroll surface" );
 		if ( this->m_tab == 0 || this->m_tab == 1 )
 		{
@@ -542,9 +578,9 @@ namespace rendering {
 				}
 			};
 
-			auto draw_layer = [ &draw_color ]( const char* label, settings::esp::chams_layer& layer )
+			auto draw_layer = [ &draw_color, &draw_function ]( const char* label, settings::esp::chams_layer& layer )
 			{
-				ImGui::Checkbox( label, &layer.enabled.value );
+				draw_function( label, layer.enabled );
 				if ( layer.enabled.value && ImGui::TreeNode( label ) )
 				{
 					static constexpr const char* materials[ ]{
@@ -561,9 +597,9 @@ namespace rendering {
 				}
 			};
 
-			auto draw_chams = [ &draw_layer ]( const char* label, settings::esp::chams_config& chams, bool overlay )
+			auto draw_chams = [ &draw_layer, &draw_function ]( const char* label, settings::esp::chams_config& chams, bool overlay )
 			{
-				ImGui::Checkbox( label, &chams.enabled.value );
+				draw_function( label, chams.enabled );
 				if ( !chams.enabled.value || !ImGui::TreeNode( label ) )
 				{
 					return;
@@ -587,13 +623,13 @@ namespace rendering {
 
 				ImGui::BeginGroup( );
 				ImGui::Text( "Player ESP" );
-				ImGui::Checkbox( "Enable ESP", &overlay.enabled.value );
-				ImGui::Checkbox( "Box", &overlay.m_box.enabled.value );
-				ImGui::Checkbox( "Skeleton", &overlay.m_skeleton.enabled.value );
-				ImGui::Checkbox( "Name", &overlay.m_name.enabled.value );
-				ImGui::Checkbox( "Weapon", &overlay.m_weapon.enabled.value );
-				ImGui::Checkbox( "Info flags", &overlay.m_info_flags.enabled.value );
-				ImGui::Checkbox( "Out-of-view arrows", &overlay.m_oof_arrow.enabled.value );
+				draw_function( "Enable ESP", overlay.enabled );
+				draw_function( "Box", overlay.m_box.enabled, true );
+				draw_function( "Skeleton", overlay.m_skeleton.enabled );
+				draw_function( "Name", overlay.m_name.enabled );
+				draw_function( "Weapon", overlay.m_weapon.enabled );
+				draw_function( "Info flags", overlay.m_info_flags.enabled );
+				draw_function( "Out-of-view arrows", overlay.m_oof_arrow.enabled );
 
 				if ( overlay.m_box.enabled.value && ImGui::TreeNode( "Box settings" ) )
 				{
@@ -660,12 +696,12 @@ namespace rendering {
 				ImGui::Text( "Chams and glow" );
 				draw_chams( "Chams", chams, true );
 				draw_chams( "Ragdoll chams", chams_ragdoll, false );
-				ImGui::Checkbox( "Glow", &glow.enabled.value );
+				draw_function( "Glow", glow.enabled );
 				if ( glow.enabled.value )
 				{
 					draw_color( "Glow color", glow.color );
 				}
-				ImGui::Checkbox( "Ragdoll glow", &glow_ragdoll.enabled.value );
+				draw_function( "Ragdoll glow", glow_ragdoll.enabled );
 				if ( glow_ragdoll.enabled.value )
 				{
 					draw_color( "Ragdoll glow color", glow_ragdoll.color );
@@ -676,19 +712,19 @@ namespace rendering {
 			{
 				ImGui::Text( "Local player" );
 				draw_chams( "Chams", player.m_chams.local, true );
-				ImGui::Checkbox( "Lower opacity", &esp.m_local_alpha.enabled.value );
+				draw_function( "Lower opacity", esp.m_local_alpha.enabled );
 				if ( esp.m_local_alpha.enabled.value )
 				{
 					ImGui::SliderFloat( "Opacity", &esp.m_local_alpha.opacity.value, 0.0f, 1.0f, "%.2f" );
 					ImGui::Checkbox( "Only when scoped", &esp.m_local_alpha.only_scoped.value );
 				}
 				draw_chams( "Ragdoll chams", player.m_chams.local_ragdoll, false );
-				ImGui::Checkbox( "Glow", &player.m_glow.local.enabled.value );
+				draw_function( "Glow", player.m_glow.local.enabled );
 				if ( player.m_glow.local.enabled.value )
 				{
 					draw_color( "Glow color", player.m_glow.local.color );
 				}
-				ImGui::Checkbox( "Ragdoll glow", &player.m_glow.local_ragdoll.enabled.value );
+				draw_function( "Ragdoll glow", player.m_glow.local_ragdoll.enabled );
 			}
 			else if ( this->m_visual_section == 3 )
 			{
@@ -737,7 +773,7 @@ namespace rendering {
 					draw_color( "Tracer color", impacts.bullet_tracer_color );
 					ImGui::SliderFloat( "Tracer duration", &impacts.bullet_tracer_duration.value, 0.1f, 5.0f, "%.1f s" );
 				}
-				ImGui::Checkbox( "Projectile ESP", &projectile.m_overlay.enabled.value );
+				draw_function( "Projectile ESP", projectile.m_overlay.enabled );
 				ImGui::Combo( "Group##projectile", &projectile_group, projectile_groups, IM_ARRAYSIZE( projectile_groups ) );
 				ImGui::Checkbox( "Enabled##projectile", &projectile.m_overlay.group_toggle( projectile_group ).value );
 				if ( projectile_group == 5 )
@@ -811,7 +847,7 @@ namespace rendering {
 			{
 				auto& weather = settings::g_world.m_weather;
 				ImGui::Text( "Weather" );
-				ImGui::Checkbox( "Weather", &weather.enabled.value );
+				draw_function( "Weather", weather.enabled );
 				static constexpr const char* weather_types[ 3 ]{ "Snow", "Rain", "Stars" };
 				auto weather_type = static_cast< int >( weather.type.value );
 				if ( ImGui::Combo( "Type##weather", &weather_type, weather_types, IM_ARRAYSIZE( weather_types ) ) )
@@ -953,7 +989,7 @@ namespace rendering {
 					ImGui::SameLine( );
 					ImGui::BeginGroup( );
 					ImGui::Text( "World and movement" );
-					ImGui::Checkbox( "Projectile trajectory", &trajectory.enabled.value );
+					draw_function( "Projectile trajectory", trajectory.enabled );
 					ImGui::Checkbox( "Straight throw", &trajectory.straight_throw.value );
 					ImGui::Checkbox( "Trajectory glow", &trajectory.glow.value );
 					ImGui::SliderFloat( "Trajectory glow strength", &trajectory.glow_strength.value, 0.1f, 1.0f, "%.2f" );
@@ -961,17 +997,17 @@ namespace rendering {
 					draw_config_color( "Thrown color", trajectory.thrown_color );
 					draw_config_color( "Damage held color", trajectory.will_deal_damage_held_color );
 					draw_config_color( "Damage thrown color", trajectory.will_deal_damage_thrown_color );
-					ImGui::Checkbox( "Dynamic light", &dlight.enabled.value );
+					draw_function( "Dynamic light", dlight.enabled );
 					draw_config_color( "Dynamic light color", dlight.color );
 					ImGui::SliderFloat( "Light radius", &dlight.radius.value, 50.0f, 15000.0f, "%.0f" );
 					ImGui::SliderFloat( "Light Z offset", &dlight.z_offset.value, 0.0f, 100.0f, "%.0f" );
-					ImGui::Checkbox( "Penetration crosshair", &penetration.enabled.value );
+					draw_function( "Penetration crosshair", penetration.enabled );
 					ImGui::Checkbox( "Penetration glow", &penetration.glow.value );
 					ImGui::SliderFloat( "Penetration glow strength", &penetration.glow_strength.value, 0.1f, 1.0f, "%.2f" );
 					draw_config_color( "Can penetrate", penetration.can_penetrate_fill );
 					draw_config_color( "Blocked", penetration.blocked_fill );
 					ImGui::Checkbox( "Bunnyhop", &movement.bhop.value );
-					ImGui::Checkbox( "Autostrafe", &movement.m_test_strafer.enabled.value );
+					draw_function( "Autostrafe", movement.m_test_strafer.enabled );
 					ImGui::Checkbox( "Jumpbug", &movement.jumpbug.value );
 					ImGui::Checkbox( "Fast ladder", &movement.fastladder.value );
 					ImGui::Checkbox( "Edgejump", &movement.edgejump.value );
@@ -986,7 +1022,7 @@ namespace rendering {
 					static constexpr const char* primary_weapons[ 6 ]{ "None", "Rifle", "Scoped rifle", "Scout", "AWP", "Auto sniper" };
 					static constexpr const char* secondary_weapons[ 5 ]{ "None", "Dual elites", "Five-seven / Tec-9", "Deagle", "Revolver" };
 					static constexpr const char* grenades[ 5 ]{ "Molotov", "HE grenade", "Smoke", "Flashbang", "Decoy" };
-					ImGui::Checkbox( "Auto buy", &autobuy.enabled.value );
+					draw_function( "Auto buy", autobuy.enabled );
 					ImGui::Combo( "Primary weapon", &autobuy.primary_weapon.value, primary_weapons, IM_ARRAYSIZE( primary_weapons ) );
 					ImGui::Combo( "Secondary weapon", &autobuy.secondary_weapon.value, secondary_weapons, IM_ARRAYSIZE( secondary_weapons ) );
 					ImGui::Checkbox( "Armor", &autobuy.armor.value );
@@ -1032,7 +1068,7 @@ namespace rendering {
 					ImGui::SameLine( );
 					ImGui::BeginGroup( );
 					ImGui::Text( "Viewmodel" );
-					ImGui::Checkbox( "Viewmodel adjust", &viewmodel.enabled.value );
+					draw_function( "Viewmodel adjust", viewmodel.enabled );
 					ImGui::SliderFloat( "Offset X", &viewmodel.offset_x.value, -10.0f, 10.0f, "%.1f" );
 					ImGui::SliderFloat( "Offset Y", &viewmodel.offset_y.value, -10.0f, 10.0f, "%.1f" );
 					ImGui::SliderFloat( "Offset Z", &viewmodel.offset_z.value, -10.0f, 10.0f, "%.1f" );
@@ -1044,12 +1080,12 @@ namespace rendering {
 					auto& hud = misc.m_hud;
 					ImGui::BeginGroup( );
 					ImGui::Text( "Crosshair and scope" );
-					ImGui::Checkbox( "Crosshair overlay", &hud.m_crosshair.enabled.value );
+					draw_function( "Crosshair overlay", hud.m_crosshair.enabled );
 					ImGui::SliderFloat( "Crosshair size", &hud.m_crosshair.size.value, 0.5f, 10.0f, "%.1f" );
 					ImGui::SliderFloat( "Crosshair outline", &hud.m_crosshair.outline.value, 0.0f, 4.0f, "%.1f" );
 					draw_config_color( "Crosshair color", hud.m_crosshair.color );
 					draw_config_color( "Crosshair outline color", hud.m_crosshair.outline_color );
-					ImGui::Checkbox( "Scope overlay", &hud.m_scope.enabled.value );
+					draw_function( "Scope overlay", hud.m_scope.enabled );
 					ImGui::SliderFloat( "Scope line length", &hud.m_scope.line_length.value, 10.0f, 500.0f, "%.0f" );
 					ImGui::SliderFloat( "Scope gap", &hud.m_scope.gap.value, 0.0f, 50.0f, "%.0f" );
 					ImGui::SliderFloat( "Scope thickness", &hud.m_scope.thickness.value, 0.5f, 5.0f, "%.2f" );
@@ -1070,7 +1106,7 @@ namespace rendering {
 					ImGui::SliderFloat( "Chart height", &hud.m_velocity.chart_height.value, 20.0f, 150.0f, "%.0f" );
 					ImGui::Separator( );
 					ImGui::Text( "Custom HUD" );
-					ImGui::Checkbox( "Custom HUD enabled", &hud.m_local_status.enabled.value );
+					draw_function( "Custom HUD enabled", hud.m_local_status.enabled );
 					if ( hud.m_local_status.enabled.value )
 					{
 						ImGui::Checkbox( "Local health", &hud.m_local_status.health.value );
@@ -1084,9 +1120,9 @@ namespace rendering {
 					ImGui::Checkbox( "Reveal radar", &misc.reveal_radar.value );
 					ImGui::Checkbox( "Preserve killfeed", &misc.preserve_killfeed.value );
 					ImGui::Checkbox( "Disable game logs", &misc.disable_game_logs.value );
-					ImGui::Checkbox( "Scoreboard weapons", &misc.m_scoreboard_weapons.enabled.value );
+					draw_function( "Scoreboard weapons", misc.m_scoreboard_weapons.enabled );
 					draw_config_color( "Scoreboard color", misc.m_scoreboard_weapons.color );
-					ImGui::Checkbox( "Watermark", &misc.m_watermark.enabled.value );
+					draw_function( "Watermark", misc.m_watermark.enabled );
 					if ( misc.m_watermark.enabled.value )
 					{
 						ImGui::Text( "Watermark elements" );
@@ -1418,7 +1454,7 @@ namespace rendering {
 			static constexpr const char* weapon_groups[ 6 ]{ "Pistols", "SMG", "Rifles", "Shotguns", "Snipers", "LMG" };
 			static constexpr const char* hitboxes[ 5 ]{ "Head", "Chest", "Stomach", "Arms", "Legs" };
 
-			ImGui::Checkbox( "Enable legitbot", &legitbot.enabled.value );
+			draw_function( "Enable legitbot", legitbot.enabled );
 			ImGui::Separator( );
 			for ( auto i = 0; i < 6; ++i )
 			{
@@ -1442,7 +1478,7 @@ namespace rendering {
 			{
 				ImGui::BeginGroup( );
 				ImGui::Text( "Aimbot" );
-				ImGui::Checkbox( "Aimbot##aim", &group.aimbot.value );
+				draw_function( "Aimbot##aim", group.aimbot );
 				ImGui::Checkbox( "Silent##aim", &group.silent.value );
 				ImGui::Checkbox( "No spread##aim", &group.no_spread.value );
 				ImGui::SliderFloat( "FOV##aim", &group.fov.value, 0.5f, 30.0f, "%.1f deg" );
@@ -1481,7 +1517,7 @@ namespace rendering {
 
 				ImGui::Spacing( );
 				ImGui::Text( "Triggerbot" );
-				ImGui::Checkbox( "Triggerbot##aim", &group.triggerbot.value );
+				draw_function( "Triggerbot##aim", group.triggerbot );
 				ImGui::SliderInt( "Delay##trigger", &group.trigger_delay.value, 0, 250, "%d ms" );
 				ImGui::SliderInt( "Hitchance##trigger", &group.trigger_hitchance.value, 0, 100, "%d%%" );
 				ImGui::Checkbox( "Head only##trigger", &group.trigger_head_only.value );
@@ -1510,7 +1546,7 @@ namespace rendering {
 			static constexpr const char* hitboxes[ 6 ]{ "Head", "Chest", "Stomach", "Arms", "Legs", "Feet" };
 			static constexpr const char* pitch_modes[ 3 ]{ "None", "Down", "Up" };
 
-			ImGui::Checkbox( "Enable ragebot", &ragebot.enabled.value );
+			draw_function( "Enable ragebot", ragebot.enabled );
 			ImGui::Separator( );
 			for ( auto i = 0; i < 6; ++i )
 			{
@@ -1570,13 +1606,13 @@ namespace rendering {
 				ImGui::Text( "Other bots" );
 				ImGui::Checkbox( "Auto revolver##rage", &autos.revolver.value );
 				ImGui::Checkbox( "Auto scope##rage", &autos.scope.value );
-				ImGui::Checkbox( "Zeusbot##rage", &zeusbot.enabled.value );
+				draw_function( "Zeusbot##rage", zeusbot.enabled );
 				if ( zeusbot.enabled.value )
 				{
 					ImGui::SliderFloat( "Zeus FOV##rage", &zeusbot.max_fov.value, 1.0f, 180.0f, "%.0f deg" );
 					ImGui::Checkbox( "Drop after##rage", &zeusbot.drop_after.value );
 				}
-				ImGui::Checkbox( "Knifebot##rage", &knifebot.enabled.value );
+				draw_function( "Knifebot##rage", knifebot.enabled );
 				if ( knifebot.enabled.value )
 				{
 					ImGui::SliderFloat( "Knife FOV##rage", &knifebot.max_fov.value, 1.0f, 180.0f, "%.0f deg" );
@@ -1585,7 +1621,7 @@ namespace rendering {
 
 				ImGui::Separator( );
 				ImGui::Text( "Anti aim" );
-				ImGui::Checkbox( "Enable anti aim##rage", &anti_aim.enabled.value );
+				draw_function( "Enable anti aim##rage", anti_aim.enabled );
 				auto pitch = static_cast< int >( anti_aim.pitch.value );
 				if ( ImGui::Combo( "Pitch##rage", &pitch, pitch_modes, IM_ARRAYSIZE( pitch_modes ) ) )
 				{
@@ -1603,10 +1639,10 @@ namespace rendering {
 
 				ImGui::Separator( );
 				ImGui::Text( "Peek assistance" );
-				ImGui::Checkbox( "Quick peek##rage", &quick_peek.enabled.value );
+				draw_function( "Quick peek##rage", quick_peek.enabled );
 				draw_config_color( "Quick peek color##rage", quick_peek.color );
 				draw_config_color( "Retracting color##rage", quick_peek.retrack_color );
-				ImGui::Checkbox( "Duck peek##rage", &duck_peek.enabled.value );
+				draw_function( "Duck peek##rage", duck_peek.enabled );
 			}
 		}
 		else if ( this->m_tab == 6 )
@@ -1618,7 +1654,7 @@ namespace rendering {
 			ImGui::Separator( );
 			ImGui::BeginGroup( );
 			ImGui::Text( "Hat" );
-			ImGui::Checkbox( "Enable hat", &hat.enabled.value );
+			draw_function( "Enable hat", hat.enabled );
 			auto hat_type = static_cast< int >( hat.type.value );
 			if ( ImGui::Combo( "Hat type", &hat_type, hat_types, IM_ARRAYSIZE( hat_types ) ) )
 			{
@@ -1899,6 +1935,20 @@ namespace rendering {
 
 			settings::g_misc.menu_key.value = static_cast< int >( wparam );
 			this->m_rebinding_menu_key = false;
+			return true;
+		}
+
+		if ( this->m_rebinding_setting && msg == WM_KEYDOWN && !( lparam & ( 1 << 30 ) ) )
+		{
+			if ( wparam == VK_ESCAPE )
+			{
+				this->m_rebinding_setting = nullptr;
+				return true;
+			}
+
+			this->m_rebinding_setting->bind.key = static_cast< int >( wparam );
+			this->m_rebinding_setting->bind.active = false;
+			this->m_rebinding_setting = nullptr;
 			return true;
 		}
 

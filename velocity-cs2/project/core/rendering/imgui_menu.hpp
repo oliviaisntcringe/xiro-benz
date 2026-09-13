@@ -27,6 +27,7 @@ namespace rendering {
 		bool m_initialized{};
 		bool m_open{};
 		bool m_rebinding_menu_key{};
+		xui::setting* m_rebinding_setting{};
 		int m_tab{};
 		int m_visual_section{};
 		int m_aim_weapon_group{};
