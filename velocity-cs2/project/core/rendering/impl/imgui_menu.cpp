@@ -214,7 +214,7 @@ namespace rendering {
 			}
 		}
 
-		if ( local.is_valid( ) && ( local_status.health.value || local_status.ammo.value ) )
+		if ( local.is_valid( ) && local_status.enabled.value && ( local_status.health.value || local_status.ammo.value ) )
 		{
 			const auto health = std::clamp( memory::read<int>( local.pawn + SCHEMA( "C_BaseEntity", "m_iHealth"_hash ) ), 0, 100 );
 			const auto weapon_services = memory::read<std::uintptr_t>( local.pawn + SCHEMA( "C_BasePlayerPawn", "m_pWeaponServices"_hash ) );
@@ -875,12 +875,16 @@ namespace rendering {
 					ImGui::SliderFloat( "Chart width", &hud.m_velocity.chart_width.value, 50.0f, 500.0f, "%.0f" );
 					ImGui::SliderFloat( "Chart height", &hud.m_velocity.chart_height.value, 20.0f, 150.0f, "%.0f" );
 					ImGui::Separator( );
-					ImGui::Text( "Local HUD" );
-					ImGui::Checkbox( "Local health", &hud.m_local_status.health.value );
-					ImGui::Checkbox( "Local ammo", &hud.m_local_status.ammo.value );
-					draw_config_color( "Health color##local", hud.m_local_status.health_color );
-					draw_config_color( "Ammo color##local", hud.m_local_status.ammo_color );
-					ImGui::SliderFloat( "Local HUD bottom offset", &hud.m_local_status.bottom_offset.value, 20.0f, 220.0f, "%.0f" );
+					ImGui::Text( "Custom HUD" );
+					ImGui::Checkbox( "Custom HUD enabled", &hud.m_local_status.enabled.value );
+					if ( hud.m_local_status.enabled.value )
+					{
+						ImGui::Checkbox( "Local health", &hud.m_local_status.health.value );
+						ImGui::Checkbox( "Local ammo", &hud.m_local_status.ammo.value );
+						draw_config_color( "Health color##local", hud.m_local_status.health_color );
+						draw_config_color( "Ammo color##local", hud.m_local_status.ammo_color );
+						ImGui::SliderFloat( "Custom HUD bottom offset", &hud.m_local_status.bottom_offset.value, 20.0f, 220.0f, "%.0f" );
+					}
 					ImGui::Separator( );
 					ImGui::Text( "General" );
 					ImGui::Checkbox( "Reveal radar", &misc.reveal_radar.value );

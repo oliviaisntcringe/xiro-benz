@@ -1287,11 +1287,12 @@ namespace settings {
 
 			struct local_status
 			{
-				xui::setting health{ true, {}, "local health", "local hud" };
-				xui::setting ammo{ true, {}, "local ammo", "local hud" };
-				config::col health_color{ { 98, 217, 109, 255 }, "local hud", "health color" };
-				config::col ammo_color{ { 173, 192, 255, 255 }, "local hud", "ammo color" };
-				config::val<float> bottom_offset{ 42.0f, "local hud", "bottom offset" };
+				xui::setting enabled{ true, {}, "custom hud", "custom hud" };
+				xui::setting health{ true, {}, "local health", "custom hud" };
+				xui::setting ammo{ true, {}, "local ammo", "custom hud" };
+				config::col health_color{ { 98, 217, 109, 255 }, "custom hud", "health color" };
+				config::col ammo_color{ { 173, 192, 255, 255 }, "custom hud", "ammo color" };
+				config::val<float> bottom_offset{ 42.0f, "custom hud", "bottom offset" };
 			} m_local_status{};
 		} m_hud{};
 
