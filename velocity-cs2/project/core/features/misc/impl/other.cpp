@@ -74,10 +74,39 @@ namespace features::misc {
 
 	void other::on_frame_stage_notify( )
 	{
+		this->do_custom_hud( );
 		this->do_player_alpha_changing( );
 		this->do_reveal_radar( );
 		this->do_name_changing( );
 		this->do_viewmodel_adjust( );
+	}
+
+	void other::do_custom_hud( )
+	{
+		auto* draw_hud = CONVAR( "cl_drawhud" );
+		if ( !draw_hud )
+		{
+			return;
+		}
+
+		const auto enabled = settings::g_misc.m_hud.m_local_status.enabled.value;
+		if ( enabled )
+		{
+			if ( !this->m_custom_hud_changed )
+			{
+				this->m_original_hud_visible = draw_hud->get<bool>( );
+				this->m_custom_hud_changed = true;
+			}
+
+			draw_hud->m_value.i1 = false;
+			return;
+		}
+
+		if ( this->m_custom_hud_changed )
+		{
+			draw_hud->m_value.i1 = this->m_original_hud_visible;
+			this->m_custom_hud_changed = false;
+		}
 	}
 
 	void other::do_reveal_radar( ) const
