@@ -99,7 +99,7 @@ namespace rendering {
 
 		void draw_animated_window_separator( float height = 2.0f )
 		{
-			const auto* draw = ImGui::GetWindowDrawList( );
+			auto* draw = ImGui::GetWindowDrawList( );
 			const auto start = ImGui::GetCursorScreenPos( );
 			const auto width = ImGui::GetContentRegionAvail( ).x;
 			const auto time = ImGui::GetTime( );
@@ -528,7 +528,7 @@ namespace rendering {
 
 		auto draw_rule = [ ]( const ImVec4& color, float thickness = 1.0f )
 		{
-			const auto* draw = ImGui::GetWindowDrawList( );
+			auto* draw = ImGui::GetWindowDrawList( );
 			const auto min = ImGui::GetCursorScreenPos( );
 			const auto max = ImVec2{ min.x + ImGui::GetContentRegionAvail( ).x, min.y + thickness };
 			draw->AddRectFilled( min, max, ImGui::ColorConvertFloat4ToU32( color ) );
