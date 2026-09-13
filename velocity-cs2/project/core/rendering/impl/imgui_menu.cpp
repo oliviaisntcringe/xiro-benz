@@ -97,6 +97,34 @@ namespace rendering {
 			);
 		}
 
+		void draw_animated_window_separator( float height = 2.0f )
+		{
+			const auto* draw = ImGui::GetWindowDrawList( );
+			const auto start = ImGui::GetCursorScreenPos( );
+			const auto width = ImGui::GetContentRegionAvail( ).x;
+			const auto time = ImGui::GetTime( );
+			constexpr auto segment_width = 10.0f;
+			const auto segment_count = std::max( 1, static_cast< int >( std::ceil( width / segment_width ) ) );
+
+			for ( auto i = 0; i < segment_count; ++i )
+			{
+				const auto x0 = start.x + width * static_cast< float >( i ) / segment_count;
+				const auto x1 = start.x + width * static_cast< float >( i + 1 ) / segment_count;
+				const auto wave = std::sin( time * 3.0f - static_cast< float >( i ) * 0.22f ) * 0.5f + 0.5f;
+				const auto red = static_cast< int >( 42.0f + wave * 25.0f );
+				const auto green = static_cast< int >( 112.0f + wave * 88.0f );
+				const auto blue = static_cast< int >( 38.0f + wave * 42.0f );
+				const auto alpha = static_cast< int >( 155.0f + wave * 75.0f );
+				draw->AddRectFilled(
+					ImVec2{ x0, start.y },
+					ImVec2{ x1 + 0.5f, start.y + height },
+					IM_COL32( red, green, blue, alpha )
+				);
+			}
+
+			ImGui::Dummy( ImVec2{ 0.0f, height + 7.0f } );
+		}
+
 		const char* menu_key_name( int key )
 		{
 			switch ( key )
@@ -284,6 +312,7 @@ namespace rendering {
 			ImVec2{ max_panel_width, max_panel_height }
 		);
 		ImGui::Begin( "TRIADA.BENZ", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar );
+		draw_animated_window_separator( );
 		const auto header_pos = ImGui::GetCursorScreenPos( );
 		const auto header_width = ImGui::GetContentRegionAvail( ).x;
 		const auto header_rect = ImRect{
@@ -322,6 +351,7 @@ namespace rendering {
 		ImGui::Begin( "##imgui_profile_hud", nullptr,
 			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
 			| ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing );
+		draw_animated_window_separator( 1.0f );
 		if ( ImGui::IsKeyPressed( ImGuiKey_F9, false ) )
 		{
 			profile_actions_open = !profile_actions_open;
@@ -348,6 +378,7 @@ namespace rendering {
 			ImGui::Begin( "##imgui_profile_actions", &profile_actions_open,
 				ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
 				| ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize );
+			draw_animated_window_separator( );
 			ImGui::TextColored( rendering::retro::accent_green, "PROFILE / INPUT" );
 			ImGui::Separator( );
 			ImGui::Text( "Open / close: %s", menu_key_name( settings::g_misc.menu_key.value ) );
