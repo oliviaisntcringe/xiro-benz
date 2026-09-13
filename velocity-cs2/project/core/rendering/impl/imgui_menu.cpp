@@ -801,15 +801,31 @@ namespace rendering {
 			static int last_category{ -1 };
 			static bool weapon_selection_dirty{};
 			static char skin_search[ 128 ]{};
+			static int agent_team{ 2 };
 
 			auto display_name = [ ]( const std::string& localized, const std::string& fallback )
 			{
-				if ( !localized.empty( ) && localized != "???" )
+				if ( !localized.empty( ) && localized != "???" && localized.find( "???" ) == std::string::npos )
 				{
 					return localized;
 				}
 
-				return fallback;
+				if ( !fallback.empty( ) && fallback != "???" && fallback.find( "???" ) == std::string::npos )
+				{
+					return fallback;
+				}
+
+				return std::string{ "Unknown item" };
+			};
+			auto rarity_color = [ ]( int rarity )
+			{
+				static constexpr ImVec4 colors[ 8 ]{
+					{ 0.92f, 0.92f, 0.92f, 1.0f }, { 0.54f, 0.68f, 0.91f, 1.0f },
+					{ 0.30f, 0.45f, 0.77f, 1.0f }, { 0.54f, 0.34f, 0.81f, 1.0f },
+					{ 0.83f, 0.17f, 0.90f, 1.0f }, { 0.92f, 0.29f, 0.29f, 1.0f },
+					{ 0.89f, 0.68f, 0.22f, 1.0f }, { 1.0f, 0.84f, 0.0f, 1.0f }
+				};
+				return colors[ std::clamp( rarity, 0, 7 ) ];
 			};
 
 			ImGui::Text( "Skin changer" );
@@ -829,7 +845,47 @@ namespace rendering {
 			}
 			ImGui::Separator( );
 
-			const auto& items = category == 0 ? econ.guns( ) : category == 1 ? econ.knives( ) : category == 2 ? econ.gloves( ) : econ.agents( );
+			if ( category == 3 )
+			{
+				if ( ImGui::Selectable( "Terrorist", agent_team == 2, 0, ImVec2{ 110.0f, 26.0f } ) )
+				{
+					agent_team = 2;
+					selected_item = 0;
+					weapon_selection_dirty = false;
+				}
+				ImGui::SameLine( );
+				if ( ImGui::Selectable( "Counter-Terrorist", agent_team == 3, 0, ImVec2{ 150.0f, 26.0f } ) )
+				{
+					agent_team = 3;
+					selected_item = 0;
+					weapon_selection_dirty = false;
+				}
+				ImGui::Separator( );
+			}
+
+			std::vector< const features::changer::econ_item_system::item_def* > items;
+			if ( category == 0 )
+			{
+				items = econ.guns( );
+			}
+			else if ( category == 1 )
+			{
+				items = econ.knives( );
+			}
+			else if ( category == 2 )
+			{
+				items = econ.gloves( );
+			}
+			else
+			{
+				for ( const auto* agent : econ.agents( ) )
+				{
+					if ( agent->team( ) == agent_team )
+					{
+						items.push_back( agent );
+					}
+				}
+			}
 			if ( items.empty( ) )
 			{
 				ImGui::TextDisabled( "No item definitions are available yet." );
@@ -941,7 +997,7 @@ namespace rendering {
 
 					if ( const auto* paint = econ.find_paint_kit( skin.paint_kit_id ) )
 					{
-						auto paint_name = paint->localized_name.empty( ) ? paint->name : paint->localized_name;
+						auto paint_name = display_name( paint->localized_name, paint->name );
 						std::string paint_name_lower{ paint_name };
 						for ( auto& character : paint_name_lower )
 						{
@@ -974,7 +1030,20 @@ namespace rendering {
 					for ( const auto* paint : paint_kits )
 					{
 						const auto paint_name = display_name( paint->localized_name, paint->name );
-						if ( ImGui::Selectable( paint_name.c_str( ), selected_paint_id == paint->id ) )
+						const auto rarity = econ.combined_rarity( item->def_index, paint->id );
+						ImGui::PushID( paint->id );
+						const auto* thumbnail = econ.get_skin_image( item->def_index, paint->id );
+						if ( thumbnail && thumbnail->srv )
+						{
+							ImGui::Image( reinterpret_cast< ImTextureID >( thumbnail->srv.Get( ) ), ImVec2{ 64.0f, 30.0f } );
+						}
+						else
+						{
+							ImGui::Dummy( ImVec2{ 64.0f, 30.0f } );
+						}
+						ImGui::SameLine( 80.0f );
+						ImGui::PushStyleColor( ImGuiCol_Text, rarity_color( rarity ) );
+						if ( ImGui::Selectable( paint_name.c_str( ), selected_paint_id == paint->id, 0, ImVec2{ 0.0f, 30.0f } ) )
 						{
 							selected_paint_id = paint->id;
 							if ( category == 1 || category == 2 )
@@ -995,6 +1064,10 @@ namespace rendering {
 							changer.skins.data[ item->def_index ].paint_kit_id = paint->id;
 							weapon_selection_dirty = false;
 						}
+						ImGui::PopStyleColor( );
+						ImGui::SameLine( );
+						ImGui::TextDisabled( "[R%d]", rarity );
+						ImGui::PopID( );
 					}
 
 					if ( selected_paint_id != 0 )
