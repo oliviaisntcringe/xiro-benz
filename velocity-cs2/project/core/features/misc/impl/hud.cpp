@@ -299,6 +299,84 @@ namespace features::misc {
 				}
 			};
 
+		if ( cfg.type == settings::misc::hud::hat::hat_type::halo )
+		{
+			const auto halo_center = hat_origin + up_world * 3.5f;
+			math::vector2 halo[ segments ];
+			if ( !project_ring( halo_center, 8.5f, halo, segments ) )
+			{
+				return;
+			}
+
+			if ( cfg.glow )
+			{
+				auto& glow = xdraw::get_glow( );
+				const auto glow_alpha = static_cast< std::uint8_t >( static_cast< float >( primary_col.a ) * cfg.glow_strength );
+				const auto glow_color = xdraw::color{ primary_col.r, primary_col.g, primary_col.b, glow_alpha };
+				for ( auto i = 0; i < segments; ++i )
+				{
+					const auto next = ( i + 1 ) % segments;
+					glow.line( halo[ i ].x, halo[ i ].y, halo[ next ].x, halo[ next ].y, glow_color, 3.0f );
+				}
+			}
+
+			draw_ring( halo, segments, primary_col, 1.5f );
+			return;
+		}
+
+		if ( cfg.type == settings::misc::hud::hat::hat_type::crown )
+		{
+			const auto base_center = hat_origin;
+			const auto top_center = hat_origin + up_world * 6.0f;
+			math::vector2 base[ segments ];
+			math::vector2 top[ segments ];
+			if ( !project_ring( base_center, 7.0f, base, segments ) || !project_ring( top_center, 5.0f, top, segments ) )
+			{
+				return;
+			}
+
+			draw_ring( base, segments, primary_col, 1.3f );
+			draw_ring( top, segments, secondary_col, 1.3f );
+			for ( auto i = 0; i < segments; i += 4 )
+			{
+				draw_list.line( base[ i ].x, base[ i ].y, top[ i ].x, top[ i ].y, secondary_col, 1.0f );
+			}
+			return;
+		}
+
+		if ( cfg.type == settings::misc::hud::hat::hat_type::horns )
+		{
+			const auto left_base = hat_origin - right_world * 4.5f;
+			const auto right_base = hat_origin + right_world * 4.5f;
+			const auto left_tip = left_base + right_world * -2.0f + up_world * 7.0f;
+			const auto right_tip = right_base + right_world * 2.0f + up_world * 7.0f;
+			const auto left_mid = left_base + right_world * -1.0f + up_world * 4.0f;
+			const auto right_mid = right_base + right_world * 1.0f + up_world * 4.0f;
+
+			const auto project = [ & ]( const math::vector3& point, math::vector2& screen ) -> bool
+			{
+				const auto projected = systems::g_view.project( point );
+				if ( !systems::g_view.projection_valid( projected ) )
+				{
+					return false;
+				}
+				screen = { projected.x, projected.y };
+				return true;
+			};
+
+			math::vector2 left_points[ 3 ];
+			math::vector2 right_points[ 3 ];
+			if ( !project( left_base, left_points[ 0 ] ) || !project( left_mid, left_points[ 1 ] ) || !project( left_tip, left_points[ 2 ] ) ||
+				 !project( right_base, right_points[ 0 ] ) || !project( right_mid, right_points[ 1 ] ) || !project( right_tip, right_points[ 2 ] ) )
+			{
+				return;
+			}
+
+			draw_list.polyline( &left_points[ 0 ].x, 3, secondary_col, false, 1.5f );
+			draw_list.polyline( &right_points[ 0 ].x, 3, secondary_col, false, 1.5f );
+			return;
+		}
+
 		if ( cfg.type == settings::misc::hud::hat::hat_type::kasa )
 		{
 			constexpr auto base_radius{ 10.0f };

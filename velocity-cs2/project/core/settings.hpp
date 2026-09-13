@@ -1265,7 +1265,7 @@ namespace settings {
 
 			struct hat
 			{
-				enum class hat_type : std::uint8_t { kasa, bucket };
+				enum class hat_type : std::uint8_t { kasa, bucket, halo, crown, horns };
 
 				xui::setting enabled{ false, {}, "hat", "hat" };
 				config::enm<hat_type> type{ hat_type::kasa, "hat", "type" };

@@ -539,7 +539,6 @@ namespace rendering {
 				static constexpr const char* sound_types[ 10 ]{ "Shop click", "Home click", "Bell", "Killcard", "Bullet casing", "Coin pickup", "Item drop", "Popcan", "Key press", "Custom" };
 				static constexpr const char* marker_types[ 3 ]{ "Classic", "Damage", "Both" };
 				static constexpr const char* impact_types[ 3 ]{ "Overlay", "Sparks", "Both" };
-				static constexpr const char* hat_types[ 2 ]{ "Kasa", "Bucket" };
 
 				static int section{};
 				for ( auto i = 0; i < 4; ++i )
@@ -760,17 +759,7 @@ namespace rendering {
 					ImGui::EndGroup( );
 					ImGui::SameLine( );
 					ImGui::BeginGroup( );
-					ImGui::Text( "Hat and velocity" );
-					ImGui::Checkbox( "Hat", &hud.m_hat.enabled.value );
-					auto hat = static_cast< int >( hud.m_hat.type.value );
-					if ( ImGui::Combo( "Hat type", &hat, hat_types, IM_ARRAYSIZE( hat_types ) ) )
-					{
-						hud.m_hat.type.value = static_cast< settings::misc::hud::hat::hat_type >( hat );
-					}
-					draw_config_color( "Hat color", hud.m_hat.color );
-					draw_config_color( "Hat secondary color", hud.m_hat.secondary_color );
-					ImGui::Checkbox( "Hat glow", &hud.m_hat.glow.value );
-					ImGui::SliderFloat( "Hat glow strength", &hud.m_hat.glow_strength.value, 0.1f, 1.0f, "%.2f" );
+					ImGui::Text( "Velocity HUD" );
 					ImGui::Checkbox( "Velocity counter", &hud.m_velocity.counter.value );
 					ImGui::Checkbox( "Velocity chart", &hud.m_velocity.chart.value );
 					draw_config_color( "Velocity color", hud.m_velocity.color );
@@ -1225,7 +1214,7 @@ namespace rendering {
 		else if ( this->m_tab == 5 )
 		{
 			auto& hat = settings::g_misc.m_hud.m_hat;
-			static constexpr const char* hat_types[ 2 ]{ "Kasa", "Bucket" };
+			static constexpr const char* hat_types[ 5 ]{ "Kasa", "Bucket", "Halo", "Crown", "Horns" };
 
 			ImGui::Text( "Personal" );
 			ImGui::Separator( );
@@ -1263,7 +1252,26 @@ namespace rendering {
 					const auto primary_u32 = ImGui::ColorConvertFloat4ToU32( primary );
 					const auto secondary_u32 = ImGui::ColorConvertFloat4ToU32( secondary );
 					draw_list->AddEllipse( ImVec2{ center_x, hat_y + 30.0f }, ImVec2{ 48.0f, 12.0f }, primary_u32, 0, 2.0f );
-					if ( hat.type.value == settings::misc::hud::hat::hat_type::kasa )
+					if ( hat.type.value == settings::misc::hud::hat::hat_type::halo )
+					{
+						draw_list->AddEllipse( ImVec2{ center_x, hat_y + 10.0f }, ImVec2{ 52.0f, 14.0f }, primary_u32, 0, 32, 2.0f );
+					}
+					else if ( hat.type.value == settings::misc::hud::hat::hat_type::crown )
+					{
+						draw_list->AddRect( ImVec2{ center_x - 38.0f, hat_y + 6.0f }, ImVec2{ center_x + 38.0f, hat_y + 34.0f }, primary_u32, 0.0f, 0, 2.0f );
+						draw_list->AddLine( ImVec2{ center_x - 38.0f, hat_y + 6.0f }, ImVec2{ center_x - 25.0f, hat_y - 22.0f }, secondary_u32, 2.0f );
+						draw_list->AddLine( ImVec2{ center_x - 25.0f, hat_y - 22.0f }, ImVec2{ center_x, hat_y + 6.0f }, secondary_u32, 2.0f );
+						draw_list->AddLine( ImVec2{ center_x, hat_y + 6.0f }, ImVec2{ center_x + 25.0f, hat_y - 22.0f }, secondary_u32, 2.0f );
+						draw_list->AddLine( ImVec2{ center_x + 25.0f, hat_y - 22.0f }, ImVec2{ center_x + 38.0f, hat_y + 6.0f }, secondary_u32, 2.0f );
+					}
+					else if ( hat.type.value == settings::misc::hud::hat::hat_type::horns )
+					{
+						draw_list->AddLine( ImVec2{ center_x - 30.0f, hat_y + 24.0f }, ImVec2{ center_x - 46.0f, hat_y - 18.0f }, secondary_u32, 2.0f );
+						draw_list->AddLine( ImVec2{ center_x - 46.0f, hat_y - 18.0f }, ImVec2{ center_x - 12.0f, hat_y + 10.0f }, secondary_u32, 2.0f );
+						draw_list->AddLine( ImVec2{ center_x + 30.0f, hat_y + 24.0f }, ImVec2{ center_x + 46.0f, hat_y - 18.0f }, secondary_u32, 2.0f );
+						draw_list->AddLine( ImVec2{ center_x + 46.0f, hat_y - 18.0f }, ImVec2{ center_x + 12.0f, hat_y + 10.0f }, secondary_u32, 2.0f );
+					}
+					else if ( hat.type.value == settings::misc::hud::hat::hat_type::kasa )
 					{
 						draw_list->AddLine( ImVec2{ center_x - 34.0f, hat_y + 30.0f }, ImVec2{ center_x, hat_y - 18.0f }, secondary_u32, 2.0f );
 						draw_list->AddLine( ImVec2{ center_x, hat_y - 18.0f }, ImVec2{ center_x + 34.0f, hat_y + 30.0f }, secondary_u32, 2.0f );

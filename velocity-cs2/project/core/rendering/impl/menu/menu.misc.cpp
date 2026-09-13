@@ -58,7 +58,7 @@ namespace rendering {
 		constexpr const char* secondary_weapons[ ]{ "none", "dual elites", "five-seven/tec-9", "deagle", "revolver" };
 		constexpr const char* grenade_names[ ]{ "molotov", "he grenade", "smoke", "flashbang", "decoy" };
 
-		constexpr const char* hat_types[ ]{ "kasa", "bucket" };
+		constexpr const char* hat_types[ ]{ "kasa", "bucket", "halo", "crown", "horns" };
 
 	} // namespace detail
 
@@ -448,7 +448,7 @@ namespace rendering {
 				xui::checkbox( "hat", hud.m_hat.enabled );
 				if ( xui::begin_popup( "##hat_popup", 220.0f ) )
 				{
-					xui::combo( "type##hat", hud.m_hat.type.value, detail::hat_types, 2 );
+					xui::combo( "type##hat", hud.m_hat.type.value, detail::hat_types, 5 );
 					xui::color_picker( "color##hat", hud.m_hat.color );
 					xui::color_picker( "secondary color##hat", hud.m_hat.secondary_color );
 					xui::checkbox( "glow##hat", hud.m_hat.glow );
