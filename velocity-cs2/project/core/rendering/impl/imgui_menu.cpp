@@ -609,7 +609,17 @@ namespace rendering {
 			static constexpr const char* categories[ 4 ]{ "Weapons", "Knives", "Gloves", "Agents" };
 			static int category{};
 			static int selected_item{};
-			static int selected_paint{};
+			static int selected_paint_id{};
+
+			auto display_name = [ ]( const std::string& localized, const std::string& fallback )
+			{
+				if ( !localized.empty( ) && localized != "???" )
+				{
+					return localized;
+				}
+
+				return fallback;
+			};
 
 			ImGui::Text( "Skin changer" );
 			for ( auto i = 0; i < 4; ++i )
@@ -622,7 +632,7 @@ namespace rendering {
 				{
 					category = i;
 					selected_item = 0;
-					selected_paint = 0;
+					selected_paint_id = 0;
 				}
 			}
 			ImGui::Separator( );
@@ -635,15 +645,52 @@ namespace rendering {
 			else
 			{
 				selected_item = std::clamp( selected_item, 0, static_cast< int >( items.size( ) ) - 1 );
-				std::vector< const char* > item_names;
-				item_names.reserve( items.size( ) );
-				for ( const auto* item : items )
+				const auto* item = items[ selected_item ];
+				const auto weapon_name = display_name( item->localized_name, item->name );
+
+				ImGui::BeginChild( "##skin_preview", ImVec2{ 280.0f, 0.0f }, true );
+				const auto applied_it = changer.skins.data.find( item->def_index );
+				const auto applied_paint = applied_it != changer.skins.data.end( ) ? applied_it->second.paint_kit_id : 0;
+				const auto selected_paint = selected_paint_id != 0 ? econ.find_paint_kit( selected_paint_id ) : econ.find_paint_kit( applied_paint );
+				const auto skin_name = selected_paint ? display_name( selected_paint->localized_name, selected_paint->name ) : std::string{ "Default" };
+				ImGui::TextWrapped( "%s | %s", weapon_name.c_str( ), skin_name.c_str( ) );
+				ImGui::Separator( );
+
+				const auto preview = econ.get_skin_image( item->def_index, selected_paint ? selected_paint->id : 0 );
+				if ( preview && preview->width > 0 && preview->height > 0 )
 				{
-					item_names.push_back( item->localized_name.empty( ) ? item->name.c_str( ) : item->localized_name.c_str( ) );
+					const auto max_size = ImVec2{ 240.0f, 190.0f };
+					const auto aspect = static_cast< float >( preview->width ) / static_cast< float >( preview->height );
+					auto preview_size = ImVec2{ max_size.x, max_size.x / aspect };
+					if ( preview_size.y > max_size.y )
+					{
+						preview_size = ImVec2{ max_size.y * aspect, max_size.y };
+					}
+
+					ImGui::SetCursorPosX( ( ImGui::GetWindowWidth( ) - preview_size.x ) * 0.5f );
+					ImGui::Image( reinterpret_cast< ImTextureID >( preview->srv.Get( ) ), preview_size );
+				}
+				else
+				{
+					ImGui::TextDisabled( "Loading preview..." );
 				}
 
-				ImGui::Combo( "Item", &selected_item, item_names.data( ), static_cast< int >( item_names.size( ) ) );
-				const auto* item = items[ selected_item ];
+				ImGui::Separator( );
+				ImGui::Text( "Weapon" );
+				ImGui::SetNextItemWidth( -1.0f );
+				std::vector< const char* > item_names;
+				item_names.reserve( items.size( ) );
+				std::vector< std::string > item_name_storage;
+				item_name_storage.reserve( items.size( ) );
+				for ( const auto* entry : items )
+				{
+					item_name_storage.push_back( display_name( entry->localized_name, entry->name ) );
+					item_names.push_back( item_name_storage.back( ).c_str( ) );
+				}
+				if ( ImGui::Combo( "##selected_weapon", &selected_item, item_names.data( ), static_cast< int >( item_names.size( ) ) ) )
+				{
+					selected_paint_id = 0;
+				}
 				if ( category == 3 )
 				{
 					ImGui::Text( "Team: %s", item->team( ) == 3 ? "Counter-Terrorist" : "Terrorist" );
@@ -656,46 +703,68 @@ namespace rendering {
 						changer.agents.t_def = item->def_index;
 					}
 				}
-				else
+				ImGui::EndChild( );
+
+				ImGui::SameLine( );
+				ImGui::BeginChild( "##skin_list", ImVec2{ 0.0f, 0.0f }, true );
+				ImGui::Text( "Choose skin" );
+				ImGui::Separator( );
+
+				std::vector< const features::changer::econ_item_system::paint_kit* > paint_kits;
+				for ( const auto& skin : econ.skins( ) )
 				{
-					std::vector< const char* > paint_names;
-					std::vector< int > paint_ids;
-					for ( const auto& paint : econ.paint_kits( ) )
+					if ( skin.def_index != item->def_index )
 					{
-						if ( category == 0 && paint.id == 0 )
-						{
-							continue;
-						}
-						paint_ids.push_back( paint.id );
-						paint_names.push_back( paint.localized_name.empty( ) ? paint.name.c_str( ) : paint.localized_name.c_str( ) );
+						continue;
 					}
 
-					if ( !paint_names.empty( ) )
+					if ( const auto* paint = econ.find_paint_kit( skin.paint_kit_id ) )
 					{
-						selected_paint = std::clamp( selected_paint, 0, static_cast< int >( paint_names.size( ) ) - 1 );
-						if ( ImGui::Combo( "Paint kit", &selected_paint, paint_names.data( ), static_cast< int >( paint_names.size( ) ) ) )
-						{
-							changer.skins.data[ item->def_index ].paint_kit_id = paint_ids[ selected_paint ];
-						}
+						paint_kits.push_back( paint );
+					}
+				}
 
-						auto& applied = changer.skins.data[ item->def_index ];
-						if ( applied.paint_kit_id == 0 )
+				if ( paint_kits.empty( ) )
+				{
+					ImGui::TextDisabled( "No skins are available for this weapon." );
+				}
+				else
+				{
+					bool selected_is_valid = selected_paint_id == 0;
+					for ( const auto* paint : paint_kits )
+					{
+						selected_is_valid = selected_is_valid || paint->id == selected_paint_id;
+					}
+					if ( !selected_is_valid )
+					{
+						selected_paint_id = 0;
+					}
+
+					for ( const auto* paint : paint_kits )
+					{
+						const auto paint_name = display_name( paint->localized_name, paint->name );
+						if ( ImGui::Selectable( paint_name.c_str( ), selected_paint_id == paint->id ) )
 						{
-							applied.paint_kit_id = paint_ids[ selected_paint ];
+							selected_paint_id = paint->id;
+							changer.skins.data[ item->def_index ].paint_kit_id = paint->id;
 						}
+					}
+
+					if ( selected_paint_id != 0 )
+					{
+						auto& applied = changer.skins.data[ item->def_index ];
+						ImGui::Separator( );
 						ImGui::SliderFloat( "Wear", &applied.wear, 0.0f, 1.0f, "%.4f" );
 						ImGui::SliderInt( "Seed", &applied.seed, 0, 1000 );
 						ImGui::Checkbox( "StatTrak", &applied.stattrak );
 						if ( ImGui::Button( "Clear selected skin" ) )
 						{
 							changer.skins.data.erase( item->def_index );
+							selected_paint_id = 0;
 						}
 					}
-					else
-					{
-						ImGui::TextDisabled( "No paint kits are available yet." );
-					}
 				}
+				ImGui::EndChild( );
 			}
 		}
 		else if ( this->m_tab == 1 )
