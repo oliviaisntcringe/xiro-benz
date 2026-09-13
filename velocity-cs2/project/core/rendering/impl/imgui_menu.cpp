@@ -388,6 +388,12 @@ namespace rendering {
 				}
 				ImGui::Checkbox( "Ragdoll glow", &player.m_glow.local_ragdoll.enabled.value );
 			}
+			else
+			{
+				ImGui::Text( "Viewmodel" );
+				draw_chams( "Weapon chams", esp.m_viewmodel.weapon, true );
+				draw_chams( "Arms chams", esp.m_viewmodel.arms, true );
+			}
 		}
 		else if ( this->m_tab == 3 )
 			{
@@ -595,12 +601,6 @@ namespace rendering {
 					}
 					ImGui::EndGroup( );
 				}
-			}
-			else
-			{
-				ImGui::Text( "Viewmodel" );
-				draw_chams( "Weapon chams", esp.m_viewmodel.weapon, true );
-				draw_chams( "Arms chams", esp.m_viewmodel.arms, true );
 			}
 		}
 		else if ( this->m_tab == 4 )
