@@ -372,8 +372,18 @@ namespace features::misc {
 				return;
 			}
 
-			draw_list.polyline( &left_points[ 0 ].x, 3, secondary_col, false, 1.5f );
-			draw_list.polyline( &right_points[ 0 ].x, 3, secondary_col, false, 1.5f );
+			const std::array<float, 6> left_line{
+				left_points[ 0 ].x, left_points[ 0 ].y,
+				left_points[ 1 ].x, left_points[ 1 ].y,
+				left_points[ 2 ].x, left_points[ 2 ].y
+			};
+			const std::array<float, 6> right_line{
+				right_points[ 0 ].x, right_points[ 0 ].y,
+				right_points[ 1 ].x, right_points[ 1 ].y,
+				right_points[ 2 ].x, right_points[ 2 ].y
+			};
+			draw_list.polyline( left_line, secondary_col, false, 1.5f );
+			draw_list.polyline( right_line, secondary_col, false, 1.5f );
 			return;
 		}
 
