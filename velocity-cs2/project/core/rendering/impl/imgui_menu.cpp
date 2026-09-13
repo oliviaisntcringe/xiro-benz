@@ -187,33 +187,22 @@ namespace rendering {
 
 		this->try_load_avatar( );
 		const auto viewport = ImGui::GetMainViewport( );
-		const auto sidebar_width = 82.0f;
-		const auto panel_width = 650.0f;
-		const auto panel_height = 510.0f;
+		const auto panel_width = 860.0f;
+		const auto panel_height = 700.0f;
 		const auto panel_pos = ImVec2{
-			viewport->WorkPos.x + ( viewport->WorkSize.x - sidebar_width - panel_width ) * 0.5f,
+			viewport->WorkPos.x + ( viewport->WorkSize.x - panel_width ) * 0.5f,
 			viewport->WorkPos.y + ( viewport->WorkSize.y - panel_height ) * 0.5f
 		};
-		const auto max_panel_width = viewport->WorkSize.x > sidebar_width + 420.0f
-			? viewport->WorkSize.x - sidebar_width - 16.0f
-			: 420.0f;
-		const auto max_panel_height = viewport->WorkSize.y > 320.0f
-			? viewport->WorkSize.y - 16.0f
-			: 320.0f;
-
-		ImGui::SetNextWindowPos( ImVec2{ viewport->WorkPos.x + viewport->WorkSize.x - sidebar_width, viewport->WorkPos.y } );
-		ImGui::SetNextWindowSize( ImVec2{ sidebar_width, viewport->WorkSize.y } );
-		ImGui::Begin( "##xiro_imgui_sidebar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings );
-		this->draw_sidebar( );
-		ImGui::End( );
+		const auto max_panel_width = std::max( 420.0f, viewport->WorkSize.x - 24.0f );
+		const auto max_panel_height = std::max( 320.0f, viewport->WorkSize.y - 24.0f );
 
 		ImGui::SetNextWindowPos( panel_pos, ImGuiCond_FirstUseEver );
-		ImGui::SetNextWindowSize( ImVec2{ panel_width, panel_height }, ImGuiCond_FirstUseEver );
+		ImGui::SetNextWindowSize( ImVec2{ panel_width, panel_height }, ImGuiCond_Always );
 		ImGui::SetNextWindowSizeConstraints(
 			ImVec2{ 420.0f, 320.0f },
 			ImVec2{ max_panel_width, max_panel_height }
 		);
-		ImGui::Begin( "TRIADA.BENZ", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings );
+		ImGui::Begin( "TRIADA.BENZ", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar );
 		const auto header_pos = ImGui::GetCursorScreenPos( );
 		const auto header_width = ImGui::GetContentRegionAvail( ).x;
 		const auto header_rect = ImRect{
@@ -404,6 +393,71 @@ namespace rendering {
 	{
 		static constexpr const char* tab_names[ 8 ]{ "Visuals", "Legit", "Rage", "Misc", "Skins", "Personal", "Config", "Info" };
 		static constexpr const char* visual_sections[ 9 ]{ "Enemy", "Team", "Local", "Viewmodel", "Items", "Projectiles", "Other", "Scene", "Weather" };
+		static constexpr const char* tab_codes[ 8 ]{ "01", "02", "03", "04", "05", "06", "07", "08" };
+		const auto accent = rendering::retro::accent_green;
+		const auto muted = rendering::retro::text_muted;
+		const auto panel_width = ImGui::GetContentRegionAvail( ).x;
+
+		auto draw_rule = [ ]( const ImVec4& color, float thickness = 1.0f )
+		{
+			const auto* draw = ImGui::GetWindowDrawList( );
+			const auto min = ImGui::GetCursorScreenPos( );
+			const auto max = ImVec2{ min.x + ImGui::GetContentRegionAvail( ).x, min.y + thickness };
+			draw->AddRectFilled( min, max, ImGui::ColorConvertFloat4ToU32( color ) );
+			ImGui::Dummy( ImVec2{ 0.0f, thickness + 7.0f } );
+		};
+
+		auto draw_tab = [ & ]( int index )
+		{
+			const auto width = std::max( 96.0f, ( panel_width - 24.0f ) / 4.0f );
+			const auto active = this->m_tab == index;
+			ImGui::PushID( index );
+			ImGui::PushStyleColor( ImGuiCol_Button, active ? ImVec4{ 0.16f, 0.27f, 0.12f, 1.0f } : ImVec4{ 0.10f, 0.10f, 0.10f, 1.0f } );
+			ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4{ 0.20f, 0.34f, 0.15f, 1.0f } );
+			ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4{ 0.28f, 0.48f, 0.18f, 1.0f } );
+			if ( ImGui::Button( std::format( "{}  {}", tab_codes[ index ], tab_names[ index ] ).c_str( ), ImVec2{ width, 31.0f } ) )
+			{
+				this->m_tab = index;
+			}
+			ImGui::PopStyleColor( 3 );
+			ImGui::PopID( );
+		};
+
+		auto draw_section_title = [ & ]( const char* title, const char* description )
+		{
+			if ( this->m_mono_font )
+			{
+				ImGui::PushFont( this->m_mono_font );
+			}
+			ImGui::TextColored( accent, "[ %s ]", title );
+			if ( this->m_mono_font )
+			{
+				ImGui::PopFont( );
+			}
+			ImGui::SameLine( );
+			ImGui::TextColored( muted, "%s", description );
+			draw_rule( rendering::retro::accent_green_dim );
+		};
+
+		ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2{ 6.0f, 6.0f } );
+		for ( auto i = 0; i < 8; ++i )
+		{
+			if ( i > 0 && i % 4 != 0 )
+			{
+				ImGui::SameLine( );
+			}
+			draw_tab( i );
+		}
+		ImGui::PopStyleVar( );
+		ImGui::Spacing( );
+		draw_section_title( tab_names[ this->m_tab ], "operator workspace / select a module" );
+
+		ImGui::PushStyleColor( ImGuiCol_ChildBg, ImVec4{ 0.075f, 0.075f, 0.075f, 0.98f } );
+		ImGui::BeginChild( "##imgui_content", ImVec2{ 0.0f, -30.0f }, true, ImGuiWindowFlags_AlwaysVerticalScrollbar );
+		if ( this->m_mono_font )
+		{
+			ImGui::PushFont( this->m_mono_font );
+		}
 		auto draw_config_color = [ ]( const char* label, config::col& color )
 		{
 			float rgba[ 4 ]{
@@ -420,22 +474,21 @@ namespace rendering {
 				color.value.a = static_cast< std::uint8_t >( rgba[ 3 ] * 255.0f );
 			}
 		};
-		ImGui::TextColored( ImVec4{ 0.47f, 0.78f, 0.29f, 1.0f }, "%s // operator console", tab_names[ this->m_tab ] );
-		ImGui::Spacing( );
-		ImGui::BeginChild( "##imgui_content", ImVec2{ 0.0f, 0.0f }, true );
+		ImGui::TextDisabled( "module loaded // all controls are contained in this scroll surface" );
 		if ( this->m_tab == 0 )
 		{
 			auto& esp = settings::g_esp;
 			auto& player = esp.m_player;
 
+			const auto section_width = std::max( 96.0f, ( ImGui::GetContentRegionAvail( ).x - 18.0f ) / 4.0f );
 			for ( auto i = 0; i < 9; ++i )
 			{
-				if ( i > 0 )
+				if ( i > 0 && i % 4 != 0 )
 				{
 					ImGui::SameLine( );
 				}
 
-				if ( ImGui::Selectable( visual_sections[ i ], this->m_visual_section == i, 0, ImVec2{ 92.0f, 28.0f } ) )
+				if ( ImGui::Selectable( visual_sections[ i ], this->m_visual_section == i, 0, ImVec2{ section_width, 28.0f } ) )
 				{
 					this->m_visual_section = i;
 				}
@@ -1791,7 +1844,12 @@ namespace rendering {
 			ImGui::Text( "Info" );
 			ImGui::TextDisabled( "Select a tab from the navigation rail." );
 		}
+		if ( this->m_mono_font )
+		{
+			ImGui::PopFont( );
+		}
 		ImGui::EndChild( );
+		ImGui::PopStyleColor( );
 	}
 
 	bool imgui_menu::wndproc( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam )
