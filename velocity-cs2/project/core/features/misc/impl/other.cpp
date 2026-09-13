@@ -83,7 +83,18 @@ namespace features::misc {
 
 	void other::do_custom_hud( )
 	{
-		auto* draw_hud = CONVAR( "cl_drawhud" );
+		if ( !addresses::globals::cvar )
+		{
+			return;
+		}
+
+		const auto local = systems::g_local.get( );
+		if ( !local.is_valid( ) )
+		{
+			return;
+		}
+
+		auto* draw_hud = addresses::globals::cvar->find( "cl_drawhud"_hash );
 		if ( !draw_hud )
 		{
 			return;

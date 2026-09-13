@@ -151,6 +151,11 @@ namespace rendering {
 			return;
 		}
 
+		if ( width > 512 || height > 512 || width > std::numeric_limits<std::uint32_t>::max( ) / height / 4 )
+		{
+			return;
+		}
+
 		std::vector<std::uint8_t> rgba( width * height * 4 );
 		if ( !steam::utils::get_image_rgba( image, rgba.data( ), static_cast< int >( rgba.size( ) ) ) )
 		{
@@ -170,7 +175,6 @@ namespace rendering {
 		ImGui_ImplDX11_NewFrame( );
 		ImGui_ImplWin32_NewFrame( );
 		ImGui::NewFrame( );
-		this->try_load_avatar( );
 	}
 
 	void imgui_menu::draw( )
@@ -180,6 +184,7 @@ namespace rendering {
 			return;
 		}
 
+		this->try_load_avatar( );
 		const auto viewport = ImGui::GetMainViewport( );
 		const auto sidebar_width = 82.0f;
 		const auto panel_width = 650.0f;
