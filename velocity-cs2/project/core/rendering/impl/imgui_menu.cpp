@@ -577,6 +577,24 @@ namespace rendering {
 						impacts.hit_sound_type.value = static_cast< settings::misc::impacts::sound_type >( hit_sound );
 					}
 					ImGui::SliderFloat( "Hit volume", &impacts.hit_sound_volume.value, 1.0f, 100.0f, "%.0f%%" );
+					if ( impacts.hit_sound_type.value == settings::misc::impacts::sound_type::custom )
+					{
+						static char hit_sound_file[ 128 ]{};
+						static std::string hit_sound_value{};
+						if ( hit_sound_value != impacts.custom_hit_sound.value )
+						{
+							std::snprintf( hit_sound_file, sizeof( hit_sound_file ), "%s", impacts.custom_hit_sound.value.c_str( ) );
+							hit_sound_value = impacts.custom_hit_sound.value;
+						}
+						if ( ImGui::InputText( "Custom hit sound", hit_sound_file, sizeof( hit_sound_file ) ) )
+						{
+							impacts.custom_hit_sound.value = hit_sound_file;
+						}
+						if ( ImGui::Button( "Preview hit sound" ) )
+						{
+							features::misc::g_impacts.play_custom_sound( impacts.custom_hit_sound.value, impacts.hit_sound_volume.value );
+						}
+					}
 					ImGui::Checkbox( "Hit marker", &impacts.hit_marker.value );
 					auto marker = static_cast< int >( impacts.hit_marker_type.value );
 					if ( ImGui::Combo( "Marker type", &marker, marker_types, IM_ARRAYSIZE( marker_types ) ) )
@@ -596,8 +614,39 @@ namespace rendering {
 						impacts.death_sound_type.value = static_cast< settings::misc::impacts::sound_type >( death_sound );
 					}
 					ImGui::SliderFloat( "Death volume", &impacts.death_sound_volume.value, 1.0f, 100.0f, "%.0f%%" );
+					if ( impacts.death_sound_type.value == settings::misc::impacts::sound_type::custom )
+					{
+						static char death_sound_file[ 128 ]{};
+						static std::string death_sound_value{};
+						if ( death_sound_value != impacts.custom_death_sound.value )
+						{
+							std::snprintf( death_sound_file, sizeof( death_sound_file ), "%s", impacts.custom_death_sound.value.c_str( ) );
+							death_sound_value = impacts.custom_death_sound.value;
+						}
+						if ( ImGui::InputText( "Custom death sound", death_sound_file, sizeof( death_sound_file ) ) )
+						{
+							impacts.custom_death_sound.value = death_sound_file;
+						}
+						if ( ImGui::Button( "Preview death sound" ) )
+						{
+							features::misc::g_impacts.play_custom_sound( impacts.custom_death_sound.value, impacts.death_sound_volume.value );
+						}
+					}
 					ImGui::Checkbox( "Death effect", &impacts.death_effect.value );
 					draw_config_color( "Death effect color", impacts.death_effect_color );
+					ImGui::Checkbox( "Bullet impacts", &impacts.bullet_impact_effect.value );
+					auto impact_type = static_cast< int >( impacts.bullet_impact_effect_type.value );
+					static constexpr const char* impact_types[ 3 ]{ "Overlay", "Sparks", "Both" };
+					if ( ImGui::Combo( "Impact type", &impact_type, impact_types, IM_ARRAYSIZE( impact_types ) ) )
+					{
+						impacts.bullet_impact_effect_type.value = static_cast< settings::misc::impacts::bullet_impact_type >( impact_type );
+					}
+					draw_config_color( "Impact fill", impacts.bullet_impact_effect_fill_color );
+					draw_config_color( "Impact edge", impacts.bullet_impact_effect_edge_color );
+					draw_config_color( "Spark color", impacts.bullet_impact_effect_color_spark );
+					ImGui::SliderFloat( "Impact duration", &impacts.bullet_impact_effect_duration.value, 0.1f, 5.0f, "%.1f s" );
+					ImGui::Checkbox( "Impact glow", &impacts.bullet_impact_effect_glow.value );
+					ImGui::SliderFloat( "Impact glow strength", &impacts.bullet_impact_effect_glow_strength.value, 0.1f, 1.0f, "%.2f" );
 					ImGui::EndGroup( );
 
 					ImGui::SameLine( );
@@ -632,6 +681,20 @@ namespace rendering {
 					ImGui::Checkbox( "Edgebug jump steps", &movement.edgebug_include_jump_steps.value );
 					ImGui::Checkbox( "Slowwalk", &movement.slowwalk.value );
 					ImGui::SliderFloat( "Slowwalk speed", &movement.slowwalk_speed.value, 1.0f, 100.0f, "%.0f" );
+					auto& autobuy = misc.m_autobuy;
+					static constexpr const char* primary_weapons[ 6 ]{ "None", "Rifle", "Scoped rifle", "Scout", "AWP", "Auto sniper" };
+					static constexpr const char* secondary_weapons[ 5 ]{ "None", "Dual elites", "Five-seven / Tec-9", "Deagle", "Revolver" };
+					static constexpr const char* grenades[ 5 ]{ "Molotov", "HE grenade", "Smoke", "Flashbang", "Decoy" };
+					ImGui::Checkbox( "Auto buy", &autobuy.enabled.value );
+					ImGui::Combo( "Primary weapon", &autobuy.primary_weapon.value, primary_weapons, IM_ARRAYSIZE( primary_weapons ) );
+					ImGui::Combo( "Secondary weapon", &autobuy.secondary_weapon.value, secondary_weapons, IM_ARRAYSIZE( secondary_weapons ) );
+					ImGui::Checkbox( "Armor", &autobuy.armor.value );
+					ImGui::Checkbox( "Defuser", &autobuy.defuser.value );
+					ImGui::Checkbox( "Taser", &autobuy.taser.value );
+					for ( auto i = 0; i < 5; ++i )
+					{
+						ImGui::Checkbox( grenades[ i ], &autobuy.grenades.values[ i ] );
+					}
 					ImGui::EndGroup( );
 				}
 				else if ( section == 1 )
@@ -748,6 +811,7 @@ namespace rendering {
 			static int selected_paint_id{};
 			static int last_category{ -1 };
 			static bool weapon_selection_dirty{};
+			static char skin_search[ 128 ]{};
 
 			auto display_name = [ ]( const std::string& localized, const std::string& fallback )
 			{
@@ -870,9 +934,15 @@ namespace rendering {
 				ImGui::SameLine( );
 				ImGui::BeginChild( "##skin_list", ImVec2{ 0.0f, 0.0f }, true );
 				ImGui::Text( "Choose skin" );
+				ImGui::InputText( "Search##skin", skin_search, sizeof( skin_search ) );
 				ImGui::Separator( );
 
 				std::vector< const features::changer::econ_item_system::paint_kit* > paint_kits;
+				std::string skin_search_lower{ skin_search };
+				for ( auto& character : skin_search_lower )
+				{
+					character = static_cast< char >( std::tolower( static_cast< unsigned char >( character ) ) );
+				}
 				for ( const auto& skin : econ.skins( ) )
 				{
 					if ( skin.def_index != item->def_index )
@@ -882,6 +952,16 @@ namespace rendering {
 
 					if ( const auto* paint = econ.find_paint_kit( skin.paint_kit_id ) )
 					{
+						auto paint_name = paint->localized_name.empty( ) ? paint->name : paint->localized_name;
+						std::string paint_name_lower{ paint_name };
+						for ( auto& character : paint_name_lower )
+						{
+							character = static_cast< char >( std::tolower( static_cast< unsigned char >( character ) ) );
+						}
+						if ( !skin_search_lower.empty( ) && paint_name_lower.find( skin_search_lower ) == std::string::npos )
+						{
+							continue;
+						}
 						paint_kits.push_back( paint );
 					}
 				}
