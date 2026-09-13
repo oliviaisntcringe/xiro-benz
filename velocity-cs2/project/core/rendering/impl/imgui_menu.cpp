@@ -398,8 +398,8 @@ namespace rendering {
 
 	void imgui_menu::draw_sidebar( )
 	{
-		static constexpr const char* tabs[ 8 ]{ "VISUALS", "LEGIT", "RAGE", "MISC", "SKINS", "PERSONAL", "CONFIG", "INFO" };
-		for ( auto i = 0; i < 8; ++i )
+		static constexpr const char* tabs[ 9 ]{ "VISUALS", "WORLD", "LEGIT", "RAGE", "MISC", "SKINS", "PERSONAL", "CONFIG", "INFO" };
+		for ( auto i = 0; i < 9; ++i )
 		{
 			if ( ImGui::Selectable( tabs[ i ], this->m_tab == i, 0, ImVec2{ 66.0f, 42.0f } ) )
 			{
@@ -410,9 +410,9 @@ namespace rendering {
 
 	void imgui_menu::draw_panel( )
 	{
-		static constexpr const char* tab_names[ 8 ]{ "Visuals", "Legit", "Rage", "Misc", "Skins", "Personal", "Config", "Info" };
+		static constexpr const char* tab_names[ 9 ]{ "Visuals", "World", "Legit", "Rage", "Misc", "Skins", "Personal", "Config", "Info" };
 		static constexpr const char* visual_sections[ 9 ]{ "Enemy", "Team", "Local", "Viewmodel", "Items", "Projectiles", "Other", "Scene", "Weather" };
-		static constexpr const char* tab_codes[ 8 ]{ "01", "02", "03", "04", "05", "06", "07", "08" };
+		static constexpr const char* tab_codes[ 9 ]{ "01", "02", "03", "04", "05", "06", "07", "08", "09" };
 		const auto accent = rendering::retro::accent_green;
 		const auto muted = rendering::retro::text_muted;
 		const auto panel_width = ImGui::GetContentRegionAvail( ).x;
@@ -437,6 +437,14 @@ namespace rendering {
 			if ( ImGui::Button( std::format( "{}  {}", tab_codes[ index ], tab_names[ index ] ).c_str( ), ImVec2{ width, 31.0f } ) )
 			{
 				this->m_tab = index;
+				if ( index == 0 && this->m_visual_section >= 7 )
+				{
+					this->m_visual_section = 0;
+				}
+				else if ( index == 1 && this->m_visual_section < 7 )
+				{
+					this->m_visual_section = 7;
+				}
 			}
 			ImGui::PopStyleColor( 3 );
 			ImGui::PopID( );
@@ -459,9 +467,9 @@ namespace rendering {
 		};
 
 		ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2{ 6.0f, 6.0f } );
-		for ( auto i = 0; i < 8; ++i )
+		for ( auto i = 0; i < 9; ++i )
 		{
-			if ( i > 0 && i % 4 != 0 )
+			if ( i > 0 && i % 3 != 0 )
 			{
 				ImGui::SameLine( );
 			}
@@ -494,23 +502,26 @@ namespace rendering {
 			}
 		};
 		ImGui::TextDisabled( "module loaded // all controls are contained in this scroll surface" );
-		if ( this->m_tab == 0 )
+		if ( this->m_tab == 0 || this->m_tab == 1 )
 		{
 			auto& esp = settings::g_esp;
 			auto& player = esp.m_player;
 
-			const auto section_width = std::max( 96.0f, ( ImGui::GetContentRegionAvail( ).x - 18.0f ) / 4.0f );
-			for ( auto i = 0; i < 9; ++i )
+		const auto world_tab = this->m_tab == 1;
+		const auto section_count = world_tab ? 2 : 7;
+		const auto section_width = std::max( 120.0f, ( ImGui::GetContentRegionAvail( ).x - 12.0f ) / 3.0f );
+		for ( auto i = 0; i < section_count; ++i )
+		{
+			if ( i > 0 && i % 3 != 0 )
 			{
-				if ( i > 0 && i % 4 != 0 )
-				{
-					ImGui::SameLine( );
-				}
+				ImGui::SameLine( );
+			}
 
-				if ( ImGui::Selectable( visual_sections[ i ], this->m_visual_section == i, 0, ImVec2{ section_width, 28.0f } ) )
-				{
-					this->m_visual_section = i;
-				}
+			const auto section = world_tab ? i + 7 : i;
+			if ( ImGui::Selectable( visual_sections[ section ], this->m_visual_section == section, 0, ImVec2{ section_width, 28.0f } ) )
+			{
+				this->m_visual_section = section;
+			}
 			}
 			ImGui::Separator( );
 
@@ -822,7 +833,7 @@ namespace rendering {
 				ImGui::SliderFloat( "Wind turbulence", &weather.wind_turbulence.value, 0.0f, 5.0f, "%.1f" );
 			}
 		}
-		else if ( this->m_tab == 3 )
+		else if ( this->m_tab == 4 )
 			{
 				auto& misc = settings::g_misc;
 				auto& movement = settings::g_movement;
@@ -1104,7 +1115,7 @@ namespace rendering {
 					ImGui::EndGroup( );
 				}
 			}
-		else if ( this->m_tab == 4 )
+		else if ( this->m_tab == 5 )
 		{
 			auto& changer = settings::g_changer;
 			auto& econ = features::changer::g_econ_item_system;
@@ -1401,7 +1412,7 @@ namespace rendering {
 				ImGui::EndChild( );
 			}
 		}
-		else if ( this->m_tab == 1 )
+		else if ( this->m_tab == 2 )
 		{
 			auto& legitbot = settings::g_combat.m_legitbot;
 			static constexpr const char* weapon_groups[ 6 ]{ "Pistols", "SMG", "Rifles", "Shotguns", "Snipers", "LMG" };
@@ -1483,7 +1494,7 @@ namespace rendering {
 				ImGui::EndGroup( );
 			}
 		}
-		else if ( this->m_tab == 2 )
+		else if ( this->m_tab == 3 )
 		{
 			auto& combat = settings::g_combat;
 			auto& ragebot = combat.m_ragebot;
@@ -1598,7 +1609,7 @@ namespace rendering {
 				ImGui::Checkbox( "Duck peek##rage", &duck_peek.enabled.value );
 			}
 		}
-		else if ( this->m_tab == 5 )
+		else if ( this->m_tab == 6 )
 		{
 			auto& hat = settings::g_misc.m_hud.m_hat;
 			static constexpr const char* hat_types[ 5 ]{ "Kasa", "Bucket", "Halo", "Crown", "Horns" };
@@ -1676,7 +1687,7 @@ namespace rendering {
 			ImGui::EndChild( );
 			ImGui::EndGroup( );
 		}
-		else if ( this->m_tab == 6 )
+		else if ( this->m_tab == 7 )
 		{
 			static std::vector<std::wstring> config_list{};
 			static std::string search{};
