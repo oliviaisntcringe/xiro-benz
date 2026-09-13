@@ -1078,10 +1078,153 @@ namespace rendering {
 				ImGui::Checkbox( "Duck peek##rage", &duck_peek.enabled.value );
 			}
 		}
+		else if ( this->m_tab == 5 )
+		{
+			static std::vector<std::wstring> config_list{};
+			static std::string search{};
+			static int selected{ -1 };
+			static bool refresh{ true };
+			static char search_buffer[ 128 ]{};
+
+			auto to_utf8 = [ ]( const std::wstring& value )
+			{
+				char buffer[ 256 ]{};
+				WideCharToMultiByte( CP_UTF8, 0, value.c_str( ), -1, buffer, sizeof( buffer ), nullptr, nullptr );
+				return std::string{ buffer };
+			};
+			auto to_wide = [ ]( const std::string& value )
+			{
+				wchar_t buffer[ 256 ]{};
+				MultiByteToWideChar( CP_UTF8, 0, value.c_str( ), -1, buffer, IM_ARRAYSIZE( buffer ) );
+				return std::wstring{ buffer };
+			};
+			auto copy_clipboard = [ ]( const std::string& value )
+			{
+				if ( !OpenClipboard( nullptr ) )
+				{
+					return;
+				}
+				EmptyClipboard( );
+				const auto bytes = ( value.size( ) + 1 ) * sizeof( char );
+				if ( const auto memory = GlobalAlloc( GMEM_MOVEABLE, bytes ) )
+				{
+					if ( const auto destination = GlobalLock( memory ) )
+					{
+						std::memcpy( destination, value.c_str( ), bytes );
+						GlobalUnlock( memory );
+						SetClipboardData( CF_TEXT, memory );
+					}
+					else
+					{
+						GlobalFree( memory );
+					}
+				}
+				CloseClipboard( );
+			};
+			auto paste_clipboard = [ ]( )
+			{
+				std::string result{};
+				if ( !OpenClipboard( nullptr ) )
+				{
+					return result;
+				}
+				if ( const auto memory = GetClipboardData( CF_TEXT ) )
+				{
+					if ( const auto source = static_cast< const char* >( GlobalLock( memory ) ) )
+					{
+						result = source;
+						GlobalUnlock( memory );
+					}
+				}
+				CloseClipboard( );
+				return result;
+			};
+
+			if ( refresh )
+			{
+				config_list = config::registry::list( );
+				selected = std::clamp( selected, -1, static_cast< int >( config_list.size( ) ) - 1 );
+				refresh = false;
+			}
+
+			ImGui::Text( "Configuration" );
+			if ( ImGui::InputText( "Search", search_buffer, sizeof( search_buffer ) ) )
+			{
+				search = search_buffer;
+			}
+			ImGui::BeginChild( "##config_list", ImVec2{ 0.0f, -42.0f }, true );
+			for ( auto i = 0; i < static_cast< int >( config_list.size( ) ); ++i )
+			{
+				const auto name = to_utf8( config_list[ i ] );
+				if ( !search.empty( ) && name.find( search ) == std::string::npos )
+				{
+					continue;
+				}
+				if ( ImGui::Selectable( name.c_str( ), selected == i ) )
+				{
+					selected = i;
+					if ( config::registry::load( config_list[ i ] ) )
+					{
+						settings::finalize_binds( );
+					}
+				}
+			}
+			ImGui::EndChild( );
+
+			const auto has_selection = selected >= 0 && selected < static_cast< int >( config_list.size( ) );
+			ImGui::SameLine( );
+			if ( ImGui::Button( "Save" ) )
+			{
+				const auto name = has_selection ? to_utf8( config_list[ selected ] ) : std::string{ search_buffer };
+				if ( !name.empty( ) && config::registry::save( to_wide( name ) ) )
+				{
+					refresh = true;
+				}
+			}
+			ImGui::SameLine( );
+			if ( ImGui::Button( "Reset" ) )
+			{
+				auto& registry = config::detail::get_registry( );
+				for ( auto& field : registry.fields )
+				{
+					char key[ 12 ]{};
+					std::snprintf( key, sizeof( key ), "%08x", field.key );
+					if ( const auto it = registry.defaults.find( key ); it != registry.defaults.end( ) )
+					{
+						config::serial::json_to_field( *it, field );
+					}
+				}
+				settings::finalize_binds( );
+			}
+			ImGui::SameLine( );
+			if ( ImGui::Button( "Delete" ) && has_selection )
+			{
+				if ( config::registry::remove( config_list[ selected ] ) )
+				{
+					selected = -1;
+					refresh = true;
+				}
+			}
+			ImGui::SameLine( );
+			if ( ImGui::Button( "Import" ) )
+			{
+				const auto result = config::import_auto( paste_clipboard( ) );
+				if ( result.success )
+				{
+					settings::finalize_binds( );
+					refresh = true;
+				}
+			}
+			ImGui::SameLine( );
+			if ( ImGui::Button( "Export" ) && has_selection )
+			{
+				copy_clipboard( config::export_share_words( to_utf8( config_list[ selected ] ) ) );
+			}
+		}
 		else
 		{
-			ImGui::Text( "Prototype tab" );
-			ImGui::TextDisabled( "This panel is intentionally isolated from the current menu." );
+			ImGui::Text( "Info" );
+			ImGui::TextDisabled( "Select a tab from the navigation rail." );
 		}
 		ImGui::EndChild( );
 	}
