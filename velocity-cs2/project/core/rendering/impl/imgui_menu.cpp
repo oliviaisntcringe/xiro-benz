@@ -193,6 +193,7 @@ namespace rendering {
 		auto* draw = ImGui::GetForegroundDrawList( );
 		const auto viewport = ImGui::GetMainViewport( );
 		const auto& velocity = settings::g_misc.m_hud.m_velocity;
+		const auto& local_status = settings::g_misc.m_hud.m_local_status;
 		const auto local = systems::g_local.get( );
 		if ( ( velocity.counter.value || velocity.chart.value ) && local.is_valid( ) )
 		{
@@ -213,6 +214,41 @@ namespace rendering {
 			}
 		}
 
+		if ( local.is_valid( ) && ( local_status.health.value || local_status.ammo.value ) )
+		{
+			const auto health = std::clamp( memory::read<int>( local.pawn + SCHEMA( "C_BaseEntity", "m_iHealth"_hash ) ), 0, 100 );
+			const auto weapon_services = memory::read<std::uintptr_t>( local.pawn + SCHEMA( "C_BasePlayerPawn", "m_pWeaponServices"_hash ) );
+			const auto weapon_handle = weapon_services
+				? memory::read<std::uint32_t>( weapon_services + SCHEMA( "CPlayer_WeaponServices", "m_hActiveWeapon"_hash ) )
+				: 0u;
+			const auto weapon = weapon_handle ? systems::g_entities.lookup( weapon_handle ) : 0ull;
+			const auto weapon_vdata = weapon
+				? memory::read<std::uintptr_t>( weapon + SCHEMA( "C_BaseEntity", "m_nSubclassID"_hash ) + 0x8 )
+				: 0ull;
+			const auto ammo = weapon ? memory::read<int>( weapon + SCHEMA( "C_BasePlayerWeapon", "m_iClip1"_hash ) ) : 0;
+			const auto max_ammo = weapon_vdata ? memory::read<int>( weapon_vdata + SCHEMA( "CBasePlayerWeaponVData", "m_iMaxClip1"_hash ) ) : 0;
+			const auto x = viewport->WorkPos.x + viewport->WorkSize.x * 0.5f - 110.0f;
+			auto y = viewport->WorkPos.y + viewport->WorkSize.y - local_status.bottom_offset.value;
+			constexpr auto width = 220.0f;
+			constexpr auto height = 6.0f;
+
+			if ( local_status.health.value )
+			{
+				draw->AddText( ImVec2{ x, y - 17.0f }, IM_COL32_WHITE, std::format( "HEALTH {}", health ).c_str( ) );
+				draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + width, y + height }, IM_COL32( 20, 20, 20, 180 ) );
+				draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + width * health / 100.0f, y + height }, ImColor( local_status.health_color.value.r, local_status.health_color.value.g, local_status.health_color.value.b, local_status.health_color.value.a ) );
+				y += 20.0f;
+			}
+
+			if ( local_status.ammo.value && max_ammo > 0 )
+			{
+				const auto clamped_ammo = std::clamp( ammo, 0, max_ammo );
+				draw->AddText( ImVec2{ x, y - 17.0f }, IM_COL32_WHITE, std::format( "AMMO {}/{}", clamped_ammo, max_ammo ).c_str( ) );
+				draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + width, y + height }, IM_COL32( 20, 20, 20, 180 ) );
+				draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + width * clamped_ammo / static_cast<float>( max_ammo ), y + height }, ImColor( local_status.ammo_color.value.r, local_status.ammo_color.value.g, local_status.ammo_color.value.b, local_status.ammo_color.value.a ) );
+			}
+		}
+
 		const auto& feed = features::misc::g_other.killfeed( );
 		float y = viewport->WorkPos.y + 48.0f;
 		const auto now = std::chrono::duration<float>( std::chrono::steady_clock::now( ).time_since_epoch( ) ).count( );
@@ -228,7 +264,6 @@ namespace rendering {
 			y += 20.0f;
 		}
 
-		features::esp::player::g_overlay.on_render_imgui( );
 	}
 
 	void imgui_menu::render( )
@@ -361,8 +396,6 @@ namespace rendering {
 				ImGui::Checkbox( "Enable ESP", &overlay.enabled.value );
 				ImGui::Checkbox( "Box", &overlay.m_box.enabled.value );
 				ImGui::Checkbox( "Skeleton", &overlay.m_skeleton.enabled.value );
-				ImGui::Checkbox( "Health bar", &overlay.m_health_bar.enabled.value );
-				ImGui::Checkbox( "Ammo bar", &overlay.m_ammo_bar.enabled.value );
 				ImGui::Checkbox( "Name", &overlay.m_name.enabled.value );
 				ImGui::Checkbox( "Weapon", &overlay.m_weapon.enabled.value );
 				ImGui::Checkbox( "Info flags", &overlay.m_info_flags.enabled.value );
@@ -391,40 +424,6 @@ namespace rendering {
 					ImGui::SliderFloat( "Thickness", &overlay.m_skeleton.thickness.value, 0.5f, 4.0f, "%.1f" );
 					draw_color( "Visible##skeleton", overlay.m_skeleton.visible_color );
 					draw_color( "Occluded##skeleton", overlay.m_skeleton.occluded_color );
-					ImGui::TreePop( );
-				}
-
-				if ( overlay.m_health_bar.enabled.value && ImGui::TreeNode( "Health bar settings" ) )
-				{
-					static constexpr const char* bar_positions[ ]{ "Left", "Top", "Bottom" };
-					auto position = static_cast< int >( overlay.m_health_bar.position.value );
-					ImGui::Combo( "Position##health", &position, bar_positions, IM_ARRAYSIZE( bar_positions ) );
-					overlay.m_health_bar.position.value = static_cast< decltype( overlay.m_health_bar.position.value ) >( position );
-					ImGui::Checkbox( "Outline##health", &overlay.m_health_bar.outline_setting.value );
-					ImGui::Checkbox( "Gradient##health", &overlay.m_health_bar.gradient.value );
-					ImGui::Checkbox( "Show value##health", &overlay.m_health_bar.show_value.value );
-					ImGui::Checkbox( "Glow##health", &overlay.m_health_bar.glow.value );
-					draw_color( "Full##health", overlay.m_health_bar.full_color );
-					draw_color( "Low##health", overlay.m_health_bar.low_color );
-					draw_color( "Background##health", overlay.m_health_bar.background_color );
-					ImGui::SliderFloat( "Glow strength##health", &overlay.m_health_bar.glow_strength.value, 0.1f, 1.0f, "%.2f" );
-					ImGui::TreePop( );
-				}
-
-				if ( overlay.m_ammo_bar.enabled.value && ImGui::TreeNode( "Ammo bar settings" ) )
-				{
-					static constexpr const char* bar_positions[ ]{ "Left", "Top", "Bottom" };
-					auto position = static_cast< int >( overlay.m_ammo_bar.position.value );
-					ImGui::Combo( "Position##ammo", &position, bar_positions, IM_ARRAYSIZE( bar_positions ) );
-					overlay.m_ammo_bar.position.value = static_cast< decltype( overlay.m_ammo_bar.position.value ) >( position );
-					ImGui::Checkbox( "Outline##ammo", &overlay.m_ammo_bar.outline_setting.value );
-					ImGui::Checkbox( "Gradient##ammo", &overlay.m_ammo_bar.gradient.value );
-					ImGui::Checkbox( "Show value##ammo", &overlay.m_ammo_bar.show_value.value );
-					ImGui::Checkbox( "Glow##ammo", &overlay.m_ammo_bar.glow.value );
-					draw_color( "Full##ammo", overlay.m_ammo_bar.full_color );
-					draw_color( "Low##ammo", overlay.m_ammo_bar.low_color );
-					draw_color( "Background##ammo", overlay.m_ammo_bar.background_color );
-					ImGui::SliderFloat( "Glow strength##ammo", &overlay.m_ammo_bar.glow_strength.value, 0.1f, 1.0f, "%.2f" );
 					ImGui::TreePop( );
 				}
 
@@ -875,6 +874,13 @@ namespace rendering {
 					ImGui::SliderFloat( "Velocity bottom offset", &hud.m_velocity.bottom_offset.value, 0.0f, 300.0f, "%.0f" );
 					ImGui::SliderFloat( "Chart width", &hud.m_velocity.chart_width.value, 50.0f, 500.0f, "%.0f" );
 					ImGui::SliderFloat( "Chart height", &hud.m_velocity.chart_height.value, 20.0f, 150.0f, "%.0f" );
+					ImGui::Separator( );
+					ImGui::Text( "Local HUD" );
+					ImGui::Checkbox( "Local health", &hud.m_local_status.health.value );
+					ImGui::Checkbox( "Local ammo", &hud.m_local_status.ammo.value );
+					draw_config_color( "Health color##local", hud.m_local_status.health_color );
+					draw_config_color( "Ammo color##local", hud.m_local_status.ammo_color );
+					ImGui::SliderFloat( "Local HUD bottom offset", &hud.m_local_status.bottom_offset.value, 20.0f, 220.0f, "%.0f" );
 					ImGui::Separator( );
 					ImGui::Text( "General" );
 					ImGui::Checkbox( "Reveal radar", &misc.reveal_radar.value );

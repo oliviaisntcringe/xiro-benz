@@ -88,7 +88,6 @@ namespace features::esp {
 		{
 		public:
 			void on_render( xdraw::draw_list& draw_list );
-			void on_render_imgui( );
 
 		private:
 			struct draw_offsets

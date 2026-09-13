@@ -1284,6 +1284,15 @@ namespace settings {
 				config::val<float> chart_width{ 200.0f, "velocity hud", "chart width" };
 				config::val<float> chart_height{ 44.0f, "velocity hud", "chart height" };
 			} m_velocity{};
+
+			struct local_status
+			{
+				xui::setting health{ true, {}, "local health", "local hud" };
+				xui::setting ammo{ true, {}, "local ammo", "local hud" };
+				config::col health_color{ { 98, 217, 109, 255 }, "local hud", "health color" };
+				config::col ammo_color{ { 173, 192, 255, 255 }, "local hud", "ammo color" };
+				config::val<float> bottom_offset{ 42.0f, "local hud", "bottom offset" };
+			} m_local_status{};
 		} m_hud{};
 
 		struct post_process

@@ -3,57 +3,8 @@
 #include <core/rendering/rendering.hpp>
 #include <core/settings.hpp>
 #include <core/features/features.hpp>
-#include <external/imgui/imgui.h>
 
 namespace features::esp::player {
-
-	void overlay::on_render_imgui( )
-	{
-		const auto local = systems::g_local.get( );
-		if ( !local.is_valid( ) )
-		{
-			return;
-		}
-
-		auto* draw = ImGui::GetForegroundDrawList( );
-		for ( const auto& player : systems::g_entities.get_by_type( systems::entities::type::player ) )
-		{
-			const auto info = this->get_info( player, local );
-			if ( !info.valid( ) )
-			{
-				continue;
-			}
-
-			const auto& cfg = settings::g_esp.m_player.m_overlay[ info.is_other_team ? 0 : 1 ];
-			if ( !cfg.enabled.value )
-			{
-				continue;
-			}
-
-			const auto bounds = systems::g_bounds.get( info.pawn );
-			if ( !bounds.valid )
-			{
-				continue;
-			}
-
-			const auto x = std::floor( bounds.min.x );
-			const auto y = std::floor( bounds.min.y );
-			const auto w = std::floor( bounds.max.x - bounds.min.x );
-			const auto h = std::floor( bounds.max.y - bounds.min.y );
-			if ( cfg.m_health_bar.enabled.value )
-			{
-				const auto fraction = std::clamp( static_cast< float >( info.health ) / 100.0f, 0.0f, 1.0f );
-				draw->AddRectFilled( ImVec2{ x - 6.0f, y }, ImVec2{ x - 3.0f, y + h }, IM_COL32( 20, 20, 20, 180 ) );
-				draw->AddRectFilled( ImVec2{ x - 6.0f, y + h * ( 1.0f - fraction ) }, ImVec2{ x - 3.0f, y + h }, IM_COL32( 90, 220, 110, 230 ) );
-			}
-			if ( cfg.m_ammo_bar.enabled.value && info.weapon.valid( ) && info.weapon.max_ammo > 0 )
-			{
-				const auto fraction = std::clamp( static_cast< float >( info.weapon.ammo ) / info.weapon.max_ammo, 0.0f, 1.0f );
-				draw->AddRectFilled( ImVec2{ x, y + h + 3.0f }, ImVec2{ x + w, y + h + 6.0f }, IM_COL32( 20, 20, 20, 180 ) );
-				draw->AddRectFilled( ImVec2{ x, y + h + 3.0f }, ImVec2{ x + w * fraction, y + h + 6.0f }, IM_COL32( 90, 160, 240, 230 ) );
-			}
-		}
-	}
 
 	void overlay::on_render( xdraw::draw_list& draw_list )
 	{
