@@ -44,14 +44,14 @@ namespace systems
                     const char* model_path = memory::read<const char*>( model_imp + 0x8 );
                     if ( model_path )
                     {
-                        if ( fnv1a::runtime_hash( model_path ) != fnv1a::runtime_hash( "characters/models/ctm_st6/ctm_st6_variante.vmdl" ) )
+                        if ( std::string_view{ model_path }.find( "characters/models/tm_" ) == std::string_view::npos )
                             return false;
                     }
                 }
             }
         }
 
-        /*if ( auto* data = reinterpret_cast< c_generate_primitives_data* >( scene_object ) )
+        if ( auto* data = reinterpret_cast< c_generate_primitives_data* >( scene_object ) )
         {
             if ( auto* scene_layer = data->m_scene_layer )
             {
@@ -59,16 +59,9 @@ namespace systems
                     scene_layer->m_texture_handle->m_texture )
                 {
                     m_current_texture = scene_layer->m_texture_handle->m_texture;
-
-                    static bool first_log = true;
-                    if ( first_log )
-                    {
-                        logging::console::print( "[model_preview] captured preview texture!" );
-                        first_log = false;
-                    }
                 }
             }
-        }*/
+        }
 
         return false;
     }

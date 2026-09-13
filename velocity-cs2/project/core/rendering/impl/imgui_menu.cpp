@@ -135,8 +135,8 @@ namespace rendering {
 
 	void imgui_menu::draw_sidebar( )
 	{
-		static constexpr const char* tabs[ 7 ]{ "VISUALS", "LEGIT", "RAGE", "MISC", "SKINS", "CONFIG", "INFO" };
-		for ( auto i = 0; i < 7; ++i )
+		static constexpr const char* tabs[ 8 ]{ "VISUALS", "LEGIT", "RAGE", "MISC", "SKINS", "PERSONAL", "CONFIG", "INFO" };
+		for ( auto i = 0; i < 8; ++i )
 		{
 			if ( ImGui::Selectable( tabs[ i ], this->m_tab == i, 0, ImVec2{ 66.0f, 42.0f } ) )
 			{
@@ -147,7 +147,7 @@ namespace rendering {
 
 	void imgui_menu::draw_panel( )
 	{
-		static constexpr const char* tab_names[ 7 ]{ "Visuals", "Legit", "Rage", "Misc", "Skins", "Config", "Info" };
+		static constexpr const char* tab_names[ 8 ]{ "Visuals", "Legit", "Rage", "Misc", "Skins", "Personal", "Config", "Info" };
 		static constexpr const char* visual_sections[ 9 ]{ "Enemy", "Team", "Local", "Viewmodel", "Items", "Projectiles", "Other", "Scene", "Weather" };
 		auto draw_config_color = [ ]( const char* label, config::col& color )
 		{
@@ -1223,6 +1223,65 @@ namespace rendering {
 			}
 		}
 		else if ( this->m_tab == 5 )
+		{
+			auto& hat = settings::g_misc.m_hud.m_hat;
+			static constexpr const char* hat_types[ 2 ]{ "Kasa", "Bucket" };
+
+			ImGui::Text( "Personal" );
+			ImGui::Separator( );
+			ImGui::BeginGroup( );
+			ImGui::Text( "Hat" );
+			ImGui::Checkbox( "Enable hat", &hat.enabled.value );
+			auto hat_type = static_cast< int >( hat.type.value );
+			if ( ImGui::Combo( "Hat type", &hat_type, hat_types, IM_ARRAYSIZE( hat_types ) ) )
+			{
+				hat.type.value = static_cast< settings::misc::hud::hat::hat_type >( hat_type );
+			}
+			draw_config_color( "Hat color", hat.color );
+			draw_config_color( "Hat secondary color", hat.secondary_color );
+			ImGui::Checkbox( "Hat glow", &hat.glow.value );
+			ImGui::SliderFloat( "Hat glow strength", &hat.glow_strength.value, 0.1f, 1.0f, "%.2f" );
+			ImGui::EndGroup( );
+
+			ImGui::SameLine( );
+			ImGui::BeginGroup( );
+			ImGui::Text( "Terrorist preview" );
+			ImGui::BeginChild( "##personal_model_preview", ImVec2{ 320.0f, 390.0f }, true );
+			const auto preview_srv = systems::g_model_preview.get_current_texture_srv( );
+			const auto preview_origin = ImGui::GetCursorScreenPos( );
+			const auto preview_size = ImVec2{ 300.0f, 360.0f };
+			if ( preview_srv )
+			{
+				ImGui::Image( reinterpret_cast< ImTextureID >( preview_srv ), preview_size );
+				if ( hat.enabled )
+				{
+					auto* draw_list = ImGui::GetWindowDrawList( );
+					const auto center_x = preview_origin.x + preview_size.x * 0.5f;
+					const auto hat_y = preview_origin.y + preview_size.y * 0.22f;
+					const auto primary = ImGui::ColorConvertU32ToFloat4( IM_COL32( hat.color.value.r, hat.color.value.g, hat.color.value.b, hat.color.value.a ) );
+					const auto secondary = ImGui::ColorConvertU32ToFloat4( IM_COL32( hat.secondary_color.value.r, hat.secondary_color.value.g, hat.secondary_color.value.b, hat.secondary_color.value.a ) );
+					const auto primary_u32 = ImGui::ColorConvertFloat4ToU32( primary );
+					const auto secondary_u32 = ImGui::ColorConvertFloat4ToU32( secondary );
+					draw_list->AddEllipse( ImVec2{ center_x, hat_y + 30.0f }, ImVec2{ 48.0f, 12.0f }, primary_u32, 0, 2.0f );
+					if ( hat.type.value == settings::misc::hud::hat::hat_type::kasa )
+					{
+						draw_list->AddLine( ImVec2{ center_x - 34.0f, hat_y + 30.0f }, ImVec2{ center_x, hat_y - 18.0f }, secondary_u32, 2.0f );
+						draw_list->AddLine( ImVec2{ center_x, hat_y - 18.0f }, ImVec2{ center_x + 34.0f, hat_y + 30.0f }, secondary_u32, 2.0f );
+					}
+					else
+					{
+						draw_list->AddRect( ImVec2{ center_x - 24.0f, hat_y - 8.0f }, ImVec2{ center_x + 24.0f, hat_y + 30.0f }, secondary_u32, 0.0f, 0, 2.0f );
+					}
+				}
+			}
+			else
+			{
+				ImGui::TextDisabled( "Waiting for terrorist preview..." );
+			}
+			ImGui::EndChild( );
+			ImGui::EndGroup( );
+		}
+		else if ( this->m_tab == 6 )
 		{
 			static std::vector<std::wstring> config_list{};
 			static std::string search{};
