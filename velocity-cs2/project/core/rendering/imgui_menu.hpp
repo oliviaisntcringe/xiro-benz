@@ -1,6 +1,7 @@
 #pragma once
 
 struct IDXGISwapChain;
+struct ImFont;
 
 namespace rendering {
 
@@ -29,6 +30,7 @@ namespace rendering {
 		int m_visual_section{};
 		int m_aim_weapon_group{};
 		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_avatar{};
+		ImFont* m_mono_font{};
 		float m_avatar_retry_delay{};
 	};
 

@@ -4,6 +4,12 @@
 
 namespace rendering {
     namespace retro {
+        inline constexpr ImVec4 accent_green{ 0.47f, 0.78f, 0.29f, 1.0f };
+        inline constexpr ImVec4 accent_green_dim{ 0.247f, 0.435f, 0.208f, 1.0f };
+        inline constexpr ImVec4 accent_purple{ 0.553f, 0.290f, 0.690f, 1.0f };
+        inline constexpr ImVec4 text_primary{ 0.894f, 0.894f, 0.894f, 1.0f };
+        inline constexpr ImVec4 text_muted{ 0.565f, 0.565f, 0.565f, 1.0f };
+
         // Apply RIFK7 retro terminal inspired palette and base style tweaks
         inline void apply_rifk7_palette( ImGuiStyle& style )
         {
@@ -43,12 +49,18 @@ namespace rendering {
             if ( !draw_list )
                 return;
 
-            // Background panel
             draw_list->AddRectFilled( rect.Min, rect.Max, IM_COL32(20, 20, 20, 220), 0.0f );
-
-            // Glow / accent line along the bottom
-            const int accent_r = 140, accent_g = 70, accent_b = 180;
-            draw_list->AddRectFilled( ImVec2( rect.Min.x, rect.Max.y - 2.0f ), ImVec2( rect.Max.x, rect.Max.y ), IM_COL32( accent_r, accent_g, accent_b, 200 ) );
+            draw_list->AddRect( rect.Min, rect.Max, IM_COL32(96, 96, 96, 230), 0.0f, 0, 1.0f );
+            draw_list->AddRectFilled(
+                ImVec2{ rect.Min.x, rect.Max.y - 2.0f },
+                ImVec2{ rect.Max.x, rect.Max.y },
+                IM_COL32(119, 200, 74, 230 )
+            );
+            draw_list->AddRectFilled(
+                ImVec2{ rect.Max.x - 28.0f, rect.Max.y - 2.0f },
+                rect.Max,
+                IM_COL32(141, 74, 176, 230 )
+            );
         }
     }
 }

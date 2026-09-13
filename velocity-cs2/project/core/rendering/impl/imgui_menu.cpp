@@ -65,6 +65,21 @@ namespace rendering {
 		{
 			io.Fonts->AddFontFromFileTTF( font_path.string( ).c_str( ), 16.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic( ) );
 		}
+		const std::array<std::filesystem::path, 3> mono_font_paths{
+			std::filesystem::path{ "C:\\Windows\\Fonts\\CascadiaMono.ttf" },
+			std::filesystem::path{ "C:\\Windows\\Fonts\\consola.ttf" },
+			std::filesystem::path{ "C:\\Windows\\Fonts\\lucon.ttf" }
+		};
+		for ( const auto& mono_font_path : mono_font_paths )
+		{
+			if ( std::filesystem::exists( mono_font_path ) )
+			{
+				this->m_mono_font = io.Fonts->AddFontFromFileTTF(
+					mono_font_path.string( ).c_str( ), 14.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic( )
+				);
+				break;
+			}
+		}
 		auto& style = ImGui::GetStyle( );
 		style.WindowRounding = 0.0f;
 		style.ChildRounding = 0.0f;
@@ -199,10 +214,28 @@ namespace rendering {
 			ImVec2{ max_panel_width, max_panel_height }
 		);
 		ImGui::Begin( "TRIADA.BENZ", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings );
-		ImGui::TextColored( ImVec4{ 0.47f, 0.78f, 0.29f, 1.0f }, "XI.BENZ" );
+		const auto header_pos = ImGui::GetCursorScreenPos( );
+		const auto header_width = ImGui::GetContentRegionAvail( ).x;
+		const auto header_rect = ImRect{
+			header_pos,
+			ImVec2{ header_pos.x + header_width, header_pos.y + 76.0f }
+		};
+		rendering::retro::draw_retro_header( ImGui::GetWindowDrawList( ), header_rect );
+		if ( this->m_mono_font )
+		{
+			ImGui::PushFont( this->m_mono_font );
+		}
+		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x + 18.0f, header_pos.y + 14.0f } );
+		ImGui::TextColored( rendering::retro::accent_green, "XI.BENZ" );
 		ImGui::SameLine( );
-		ImGui::TextColored( ImVec4{ 0.55f, 0.29f, 0.69f, 1.0f }, "RIFK7" );
-		ImGui::Separator( );
+		ImGui::TextColored( rendering::retro::accent_purple, "RIFK7" );
+		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x + 18.0f, header_pos.y + 42.0f } );
+		ImGui::TextColored( rendering::retro::text_muted, "operator console // build 2026.09" );
+		if ( this->m_mono_font )
+		{
+			ImGui::PopFont( );
+		}
+		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x, header_rect.Max.y + 10.0f } );
 		this->draw_panel( );
 		ImGui::End( );
 
