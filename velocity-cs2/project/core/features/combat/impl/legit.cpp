@@ -312,13 +312,16 @@ namespace features::combat {
 	void legit::apply_aimbot( systems::input::usercmd* cmd, const target_result& tgt, const math::vector3& view_angles, const math::vector3& aim_punch, const settings::combat::legitbot::weapon_group& config, const systems::local::snapshot& local )
 	{
 		auto aim_angle = tgt.aim_angle;
+		const auto base = cmd->csgo_user_cmd.mutable_base( );
+		const auto is_firing = ( cmd->buttons.value & cstypes::command_buttons::in_attack ) != 0;
+		const auto silent_shot = config.silent.value && is_firing;
 
 		if ( config.rcs.value )
 		{
 			this->apply_rcs( aim_angle, aim_punch, config.rcs_min.value, config.rcs_max.value );
 		}
 
-		if ( config.smooth.value > 0 )
+		if ( config.smooth.value > 0 && !silent_shot )
 		{
 			auto delta = aim_angle - view_angles;
 			math::helpers::normalize_angles( delta );
@@ -355,8 +358,6 @@ namespace features::combat {
 			math::helpers::normalize_angles( aim_angle );
 		}
 
-		const auto base = cmd->csgo_user_cmd.mutable_base( );
-		const auto is_firing = ( cmd->buttons.value & cstypes::command_buttons::in_attack ) != 0;
 		if ( base && ( config.silent.value || config.no_spread.value ) && is_firing )
 		{
 			if ( config.no_spread.value )
