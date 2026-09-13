@@ -610,6 +610,8 @@ namespace rendering {
 			static int category{};
 			static int selected_item{};
 			static int selected_paint_id{};
+			static int last_category{ -1 };
+			static bool weapon_selection_dirty{};
 
 			auto display_name = [ ]( const std::string& localized, const std::string& fallback )
 			{
@@ -633,6 +635,7 @@ namespace rendering {
 					category = i;
 					selected_item = 0;
 					selected_paint_id = 0;
+					weapon_selection_dirty = false;
 				}
 			}
 			ImGui::Separator( );
@@ -644,6 +647,24 @@ namespace rendering {
 			}
 			else
 			{
+				if ( category != last_category )
+				{
+					last_category = category;
+					weapon_selection_dirty = false;
+				}
+
+				if ( !weapon_selection_dirty && ( category == 1 || category == 2 ) )
+				{
+					for ( auto i = 0; i < static_cast< int >( items.size( ) ); ++i )
+					{
+						if ( changer.skins.data.contains( items[ i ]->def_index ) )
+						{
+							selected_item = i;
+							break;
+						}
+					}
+				}
+
 				selected_item = std::clamp( selected_item, 0, static_cast< int >( items.size( ) ) - 1 );
 				const auto* item = items[ selected_item ];
 				const auto weapon_name = display_name( item->localized_name, item->name );
@@ -651,6 +672,10 @@ namespace rendering {
 				ImGui::BeginChild( "##skin_preview", ImVec2{ 280.0f, 0.0f }, true );
 				const auto applied_it = changer.skins.data.find( item->def_index );
 				const auto applied_paint = applied_it != changer.skins.data.end( ) ? applied_it->second.paint_kit_id : 0;
+				if ( !weapon_selection_dirty && applied_paint != 0 )
+				{
+					selected_paint_id = applied_paint;
+				}
 				const auto selected_paint = selected_paint_id != 0 ? econ.find_paint_kit( selected_paint_id ) : econ.find_paint_kit( applied_paint );
 				const auto skin_name = selected_paint ? display_name( selected_paint->localized_name, selected_paint->name ) : std::string{ "Default" };
 				ImGui::TextWrapped( "%s | %s", weapon_name.c_str( ), skin_name.c_str( ) );
@@ -690,6 +715,7 @@ namespace rendering {
 				if ( ImGui::Combo( "##selected_weapon", &selected_item, item_names.data( ), static_cast< int >( item_names.size( ) ) ) )
 				{
 					selected_paint_id = 0;
+					weapon_selection_dirty = true;
 				}
 				if ( category == 3 )
 				{
@@ -746,7 +772,23 @@ namespace rendering {
 						if ( ImGui::Selectable( paint_name.c_str( ), selected_paint_id == paint->id ) )
 						{
 							selected_paint_id = paint->id;
+							if ( category == 1 || category == 2 )
+							{
+								for ( auto it = changer.skins.data.begin( ); it != changer.skins.data.end( ); )
+								{
+									const auto* existing = econ.find_def( it->first );
+									if ( existing && existing->category == ( category == 1 ? features::changer::econ_item_system::item_category::knife : features::changer::econ_item_system::item_category::glove ) )
+									{
+										it = changer.skins.data.erase( it );
+									}
+									else
+									{
+										++it;
+									}
+								}
+							}
 							changer.skins.data[ item->def_index ].paint_kit_id = paint->id;
+							weapon_selection_dirty = false;
 						}
 					}
 
