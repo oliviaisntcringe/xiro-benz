@@ -111,19 +111,9 @@ namespace rendering {
 				features::esp::other::g_overlay.on_render( dl );
 			}
 
-			g_menu.draw( );
-
 			if ( this->m_ui_assets_ready )
 			{
-				if ( g_menu.is_open( ) )
-				{
-					g_widgets.draw( );
-					features::esp::other::g_overlay.draw_spectators( xdraw::get( xdraw::layer::top ) );
-				}
-				else
-				{
-					g_widgets.draw( );
-				}
+				g_widgets.draw( );
 			}
 		}
 		xdraw::end_frame( );

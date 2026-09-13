@@ -78,11 +78,11 @@ namespace rendering {
         void draw_misc( float group_w ) const;
         void draw_config( float group_w );
 
-        bool m_open{ true };
+        bool m_open{ false };
         bool m_config_modal_open{};
         bool m_config_cloud_refresh_pending{};
         bool m_config_advanced_open{};
-        bool m_last_open{ true };
+        bool m_last_open{ false };
         float m_open_anim{ 1.0f };
         std::uint8_t m_saved_relative_mouse{};
 		bool m_has_saved_cursor{};
