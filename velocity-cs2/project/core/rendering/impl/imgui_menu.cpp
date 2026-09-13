@@ -203,13 +203,17 @@ namespace rendering {
 		if ( !ImGui_ImplWin32_Init( window ) || !ImGui_ImplDX11_Init( device, context ) )
 		{
 			ImGui::DestroyContext( );
-			context->Release( );
-			device->Release( );
+			if ( context )
+			{
+				context->Release( );
+			}
+			if ( device )
+			{
+				device->Release( );
+			}
 			return false;
 		}
 
-		context->Release( );
-		device->Release( );
 		this->m_initialized = true;
 		return true;
 	}
