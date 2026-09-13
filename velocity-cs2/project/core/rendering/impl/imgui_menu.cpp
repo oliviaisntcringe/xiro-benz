@@ -388,7 +388,8 @@ namespace rendering {
 				}
 				ImGui::Checkbox( "Ragdoll glow", &player.m_glow.local_ragdoll.enabled.value );
 			}
-			else if ( this->m_tab == 3 )
+		}
+		else if ( this->m_tab == 3 )
 			{
 				auto& misc = settings::g_misc;
 				auto& movement = settings::g_movement;
@@ -700,6 +701,102 @@ namespace rendering {
 				ImGui::Text( "Viewmodel" );
 				draw_chams( "Weapon chams", esp.m_viewmodel.weapon, true );
 				draw_chams( "Arms chams", esp.m_viewmodel.arms, true );
+			}
+		}
+		else if ( this->m_tab == 4 )
+		{
+			auto& changer = settings::g_changer;
+			auto& econ = features::changer::g_econ_item_system;
+			static constexpr const char* categories[ 4 ]{ "Weapons", "Knives", "Gloves", "Agents" };
+			static int category{};
+			static int selected_item{};
+			static int selected_paint{};
+
+			ImGui::Text( "Skin changer" );
+			for ( auto i = 0; i < 4; ++i )
+			{
+				if ( i > 0 )
+				{
+					ImGui::SameLine( );
+				}
+				if ( ImGui::Selectable( categories[ i ], category == i, 0, ImVec2{ 92.0f, 28.0f } ) )
+				{
+					category = i;
+					selected_item = 0;
+					selected_paint = 0;
+				}
+			}
+			ImGui::Separator( );
+
+			const auto& items = category == 0 ? econ.guns( ) : category == 1 ? econ.knives( ) : category == 2 ? econ.gloves( ) : econ.agents( );
+			if ( items.empty( ) )
+			{
+				ImGui::TextDisabled( "No item definitions are available yet." );
+			}
+			else
+			{
+				selected_item = std::clamp( selected_item, 0, static_cast< int >( items.size( ) ) - 1 );
+				std::vector< const char* > item_names;
+				item_names.reserve( items.size( ) );
+				for ( const auto* item : items )
+				{
+					item_names.push_back( item->localized_name.empty( ) ? item->name.c_str( ) : item->localized_name.c_str( ) );
+				}
+
+				ImGui::Combo( "Item", &selected_item, item_names.data( ), static_cast< int >( item_names.size( ) ) );
+				const auto* item = items[ selected_item ];
+				if ( category == 3 )
+				{
+					ImGui::Text( "Team: %s", item->team( ) == 3 ? "Counter-Terrorist" : "Terrorist" );
+					if ( item->team( ) == 3 )
+					{
+						changer.agents.ct_def = item->def_index;
+					}
+					else if ( item->team( ) == 2 )
+					{
+						changer.agents.t_def = item->def_index;
+					}
+				}
+				else
+				{
+					std::vector< const char* > paint_names;
+					std::vector< int > paint_ids;
+					for ( const auto& paint : econ.paint_kits( ) )
+					{
+						if ( category == 0 && paint.id == 0 )
+						{
+							continue;
+						}
+						paint_ids.push_back( paint.id );
+						paint_names.push_back( paint.localized_name.empty( ) ? paint.name.c_str( ) : paint.localized_name.c_str( ) );
+					}
+
+					if ( !paint_names.empty( ) )
+					{
+						selected_paint = std::clamp( selected_paint, 0, static_cast< int >( paint_names.size( ) ) - 1 );
+						if ( ImGui::Combo( "Paint kit", &selected_paint, paint_names.data( ), static_cast< int >( paint_names.size( ) ) ) )
+						{
+							changer.skins.data[ item->def_index ].paint_kit_id = paint_ids[ selected_paint ];
+						}
+
+						auto& applied = changer.skins.data[ item->def_index ];
+						if ( applied.paint_kit_id == 0 )
+						{
+							applied.paint_kit_id = paint_ids[ selected_paint ];
+						}
+						ImGui::SliderFloat( "Wear", &applied.wear, 0.0f, 1.0f, "%.4f" );
+						ImGui::SliderInt( "Seed", &applied.seed, 0, 1000 );
+						ImGui::Checkbox( "StatTrak", &applied.stattrak );
+						if ( ImGui::Button( "Clear selected skin" ) )
+						{
+							changer.skins.data.erase( item->def_index );
+						}
+					}
+					else
+					{
+						ImGui::TextDisabled( "No paint kits are available yet." );
+					}
+				}
 			}
 		}
 		else if ( this->m_tab == 1 )
