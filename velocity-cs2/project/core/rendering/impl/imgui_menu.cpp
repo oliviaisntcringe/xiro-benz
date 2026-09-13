@@ -148,7 +148,7 @@ namespace rendering {
 	void imgui_menu::draw_panel( )
 	{
 		static constexpr const char* tab_names[ 7 ]{ "Visuals", "Legit", "Rage", "Misc", "Skins", "Config", "Info" };
-		static constexpr const char* visual_sections[ 7 ]{ "Enemy", "Team", "Local", "Viewmodel", "Items", "Projectiles", "Other" };
+		static constexpr const char* visual_sections[ 9 ]{ "Enemy", "Team", "Local", "Viewmodel", "Items", "Projectiles", "Other", "Scene", "Weather" };
 		auto draw_config_color = [ ]( const char* label, config::col& color )
 		{
 			float rgba[ 4 ]{
@@ -173,7 +173,7 @@ namespace rendering {
 			auto& esp = settings::g_esp;
 			auto& player = esp.m_player;
 
-			for ( auto i = 0; i < 7; ++i )
+			for ( auto i = 0; i < 9; ++i )
 			{
 				if ( i > 0 )
 				{
@@ -459,12 +459,76 @@ namespace rendering {
 					draw_color( "Icon color##projectile", group.icon_color );
 				}
 			}
-			else
+			else if ( this->m_visual_section == 6 )
 			{
 				auto& other = esp.m_other;
 				ImGui::Text( "Other ESP" );
 				ImGui::Checkbox( "Bomb timer", &other.bomb_timer.value );
 				ImGui::Checkbox( "Spectator list", &other.spectator_list.value );
+			}
+			if ( this->m_visual_section == 7 )
+			{
+				auto& scene = settings::g_world.m_scene;
+				ImGui::Text( "Scene" );
+				ImGui::Checkbox( "Skybox material", &scene.skybox.custom_skybox.value );
+				const auto& skyboxes = features::world::g_scene.get_skyboxes( );
+				if ( !skyboxes.empty( ) )
+				{
+					std::vector< const char* > skybox_names;
+					skybox_names.reserve( skyboxes.size( ) );
+					for ( const auto& skybox : skyboxes )
+					{
+						skybox_names.push_back( skybox.display_name.c_str( ) );
+					}
+					scene.skybox.selected_skybox.value = std::clamp( scene.skybox.selected_skybox.value, 0, static_cast< int >( skybox_names.size( ) ) - 1 );
+					ImGui::Combo( "Skybox", &scene.skybox.selected_skybox.value, skybox_names.data( ), static_cast< int >( skybox_names.size( ) ) );
+				}
+				ImGui::Checkbox( "Skybox color", &scene.skybox.custom_color.value );
+				draw_color( "Sky color", scene.skybox.skybox_color );
+				draw_color( "Cloud color", scene.skybox.cloud_color );
+				draw_color( "Sun color", scene.skybox.sun_color );
+				ImGui::Checkbox( "World color", &scene.world_setting.value );
+				draw_color( "World color value", scene.world_color );
+				ImGui::Checkbox( "Lighting", &scene.lighting.value );
+				ImGui::SliderFloat( "Lighting intensity", &scene.lighting_intensity.value, 0.0f, 2.0f, "%.2f" );
+				draw_color( "Lighting color", scene.lighting_color );
+				ImGui::Checkbox( "Ambient", &scene.ambient.value );
+				ImGui::SliderFloat( "Ambient intensity", &scene.ambient_intensity.value, 0.0f, 3.0f, "%.2f" );
+				draw_color( "Ambient color", scene.ambient_color );
+				ImGui::Checkbox( "Bloom", &scene.bloom.value );
+				ImGui::SliderFloat( "Bloom value", &scene.bloom_value.value, 0.0f, 2.0f, "%.2f" );
+				ImGui::Checkbox( "Gamma", &scene.gamma.value );
+				ImGui::SliderFloat( "Gamma value", &scene.gamma_value.value, 0.5f, 5.0f, "%.1f" );
+				ImGui::Checkbox( "Depth of field", &scene.dof.value );
+				ImGui::SliderFloat( "Near blurry", &scene.dof_near_blurry.value, 0.0f, 50.0f, "%.0f" );
+				ImGui::SliderFloat( "Near crisp", &scene.dof_near_crisp.value, 0.0f, 100.0f, "%.0f" );
+				ImGui::SliderFloat( "Far crisp", &scene.dof_far_crisp.value, 100.0f, 2000.0f, "%.0f" );
+				ImGui::SliderFloat( "Far blurry", &scene.dof_far_blurry.value, 200.0f, 5000.0f, "%.0f" );
+			}
+			else if ( this->m_visual_section == 8 )
+			{
+				auto& weather = settings::g_world.m_weather;
+				ImGui::Text( "Weather" );
+				ImGui::Checkbox( "Weather", &weather.enabled.value );
+				static constexpr const char* weather_types[ 3 ]{ "Snow", "Rain", "Stars" };
+				auto weather_type = static_cast< int >( weather.type.value );
+				if ( ImGui::Combo( "Type##weather", &weather_type, weather_types, IM_ARRAYSIZE( weather_types ) ) )
+				{
+					weather.type.value = static_cast< settings::world::weather::weather_type >( weather_type );
+				}
+				draw_color( "Weather color", weather.color );
+				ImGui::Checkbox( "Fog", &weather.fog_enabled.value );
+				ImGui::SliderFloat( "Fog density", &weather.fog_density.value, 0.0f, 1.0f, "%.2f" );
+				ImGui::SliderFloat( "Fog anisotropy", &weather.fog_anisotropy.value, 0.0f, 1.0f, "%.2f" );
+				ImGui::SliderFloat( "Fog draw distance", &weather.fog_draw_distance.value, 500.0f, 20000.0f, "%.0f" );
+				draw_color( "Fog color", weather.fog_color );
+				ImGui::Checkbox( "Wetness", &weather.wetness.value );
+				ImGui::SliderFloat( "Wetness density", &weather.wetness_density.value, 0.0f, 5.0f, "%.1f" );
+				ImGui::SliderFloat( "Wetness speed", &weather.wetness_speed.value, 0.0f, 3.0f, "%.1f" );
+				ImGui::Checkbox( "Wind", &weather.wind.value );
+				ImGui::SliderFloat( "Wind strength", &weather.wind_strength.value, 0.0f, 5.0f, "%.1f" );
+				ImGui::SliderFloat( "Wind direction", &weather.wind_direction.value, 0.0f, 360.0f, "%.0f" );
+				ImGui::SliderFloat( "Wind turbulence", &weather.wind_turbulence.value, 0.0f, 5.0f, "%.1f" );
 			}
 		}
 		else if ( this->m_tab == 3 )
