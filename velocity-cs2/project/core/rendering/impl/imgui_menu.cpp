@@ -1369,6 +1369,7 @@ namespace rendering {
 			static int selected{ -1 };
 			static bool refresh{ true };
 			static char search_buffer[ 128 ]{};
+			static bool confirm_delete{ false };
 
 			auto to_utf8 = [ ]( const std::wstring& value )
 			{
@@ -1447,26 +1448,32 @@ namespace rendering {
 				if ( ImGui::Selectable( name.c_str( ), selected == i ) )
 				{
 					selected = i;
-					if ( config::registry::load( config_list[ i ] ) )
-					{
-						settings::finalize_binds( );
-					}
+					confirm_delete = false;
 				}
 			}
 			ImGui::EndChild( );
 
 			const auto has_selection = selected >= 0 && selected < static_cast< int >( config_list.size( ) );
-			ImGui::SameLine( );
-			if ( ImGui::Button( "Save" ) )
+			const auto button_width = ( ImGui::GetContentRegionAvail( ).x - ImGui::GetStyle( ).ItemSpacing.x * 5.0f ) / 6.0f;
+			const auto save_name = has_selection ? to_utf8( config_list[ selected ] ) : std::string{ search_buffer };
+
+			if ( ImGui::Button( "Load", ImVec2{ button_width, 0.0f } ) && has_selection )
 			{
-				const auto name = has_selection ? to_utf8( config_list[ selected ] ) : std::string{ search_buffer };
-				if ( !name.empty( ) && config::registry::save( to_wide( name ) ) )
+				if ( config::registry::load( config_list[ selected ] ) )
+				{
+					settings::finalize_binds( );
+				}
+			}
+			ImGui::SameLine( );
+			if ( ImGui::Button( "Save", ImVec2{ button_width, 0.0f } ) )
+			{
+				if ( !save_name.empty( ) && config::registry::save( to_wide( save_name ) ) )
 				{
 					refresh = true;
 				}
 			}
 			ImGui::SameLine( );
-			if ( ImGui::Button( "Reset" ) )
+			if ( ImGui::Button( "Reset", ImVec2{ button_width, 0.0f } ) )
 			{
 				auto& registry = config::detail::get_registry( );
 				for ( auto& field : registry.fields )
@@ -1481,28 +1488,60 @@ namespace rendering {
 				settings::finalize_binds( );
 			}
 			ImGui::SameLine( );
-			if ( ImGui::Button( "Delete" ) && has_selection )
+			const auto delete_label = confirm_delete ? "Confirm" : "Delete";
+			if ( ImGui::Button( delete_label, ImVec2{ button_width, 0.0f } ) && has_selection )
 			{
-				if ( config::registry::remove( config_list[ selected ] ) )
+				if ( confirm_delete )
 				{
-					selected = -1;
-					refresh = true;
+					if ( config::registry::remove( config_list[ selected ] ) )
+					{
+						selected = -1;
+						refresh = true;
+					}
+					confirm_delete = false;
+				}
+				else
+				{
+					confirm_delete = true;
 				}
 			}
 			ImGui::SameLine( );
-			if ( ImGui::Button( "Import" ) )
+			if ( ImGui::Button( "Import", ImVec2{ button_width, 0.0f } ) )
 			{
 				const auto result = config::import_auto( paste_clipboard( ) );
 				if ( result.success )
 				{
 					settings::finalize_binds( );
+					std::wstring name;
+					if ( !result.name.empty( ) )
+					{
+						name = to_wide( result.name );
+					}
+					else
+					{
+						SYSTEMTIME time{};
+						GetLocalTime( &time );
+						wchar_t generated_name[ 128 ]{};
+						std::swprintf( generated_name, IM_ARRAYSIZE( generated_name ), L"import_%04d%02d%02d_%02d%02d%02d",
+							time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond );
+						name = generated_name;
+					}
+
+					if ( !name.empty( ) )
+					{
+						config::registry::save( name );
+					}
 					refresh = true;
 				}
 			}
 			ImGui::SameLine( );
-			if ( ImGui::Button( "Export" ) && has_selection )
+			if ( ImGui::Button( "Export", ImVec2{ button_width, 0.0f } ) )
 			{
-				copy_clipboard( config::export_share_words( to_utf8( config_list[ selected ] ) ) );
+				const auto code = config::export_share_words( save_name );
+				if ( !code.empty( ) )
+				{
+					copy_clipboard( code );
+				}
 			}
 		}
 		else

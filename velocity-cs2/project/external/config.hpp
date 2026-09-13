@@ -294,7 +294,10 @@ namespace config {
 			}
 
 			b.key = j.value( "k", 0 );
-			b.mode = static_cast< xui::bind_mode >( j.value( "m", 0 ) );
+			const auto mode = j.value( "m", 0 );
+			b.mode = mode >= 0 && mode <= static_cast< int >( xui::bind_mode::hold_off )
+				? static_cast< xui::bind_mode >( mode )
+				: xui::bind_mode::toggle;
 		}
 
 		inline nlohmann::json field_to_json( const field& f )
@@ -910,8 +913,10 @@ namespace config {
 				return false;
 			}
 
+			DWORD type{};
 			DWORD size{};
-			if ( RegQueryValueExW( hkey, name.data( ), nullptr, nullptr, nullptr, &size ) != ERROR_SUCCESS || size == 0 )
+			if ( RegQueryValueExW( hkey, name.data( ), nullptr, &type, nullptr, &size ) != ERROR_SUCCESS
+				|| type != REG_BINARY || size == 0 )
 			{
 				RegCloseKey( hkey );
 				return false;
