@@ -650,7 +650,7 @@ namespace systems {
 			}
 
 			const auto texture = reinterpret_cast< c_texture_dx11* >( m_current_texture );
-			return texture->m_texture_SRV0;
+			return texture->m_texture_SRV0 ? texture->m_texture_SRV0 : texture->m_texture_SRV1;
 		}
 
 		void reset( ) { m_current_texture = nullptr; }

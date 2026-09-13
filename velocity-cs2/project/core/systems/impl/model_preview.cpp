@@ -29,39 +29,22 @@ namespace systems
         if ( owner_hash != "C_CSGO_PreviewPlayer"_hash )
             return false;
 
-        const std::uintptr_t mesh_instance = memory::read<std::uintptr_t>(
-            owner_entity + SCHEMA( "C_BaseEntity", "m_pMeshInstance"_hash )
-        );
-
-        if ( mesh_instance )
-        {
-            const std::uintptr_t mesh_cache = memory::read<std::uintptr_t>( mesh_instance + 0x8 );
-            if ( mesh_cache && mesh_cache < 0x7FFFFFFFFFFF )
-            {
-                const std::uintptr_t model_imp = memory::read<std::uintptr_t>( mesh_cache );
-                if ( model_imp && model_imp < 0x7FFFFFFFFFFF )
-                {
-                    const char* model_path = memory::read<const char*>( model_imp + 0x8 );
-                    if ( model_path )
-                    {
-                        const std::string_view model{ model_path };
-                        if ( model.find( "characters/models/tm_" ) == std::string_view::npos
-                            && model.find( "characters/models/ctm_" ) == std::string_view::npos )
-                            return false;
-                    }
-                }
-            }
-        }
-
         if ( auto* data = reinterpret_cast< c_generate_primitives_data* >( scene_object ) )
         {
-            if ( auto* scene_layer = data->m_scene_layer )
+            const auto capture_layer = [ this ]( c_scene_layer* scene_layer )
             {
-                if ( scene_layer->m_texture_handle &&
-                    scene_layer->m_texture_handle->m_texture )
+                if ( !scene_layer || !scene_layer->m_texture_handle || !scene_layer->m_texture_handle->m_texture )
                 {
-                    m_current_texture = scene_layer->m_texture_handle->m_texture;
+                    return;
                 }
+
+                m_current_texture = scene_layer->m_texture_handle->m_texture;
+            };
+
+            capture_layer( data->m_scene_layer );
+            if ( !m_current_texture )
+            {
+                capture_layer( data->m_scene_layer_2 );
             }
         }
 
