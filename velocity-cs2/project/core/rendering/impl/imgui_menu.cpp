@@ -3,6 +3,7 @@
 #include <core/settings.hpp>
 #include <utilities/memory/memory.hpp>
 #include <utilities/steam/steam.hpp>
+#include <external/xdraw/xdraw.hpp>
 
 #include <external/imgui/imgui.h>
 #include <external/imgui/backends/imgui_impl_dx11.h>
@@ -14,6 +15,31 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler( HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam );
 
 namespace rendering {
+	namespace {
+		const char* menu_key_name( int key )
+		{
+			switch ( key )
+			{
+			case VK_INSERT: return "Insert";
+			case VK_DELETE: return "Delete";
+			case VK_HOME: return "Home";
+			case VK_END: return "End";
+			case VK_F1: return "F1";
+			case VK_F2: return "F2";
+			case VK_F3: return "F3";
+			case VK_F4: return "F4";
+			case VK_F5: return "F5";
+			case VK_F6: return "F6";
+			case VK_F7: return "F7";
+			case VK_F8: return "F8";
+			case VK_F9: return "F9";
+			case VK_F10: return "F10";
+			case VK_F11: return "F11";
+			case VK_F12: return "F12";
+			default: return "Custom";
+			}
+		}
+	}
 
 	bool imgui_menu::initialize( IDXGISwapChain* swap_chain, HWND window )
 	{
@@ -89,7 +115,49 @@ namespace rendering {
 		ImGui_ImplDX11_Shutdown( );
 		ImGui_ImplWin32_Shutdown( );
 		ImGui::DestroyContext( );
+		this->m_avatar.Reset( );
 		this->m_initialized = false;
+	}
+
+	void imgui_menu::try_load_avatar( )
+	{
+		if ( this->m_avatar )
+		{
+			return;
+		}
+
+		this->m_avatar_retry_delay -= ImGui::GetIO( ).DeltaTime;
+		if ( this->m_avatar_retry_delay > 0.0f )
+		{
+			return;
+		}
+		this->m_avatar_retry_delay = 1.0f;
+
+		const auto steam_id = steam::user::get_steam_id( );
+		if ( !steam_id )
+		{
+			return;
+		}
+
+		const auto image = steam::friends::get_medium_friend_avatar( steam_id );
+		if ( image <= 0 )
+		{
+			return;
+		}
+
+		std::uint32_t width{}, height{};
+		if ( !steam::utils::get_image_size( image, &width, &height ) || !width || !height )
+		{
+			return;
+		}
+
+		std::vector<std::uint8_t> rgba( width * height * 4 );
+		if ( !steam::utils::get_image_rgba( image, rgba.data( ), static_cast< int >( rgba.size( ) ) ) )
+		{
+			return;
+		}
+
+		this->m_avatar = xdraw::create_srv_from_rgba( rgba.data( ), static_cast< int >( width ), static_cast< int >( height ) );
 	}
 
 	void imgui_menu::begin_frame( )
@@ -102,6 +170,7 @@ namespace rendering {
 		ImGui_ImplDX11_NewFrame( );
 		ImGui_ImplWin32_NewFrame( );
 		ImGui::NewFrame( );
+		this->try_load_avatar( );
 	}
 
 	void imgui_menu::draw( )
@@ -159,6 +228,11 @@ namespace rendering {
 		ImGui::Begin( "##imgui_profile_hud", nullptr,
 			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
 			| ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing );
+		if ( this->m_avatar )
+		{
+			ImGui::Image( reinterpret_cast< ImTextureID >( this->m_avatar.Get( ) ), ImVec2{ 28.0f, 28.0f } );
+			ImGui::SameLine( );
+		}
 		ImGui::Text( "%s", profile_name );
 		ImGui::SameLine( profile_width - 52.0f );
 		if ( ImGui::Button( "...", ImVec2{ 42.0f, 28.0f } ) )
@@ -176,7 +250,7 @@ namespace rendering {
 				ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
 				| ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize );
 			ImGui::Text( "Menu" );
-			ImGui::Text( "Open / close: %s", ImGui::GetKeyName( static_cast< ImGuiKey >( settings::g_misc.menu_key.value ) ) );
+			ImGui::Text( "Open / close: %s", menu_key_name( settings::g_misc.menu_key.value ) );
 			ImGui::End( );
 		}
 		ImGui::End( );

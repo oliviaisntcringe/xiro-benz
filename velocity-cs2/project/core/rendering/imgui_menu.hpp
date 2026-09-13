@@ -21,12 +21,15 @@ namespace rendering {
 	private:
 		void draw_sidebar( );
 		void draw_panel( );
+		void try_load_avatar( );
 
 		bool m_initialized{};
 		bool m_open{};
 		int m_tab{};
 		int m_visual_section{};
 		int m_aim_weapon_group{};
+		Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_avatar{};
+		float m_avatar_retry_delay{};
 	};
 
 	inline imgui_menu g_imgui_menu{};
