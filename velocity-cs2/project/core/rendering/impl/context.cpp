@@ -1,6 +1,7 @@
 #include <pch/pch.hpp>
 #include <core/systems/systems.hpp>
 #include <core/features/features.hpp>
+#include <utilities/diag.hpp>
 
 #include "../rendering.hpp"
 
@@ -107,7 +108,10 @@ namespace rendering {
 				features::combat::g_rage.on_render( dl );
 				features::combat::g_legit.on_render( dl );
 				features::misc::g_impacts.on_render( dl );
-				features::misc::g_hud.on_render( dl );
+				{
+					diag::exception_scope hud_scope{ "render: custom hud" };
+					features::misc::g_hud.on_render( dl );
+				}
 				features::esp::other::g_overlay.on_render( dl );
 			}
 

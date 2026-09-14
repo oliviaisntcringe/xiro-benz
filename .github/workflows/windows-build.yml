@@ -36,6 +36,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Select available MSVC toolset
+        id: toolset
         shell: pwsh
         run: |
           $versions = Get-ChildItem "$env:ProgramFiles\Microsoft Visual Studio" -Directory -Recurse -ErrorAction SilentlyContinue |
@@ -52,17 +53,22 @@ jobs:
           }
 
           "PLATFORM_TOOLSET=$platformToolset" >> $env:GITHUB_ENV
+          "platform_toolset=$platformToolset" >> $env:GITHUB_OUTPUT
           Write-Host "Using MSVC platform toolset: $platformToolset"
 
-      - name: Restore MSBuild intermediates
+      - name: Restore MSBuild cache
         uses: actions/cache@v4
+        id: build-cache
         with:
-          path: velocity-cs2/bin/intermediates/${{ matrix.configuration }}
-          key: msvc-intermediates-${{ runner.os }}-${{ matrix.configuration }}-${{ hashFiles('velocity-cs2/velocity-cs2.vcxproj', 'velocity-cs2.slnx', '.github/workflows/windows-build.yml') }}
+          path: |
+            velocity-cs2/bin/${{ matrix.configuration }}
+            velocity-cs2/bin/intermediates/${{ matrix.configuration }}
+          key: msvc-build-${{ runner.os }}-${{ matrix.configuration }}-${{ steps.toolset.outputs.platform_toolset }}-${{ hashFiles('velocity-cs2/project/**', 'velocity-cs2/velocity-cs2.vcxproj', 'velocity-cs2.slnx', '.github/workflows/windows-build.yml') }}
           restore-keys: |
-            msvc-intermediates-${{ runner.os }}-${{ matrix.configuration }}-
+            msvc-build-${{ runner.os }}-${{ matrix.configuration }}-${{ steps.toolset.outputs.platform_toolset }}-
 
       - name: Build ${{ matrix.configuration }}
+        if: steps.build-cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path $env:BUILD_ROOT | Out-Null

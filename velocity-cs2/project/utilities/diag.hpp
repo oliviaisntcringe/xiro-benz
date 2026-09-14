@@ -1,5 +1,11 @@
 #pragma once
 
+#include <shellapi.h>
+
+#if defined( _MSC_VER )
+#pragma comment( lib, "shell32" )
+#endif
+
 // Lightweight diagnostics used before the rest of the project is initialized.
 // The logger deliberately uses Win32 file I/O so it remains usable from SEH
 // handlers and does not depend on the state of iostreams.
@@ -25,7 +31,6 @@ namespace diag {
 	inline thread_local std::uint32_t g_probe_scope_depth{};
 	inline thread_local const char* g_exception_phase{ "none" };
 
-#if defined( DEV )
 	// DbgHelp declares this structure under 4-byte packing, including on x64.
 #pragma pack( push, 4 )
 	struct minidump_exception_information
@@ -37,18 +42,9 @@ namespace diag {
 #pragma pack( pop )
 	static_assert( sizeof( minidump_exception_information ) == 16 );
 
-	using minidump_write_fn = BOOL( WINAPI* )(
-		HANDLE,
-		DWORD,
-		HANDLE,
-		unsigned long,
-		minidump_exception_information*,
-		void*,
-		void* );
-
-	inline minidump_write_fn g_minidump_write{};
+	inline volatile LONG g_crash_report_enabled{};
 	inline volatile LONG g_crash_claimed{};
-	inline thread_local bool g_writing_minidump{};
+	inline volatile LONG g_crash_artifacts_opened{};
 
 	struct crash_report_request
 	{
@@ -60,14 +56,27 @@ namespace diag {
 	};
 
 	inline crash_report_request g_crash_request{};
+	inline constexpr DWORD diagnostic_snapshot_code = 0xE0560001;
+
+	#if defined( DEV )
+	using minidump_write_fn = BOOL( WINAPI* )(
+		HANDLE,
+		DWORD,
+		HANDLE,
+		unsigned long,
+		minidump_exception_information*,
+		void*,
+		void* );
+
+	inline minidump_write_fn g_minidump_write{};
+	inline thread_local bool g_writing_minidump{};
 
 	// MINIDUMP_TYPE flags from dbghelp.h. Keeping the ABI-compatible values
 	// local avoids adding a static dbghelp dependency to the injected DLL.
 	inline constexpr unsigned long minidump_with_unloaded_modules = 0x20;
 	inline constexpr unsigned long minidump_with_indirectly_referenced_memory = 0x40;
 	inline constexpr unsigned long minidump_with_thread_info = 0x1000;
-	inline constexpr DWORD diagnostic_snapshot_code = 0xE0560001;
-#endif
+	#endif
 
 	inline const char* level_name( level value )
 	{
@@ -180,6 +189,15 @@ namespace diag {
 			}
 		}
 
+		const auto output = GetStdHandle( STD_OUTPUT_HANDLE );
+		DWORD console_mode{};
+		if ( output && output != INVALID_HANDLE_VALUE &&
+			GetConsoleMode( output, &console_mode ) )
+		{
+			DWORD written{};
+			WriteFile( output, line, bytes, &written, nullptr );
+		}
+
 		OutputDebugStringA( line );
 	}
 
@@ -245,6 +263,7 @@ namespace diag {
 		{
 			g_log_file = nullptr;
 		}
+		InterlockedExchange( &g_crash_report_enabled, 1 );
 
 		const auto* dos_header =
 			reinterpret_cast<const IMAGE_DOS_HEADER*>( module_handle );
@@ -292,6 +311,7 @@ namespace diag {
 
 	inline void initialize_crash_dumps( )
 	{
+		InterlockedExchange( &g_crash_report_enabled, 1 );
 #if defined( DEV )
 		// Resolve outside the loader lock; LoadLibrary is unsafe from DLL attach.
 		if ( const auto dbghelp = LoadLibraryW( L"dbghelp.dll" ) )
@@ -368,7 +388,6 @@ namespace diag {
 		g_exception_phase = phase;
 	}
 
-#if defined( DEV )
 	inline const char* exception_name( DWORD code )
 	{
 		switch ( code )
@@ -459,6 +478,11 @@ namespace diag {
 		EXCEPTION_POINTERS* info,
 		DWORD fault_thread_id )
 	{
+#if !defined( DEV )
+		(void)info;
+		(void)fault_thread_id;
+		return false;
+#else
 		if ( !g_minidump_write || !g_dump_path[ 0 ] )
 		{
 			write( level::error, "minidump unavailable: dbghelp export not resolved" );
@@ -577,6 +601,46 @@ namespace diag {
 			nullptr );
 		writef( level::fatal, "minidump written: %s", path );
 		return true;
+#endif
+	}
+
+	inline void open_crash_artifacts( )
+	{
+		if ( InterlockedCompareExchange( &g_crash_artifacts_opened, 1, 0 ) != 0 )
+		{
+			return;
+		}
+
+		if ( g_log_path[ 0 ] )
+		{
+			const auto result = ShellExecuteW(
+				nullptr,
+				L"open",
+				g_log_path,
+				nullptr,
+				nullptr,
+				SW_SHOWNORMAL );
+			if ( reinterpret_cast<INT_PTR>( result ) <= 32 )
+			{
+				writef(
+					level::warning,
+					"failed to open crash log; shell_error=%lld",
+					static_cast<long long>( reinterpret_cast<INT_PTR>( result ) ) );
+			}
+		}
+
+#if defined( DEV )
+		if ( g_dump_path[ 0 ] )
+		{
+			ShellExecuteW(
+				nullptr,
+				L"open",
+				g_dump_path,
+				nullptr,
+				nullptr,
+				SW_SHOWNORMAL );
+		}
+#endif
 	}
 
 	inline void record_crash_impl(
@@ -645,6 +709,7 @@ namespace diag {
 #endif
 
 		write_minidump( info, fault_thread_id );
+		open_crash_artifacts( );
 	}
 
 	inline DWORD WINAPI crash_report_thread( void* )
@@ -734,21 +799,6 @@ namespace diag {
 		EXCEPTION_POINTERS info{ &record, &context };
 		record_crash( &info, stage );
 	}
-#else
-	inline bool is_serious_exception( DWORD )
-	{
-		return false;
-	}
-
-	inline void record_crash( EXCEPTION_POINTERS*, const char* )
-	{
-	}
-
-	inline void capture_snapshot( const char* )
-	{
-	}
-#endif
-
 	inline void step( const char* message )
 	{
 		write( level::debug, message );

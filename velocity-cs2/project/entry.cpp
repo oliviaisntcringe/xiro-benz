@@ -23,6 +23,37 @@ namespace {
 	PVOID g_vectored_exception_handler{};
 
 	LONG WINAPI diag_unhandled_exception_filter( EXCEPTION_POINTERS* info );
+	LONG CALLBACK diag_vectored_exception_filter( EXCEPTION_POINTERS* info );
+
+	bool install_exception_handlers( )
+	{
+		if ( !g_vectored_exception_handler )
+		{
+			g_vectored_exception_handler =
+				AddVectoredExceptionHandler( 1, diag_vectored_exception_filter );
+		}
+
+		const auto previous_filter =
+			SetUnhandledExceptionFilter( diag_unhandled_exception_filter );
+		if ( previous_filter && previous_filter != diag_unhandled_exception_filter )
+		{
+			g_previous_exception_filter.store(
+				previous_filter,
+				std::memory_order_release );
+		}
+
+		if ( !g_vectored_exception_handler )
+		{
+			diag::writef(
+				diag::level::error,
+				"failed to install vectored exception handler; win32_error=%lu",
+				GetLastError( ) );
+			return false;
+		}
+
+		diag::write( diag::level::info, "crash handlers installed" );
+		return true;
+	}
 
 #if defined( DEV )
 	hooking::jmp g_minidump_hook{};
@@ -304,23 +335,6 @@ namespace {
 		diag::initialize_crash_dumps( );
 		logging::console::initialize( );
 
-		g_previous_exception_filter.store(
-			SetUnhandledExceptionFilter( diag_unhandled_exception_filter ),
-			std::memory_order_release );
-		g_vectored_exception_handler =
-			AddVectoredExceptionHandler( 1, diag_vectored_exception_filter );
-		if ( !g_vectored_exception_handler )
-		{
-			diag::writef(
-				diag::level::error,
-				"failed to install vectored exception handler; win32_error=%lu",
-				GetLastError( ) );
-		}
-		else
-		{
-			diag::write( diag::level::info, "crash handlers installed" );
-		}
-
 		diag::step( "stage: coinit" );
 		const auto coinit_result =
 			CoInitializeEx( nullptr, COINIT_MULTITHREADED );
@@ -505,6 +519,7 @@ extern "C" int __stdcall entry( HMODULE module_handle, DWORD reason, LPVOID rese
 		_CRT_INIT( module_handle, reason, reserved );
 		DisableThreadLibraryCalls( module_handle );
 
+		install_exception_handlers( );
 		diag::set_module( module_handle );
 		diag::step( "stage: dll attach" );
 		diag::step( "build: development diagnostics" );

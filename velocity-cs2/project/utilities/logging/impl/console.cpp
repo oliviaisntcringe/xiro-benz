@@ -57,8 +57,6 @@ namespace logging::console {
 
 		const bool was_emitting = emitting;
 		emitting = true;
-		std::fputs( text, stdout );
-		std::fputc( '\n', stdout );
 		diag::write( diag::level::info, text );
 		emitting = was_emitting;
 	}
