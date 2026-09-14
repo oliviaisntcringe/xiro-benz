@@ -570,8 +570,22 @@ namespace hooks {
 		diag::exception_scope exception_scope{ "chams: generate primitives" };
 		const auto original_fn = m_generate_primitives.original<void( __fastcall* )( std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t )>( );
 		auto& player_chams = features::esp::player::g_chams;
-		std::shared_lock backtrack_lock( player_chams.bt( ).mutex( ) );
-		std::shared_lock onshot_lock( player_chams.os( ).mutex( ) );
+		if ( features::esp::player::g_scene_object_mutation )
+		{
+			m_generate_primitives.call<void>( thisptr, scene_object, scene_view, primitive_buffer );
+			return;
+		}
+
+		std::shared_lock backtrack_lock( player_chams.bt( ).mutex( ), std::try_to_lock );
+		std::shared_lock onshot_lock( player_chams.os( ).mutex( ), std::try_to_lock );
+		if ( !backtrack_lock.owns_lock( ) || !onshot_lock.owns_lock( ) )
+		{
+			// Scene-object creation/destruction can call this hook synchronously while
+			// holding the feature lock. Preserve the engine path instead of recursing
+			// into a non-recursive shared_mutex.
+			m_generate_primitives.call<void>( thisptr, scene_object, scene_view, primitive_buffer );
+			return;
+		}
 
 		if ( scene_object && original_fn )
 		{

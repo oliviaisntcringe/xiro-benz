@@ -14,17 +14,26 @@ namespace features::movement {
 		[[nodiscard]] std::optional<float> predict_landing_fraction(
 			std::uintptr_t local_pawn,
 			std::uintptr_t movement_services,
-			const systems::prediction::state& prestate )
+			const systems::prediction::state& prestate,
+			bool holding_duck )
 		{
 			if ( prestate.networked_velocity.z > 0.0f )
 			{
 				return std::nullopt;
 			}
 
+			const auto duck_amount = memory::read<float>( movement_services + SCHEMA( "CCSPlayer_MovementServices", "m_flDuckAmount"_hash ) );
 			const auto mins = memory::read<math::vector3>( local_pawn + SCHEMA( "C_BaseModelEntity", "m_Collision"_hash ) + SCHEMA( "CCollisionProperty", "m_vecMins"_hash ) );
-			const auto maxs = memory::read<math::vector3>( local_pawn + SCHEMA( "C_BaseModelEntity", "m_Collision"_hash ) + SCHEMA( "CCollisionProperty", "m_vecMaxs"_hash ) );
+			auto maxs = memory::read<math::vector3>( local_pawn + SCHEMA( "C_BaseModelEntity", "m_Collision"_hash ) + SCHEMA( "CCollisionProperty", "m_vecMaxs"_hash ) );
 
 			auto trace_origin = prestate.networked_origin;
+			if ( holding_duck && duck_amount > 0.0f )
+			{
+				const auto standing_height{ 72.0f };
+				const auto duck_hull_diff = standing_height - maxs.z;
+				trace_origin.z -= duck_hull_diff * 0.5f;
+				maxs.z = standing_height;
+			}
 
 			auto trace_mask{ 0ull };
 			{
@@ -137,13 +146,16 @@ namespace features::movement {
 			return;
 		}
 
+		cmd->buttons.value &= ~cstypes::command_buttons::in_jump;
+
 		const auto movement_services = memory::read<std::uintptr_t>( local.pawn + SCHEMA( "C_BasePlayerPawn", "m_pMovementServices"_hash ) );
 		if ( !movement_services )
 		{
 			return;
 		}
 
-		const auto landing = predict_landing_fraction( local.pawn, movement_services, prestate );
+		const auto holding_duck = ( cmd->buttons.value & cstypes::command_buttons::in_duck ) != 0;
+		const auto landing = predict_landing_fraction( local.pawn, movement_services, prestate, holding_duck );
 		if ( !landing )
 		{
 			return;
@@ -155,7 +167,6 @@ namespace features::movement {
 			return;
 		}
 
-		cmd->buttons.value &= ~cstypes::command_buttons::in_jump;
 		apply_landing_jump( base, *landing );
 	}
 

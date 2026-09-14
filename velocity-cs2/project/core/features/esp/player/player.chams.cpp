@@ -289,6 +289,7 @@ namespace features::esp::player {
 
 	void chams::backtrack::update( )
 	{
+		scene_object_mutation_scope mutation_scope;
 		std::unique_lock lock( this->m_mutex );
 		const auto& cfg = settings::g_esp.m_player.m_chams;
 		const auto local = systems::g_local.get( );
@@ -448,6 +449,7 @@ namespace features::esp::player {
 
 	void chams::backtrack::shutdown( )
 	{
+		scene_object_mutation_scope mutation_scope;
 		std::unique_lock lock( this->m_mutex );
 		for ( auto& [pawn, obj] : this->m_objects )
 		{
@@ -628,6 +630,7 @@ namespace features::esp::player {
 	}
 
 	void chams::onshot::update () {
+		scene_object_mutation_scope mutation_scope;
 		std::unique_lock lock( this->m_mutex );
 		const auto& cfg = settings::g_esp.m_player.m_chams;
 
@@ -675,6 +678,7 @@ namespace features::esp::player {
 	}
 
 	void chams::onshot::shutdown () {
+		scene_object_mutation_scope mutation_scope;
 		std::unique_lock lock( this->m_mutex );
 		for (auto& [pawn, e] : this->m_entries)
 			e.destroy ();

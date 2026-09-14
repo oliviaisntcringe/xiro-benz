@@ -6,6 +6,28 @@ namespace features::esp {
 
 	namespace player {
 
+		inline thread_local bool g_scene_object_mutation{};
+
+		class scene_object_mutation_scope
+		{
+		public:
+			scene_object_mutation_scope( ) : m_previous( g_scene_object_mutation )
+			{
+				g_scene_object_mutation = true;
+			}
+
+			~scene_object_mutation_scope( )
+			{
+				g_scene_object_mutation = m_previous;
+			}
+
+			scene_object_mutation_scope( const scene_object_mutation_scope& ) = delete;
+			scene_object_mutation_scope& operator=( const scene_object_mutation_scope& ) = delete;
+
+		private:
+			bool m_previous{};
+		};
+
 		class chams
 		{
 		public:
