@@ -143,6 +143,7 @@ namespace features::misc {
 		this->m_pending_hits.clear( );
 		this->m_pending_shots.clear( );
 		this->m_bullet_impacts.clear( );
+		this->m_death_effects.clear( );
 		this->m_buffered_impacts.clear( );
 		this->m_buffered_impact_time = -1.0f;
 		this->m_hit_effect_time = 0.0f;
@@ -160,6 +161,7 @@ namespace features::misc {
 
 		this->render_hit_markers( draw_list, current_time );
 		this->render_logs( draw_list, current_time );
+		this->render_death_effect( draw_list, current_time );
 	}
 
 	void impacts::on_report_hit( std::uintptr_t msg )
@@ -285,7 +287,14 @@ namespace features::misc {
 
 		if ( is_kill && cfg.death_effect.value )
 		{
-			this->play_death_effect( data.victim_pawn );
+			if ( cfg.death_effect_type.value == settings::misc::impacts::death_effect_mode::ascii_burst )
+			{
+				this->play_ascii_death_effect( data.victim_pawn );
+			}
+			else
+			{
+				this->play_death_effect( data.victim_pawn );
+			}
 		}
 
 		if ( cfg.hit_effect.value )
@@ -1608,6 +1617,79 @@ namespace features::misc {
 		}
 	}
 
+	void impacts::render_death_effect( xdraw::draw_list& draw_list, float time )
+	{
+		const auto& cfg = settings::g_misc.m_impacts;
+		if ( !cfg.death_effect.value || cfg.death_effect_type.value != settings::misc::impacts::death_effect_mode::ascii_burst )
+		{
+			return;
+		}
+
+		std::unique_lock lock( this->m_mtx );
+		constexpr auto duration = 1.6f;
+		for ( auto it = this->m_death_effects.begin( ); it != this->m_death_effects.end( ); )
+		{
+			const auto elapsed = time - it->time;
+			if ( elapsed > duration )
+			{
+				it = this->m_death_effects.erase( it );
+				continue;
+			}
+
+			const auto progress = std::clamp( elapsed / duration, 0.0f, 1.0f );
+			const auto cross_progress = std::clamp( elapsed / 0.8f, 0.0f, 1.0f );
+			const auto cross_ease = 1.0f - std::pow( 1.0f - cross_progress, 3.0f );
+			const auto cross_alpha = static_cast< std::uint8_t >( ( 1.0f - std::clamp( elapsed / 1.25f, 0.0f, 1.0f ) ) * cfg.death_effect_color.value.a );
+			const auto cross_color = xdraw::color{ cfg.death_effect_color.value.r, cfg.death_effect_color.value.g, cfg.death_effect_color.value.b, cross_alpha };
+
+			if ( cross_alpha > 0 )
+			{
+				const auto cross_base = it->origin + math::vector3{ 0.0f, 0.0f, -4.0f + cross_ease * 54.0f };
+				const auto cross_top = cross_base + math::vector3{ 0.0f, 0.0f, 30.0f };
+				const auto base_screen = systems::g_view.project( cross_base );
+				const auto top_screen = systems::g_view.project( cross_top );
+				if ( systems::g_view.projection_valid( base_screen ) && systems::g_view.projection_valid( top_screen ) )
+				{
+					const auto height = std::max( 12.0f, std::fabs( base_screen.y - top_screen.y ) );
+					const auto width = std::clamp( height * 0.48f, 10.0f, 28.0f );
+					const auto arm_y = top_screen.y + height * 0.38f;
+					const auto thickness = 1.5f + ( 1.0f - progress ) * 0.8f;
+					draw_list.line( top_screen.x, top_screen.y, base_screen.x, base_screen.y, cross_color, thickness );
+					draw_list.line( top_screen.x - width, arm_y, top_screen.x + width, arm_y, cross_color, thickness );
+				}
+			}
+
+			for ( const auto& particle : it->particles )
+			{
+				const auto particle_elapsed = elapsed - particle.delay;
+				if ( particle_elapsed <= 0.0f )
+				{
+					continue;
+				}
+
+				const auto particle_progress = std::clamp( particle_elapsed / 1.35f, 0.0f, 1.0f );
+				const auto world_position = it->origin + particle.origin_offset + particle.velocity * particle_elapsed + math::vector3{ 0.0f, 0.0f, -72.0f * particle_elapsed * particle_elapsed };
+				const auto screen = systems::g_view.project( world_position );
+				if ( !systems::g_view.projection_valid( screen ) )
+				{
+					continue;
+				}
+
+				const auto alpha = static_cast< std::uint8_t >( ( 1.0f - particle_progress ) * cfg.death_effect_color.value.a );
+				if ( !alpha )
+				{
+					continue;
+				}
+
+				const auto color = xdraw::color{ cfg.death_effect_color.value.r, cfg.death_effect_color.value.g, cfg.death_effect_color.value.b, alpha };
+				const auto [ text_width, text_height ] = xdraw::measure_text( particle.glyph );
+				draw_list.text( screen.x - text_width * 0.5f, screen.y - text_height * 0.5f, particle.glyph, color, xdraw::text_style::outlined );
+			}
+
+			++it;
+		}
+	}
+
 	void impacts::render_bullet_impact_overlays( xdraw::draw_list& draw_list, float time )
 	{
 		const auto& cfg = settings::g_misc.m_impacts;
@@ -1999,6 +2081,60 @@ void play_engine_path( const char* sound_path, float volume )
 		const auto current_time = memory::read<float>( global_vars + 0x30 );
 
 		this->m_hit_effect_time = current_time;
+	}
+
+	void impacts::play_ascii_death_effect( std::uintptr_t victim_pawn )
+	{
+		if ( !victim_pawn )
+		{
+			return;
+		}
+
+		const auto scene_node = memory::safe_read<std::uintptr_t>( victim_pawn + SCHEMA( "C_BaseEntity", "m_pGameSceneNode"_hash ) ).value_or( 0 );
+		if ( !scene_node )
+		{
+			return;
+		}
+		const auto origin = scene_node
+			? memory::safe_read<math::vector3>( scene_node + SCHEMA( "CGameSceneNode", "m_vecAbsOrigin"_hash ) ).value_or( math::vector3{} )
+			: math::vector3{};
+		if ( !std::isfinite( origin.x ) || !std::isfinite( origin.y ) || !std::isfinite( origin.z ) )
+		{
+			return;
+		}
+
+		static constexpr std::array<std::string_view, 8> glyphs{ "x_x", ":)", "*", "+", "o", "^_^", "._.", "RIP" };
+		static constexpr std::array<math::vector3, 7> anchors{
+			math::vector3{ 0.0f, 0.0f, 68.0f },
+			math::vector3{ -10.0f, 0.0f, 50.0f },
+			math::vector3{ 10.0f, 0.0f, 50.0f },
+			math::vector3{ -8.0f, 0.0f, 27.0f },
+			math::vector3{ 8.0f, 0.0f, 27.0f },
+			math::vector3{ -6.0f, 0.0f, 8.0f },
+			math::vector3{ 6.0f, 0.0f, 8.0f }
+		};
+
+		death_effect_instance instance{};
+		instance.origin = origin;
+		const auto global_vars = memory::safe_read<std::uintptr_t>( addresses::globals::global_vars ).value_or( 0 );
+		instance.time = global_vars ? memory::safe_read<float>( global_vars + 0x30 ).value_or( 0.0f ) : 0.0f;
+		for ( std::size_t i = 0; i < instance.particles.size( ); ++i )
+		{
+			const auto phase = static_cast< float >( i ) * 1.731f;
+			const auto anchor = anchors[ i % anchors.size( ) ];
+			const auto spread = 20.0f + static_cast< float >( i % 5 ) * 7.0f;
+			instance.particles[ i ].origin_offset = anchor + math::vector3{ std::sin( phase ) * 3.0f, std::cos( phase ) * 3.0f, std::sin( phase * 0.7f ) * 3.0f };
+			instance.particles[ i ].velocity = math::vector3{ std::cos( phase ) * spread, std::sin( phase ) * spread, 34.0f + static_cast< float >( i % 6 ) * 9.0f };
+			instance.particles[ i ].glyph = std::string{ glyphs[ i % glyphs.size( ) ] };
+			instance.particles[ i ].delay = static_cast< float >( i % 4 ) * 0.018f;
+		}
+
+		std::unique_lock lock( this->m_mtx );
+		this->m_death_effects.push_back( std::move( instance ) );
+		if ( this->m_death_effects.size( ) > 4 )
+		{
+			this->m_death_effects.erase( this->m_death_effects.begin( ) );
+		}
 	}
 
 	void impacts::play_death_effect( std::uintptr_t victim_pawn )

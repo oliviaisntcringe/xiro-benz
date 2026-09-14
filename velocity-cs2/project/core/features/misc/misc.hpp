@@ -208,6 +208,21 @@ namespace features::misc {
 			float time{};
 		};
 
+		struct death_effect_particle
+		{
+			math::vector3 origin_offset{};
+			math::vector3 velocity{};
+			std::string glyph{};
+			float delay{};
+		};
+
+		struct death_effect_instance
+		{
+			math::vector3 origin{};
+			float time{};
+			std::array<death_effect_particle, 28> particles{};
+		};
+
 		[[nodiscard]] const char* classify_shot_deviation( const shot_record& shot ) const;
 		[[nodiscard]] hit_data parse_event( std::uintptr_t event );
 		[[nodiscard]] std::string get_player_name( std::uintptr_t controller );
@@ -222,10 +237,12 @@ namespace features::misc {
 		void render_hit_markers( xdraw::draw_list& draw_list, float time );
 		void render_logs( xdraw::draw_list& draw_list, float time );
 		void render_hit_effect( xdraw::draw_list& draw_list, float time );
+		void render_death_effect( xdraw::draw_list& draw_list, float time );
 		void render_bullet_impact_overlays( xdraw::draw_list& draw_list, float time );
 
 		void play_sound( settings::misc::impacts::sound_type type, float volume, std::string_view custom_file = {} );
 		void play_hit_effect( std::uintptr_t victim_pawn );
+		void play_ascii_death_effect( std::uintptr_t victim_pawn );
 		void play_death_effect( std::uintptr_t victim_pawn );
 		void play_bullet_impact_effect( const math::vector3& position );
 		void play_bullet_tracer( const math::vector3& position );
@@ -236,6 +253,7 @@ namespace features::misc {
 		std::vector<pending_hit> m_pending_hits{};
 		std::vector<shot_record> m_pending_shots{};
 		std::vector<bullet_impact> m_bullet_impacts{};
+		std::vector<death_effect_instance> m_death_effects{};
 		mutable std::mutex m_mtx{};
 
 		bool m_death_effect_loaded{};

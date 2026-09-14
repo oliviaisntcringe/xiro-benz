@@ -158,6 +158,8 @@ namespace rendering {
 				xui::checkbox( "death effect", impacts.death_effect );
 				if ( xui::begin_popup( "##deathfx_popup", 220.0f ) )
 				{
+					static constexpr const char* death_effect_types[ 2 ]{ "particle (fade)", "ascii burst" };
+					xui::combo( "type##deathfx", impacts.death_effect_type.value, death_effect_types, 2 );
 					xui::color_picker( "color##deathfx", impacts.death_effect_color );
 					xui::end_popup( );
 				}

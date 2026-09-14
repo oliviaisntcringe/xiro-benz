@@ -1164,6 +1164,12 @@ namespace rendering {
 						}
 					}
 					ImGui::Checkbox( "Death effect", &impacts.death_effect.value );
+					static constexpr const char* death_effect_types[ 2 ]{ "Particle (fade)", "ASCII burst" };
+					auto death_effect_type = static_cast< int >( impacts.death_effect_type.value );
+					if ( ImGui::Combo( "Death effect type", &death_effect_type, death_effect_types, IM_ARRAYSIZE( death_effect_types ) ) )
+					{
+						impacts.death_effect_type.value = static_cast< settings::misc::impacts::death_effect_mode >( death_effect_type );
+					}
 					draw_config_color( "Death effect color", impacts.death_effect_color );
 					ImGui::Checkbox( "Bullet impacts", &impacts.bullet_impact_effect.value );
 					auto impact_type = static_cast< int >( impacts.bullet_impact_effect_type.value );

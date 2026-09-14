@@ -1151,6 +1151,7 @@ namespace settings {
 			enum class sound_type : int { shop_click, home_click, bell, killcard, bullet_casing, coin_pickup, item_drop, popcan, key_press, custom };
 			enum class marker_type : int { classic, damage, both };
 			enum class bullet_impact_type : int { overlay, sparks, both };
+			enum class death_effect_mode : int { particle, ascii_burst };
 
 			xui::setting hit_log{ true, {}, "hit logs", "impacts" };
 			config::val<float> hit_log_duration{ 3.5f, "impacts", "hit log duration" };
@@ -1176,6 +1177,7 @@ namespace settings {
 			config::val<float> hit_effect_strength{ 60.0f, "impacts", "hit effect strength" };
 
 			xui::setting death_effect{ true, {}, "death effect", "impacts" };
+			config::enm<death_effect_mode> death_effect_type{ death_effect_mode::particle, "impacts", "death effect type" };
 			config::col death_effect_color{ { 173, 192, 255, 255 }, "impacts", "death effect color" };
 
 			xui::setting bullet_impact_effect{ true, {}, "bullet impacts", "impacts" };
