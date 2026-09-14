@@ -209,14 +209,6 @@ namespace rendering {
 			}
 		}
 		auto& style = ImGui::GetStyle( );
-		style.WindowRounding = 0.0f;
-		style.ChildRounding = 0.0f;
-		style.FrameRounding = 0.0f;
-		style.PopupRounding = 0.0f;
-		style.WindowBorderSize = 1.0f;
-		style.FrameBorderSize = 1.0f;
-		style.ItemSpacing = ImVec2{ 8.0f, 6.0f };
-
 		rendering::retro::apply_rifk7_palette( style );
 		io.IniFilename = nullptr;
 
@@ -336,7 +328,7 @@ namespace rendering {
 		ImGui::SetNextWindowPos( tab_pos, ImGuiCond_Always );
 		ImGui::SetNextWindowSize( ImVec2{ tab_width, 48.0f }, ImGuiCond_Always );
 		ImGui::Begin( "##xiro_top_tabs", nullptr,
-			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
 			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
 			ImGuiWindowFlags_NoFocusOnAppearing );
 		const auto tab_min = ImGui::GetWindowPos( );
@@ -355,21 +347,32 @@ namespace rendering {
 			ImGui::PopFont( );
 		}
 		ImGui::SameLine( 62.0f );
+		ImGui::PushStyleVar( ImGuiStyleVar_FrameRounding, 5.0f );
 		for ( auto i = 0; i < 5; ++i )
 		{
 			const auto active = top_tab == i;
 			ImGui::PushID( i );
-			ImGui::PushStyleColor( ImGuiCol_Button, active ? ImVec4{ 0.18f, 0.31f, 0.13f, 1.0f } : ImVec4{ 0.08f, 0.08f, 0.08f, 0.96f } );
-			ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4{ 0.24f, 0.40f, 0.16f, 1.0f } );
-			ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4{ 0.32f, 0.54f, 0.21f, 1.0f } );
+			ImGui::PushStyleColor( ImGuiCol_Header, active ? ImVec4{ 0.135f, 0.205f, 0.165f, 1.0f } : ImVec4{ 0.0f, 0.0f, 0.0f, 0.0f } );
+			ImGui::PushStyleColor( ImGuiCol_HeaderHovered, ImVec4{ 0.185f, 0.285f, 0.205f, 0.95f } );
+			ImGui::PushStyleColor( ImGuiCol_HeaderActive, ImVec4{ 0.235f, 0.380f, 0.245f, 1.0f } );
 			const auto width = std::max( 88.0f, ( tab_width - 82.0f ) / 5.0f );
-			if ( ImGui::Button( top_names[ i ], ImVec2{ width, 31.0f } ) )
+			if ( ImGui::Selectable( top_names[ i ], active, 0, ImVec2{ width, 31.0f } ) )
 			{
 				this->m_tab = i == 0 ? 0 : i == 1 ? 2 : i == 2 ? 4 : i == 3 ? 5 : 7;
 				if ( this->m_tab == 0 && this->m_visual_section >= 7 )
 				{
 					this->m_visual_section = 0;
 				}
+			}
+			if ( active )
+			{
+				const auto item_min = ImGui::GetItemRectMin( );
+				const auto item_max = ImGui::GetItemRectMax( );
+				ImGui::GetWindowDrawList( )->AddRectFilled(
+					ImVec2{ item_min.x + 12.0f, item_max.y - 2.0f },
+					ImVec2{ item_max.x - 12.0f, item_max.y },
+					ImGui::ColorConvertFloat4ToU32( rendering::retro::accent_green ), 2.0f
+				);
 			}
 			ImGui::PopStyleColor( 3 );
 			ImGui::PopID( );
@@ -378,6 +381,7 @@ namespace rendering {
 				ImGui::SameLine( 0.0f, 4.0f );
 			}
 		}
+		ImGui::PopStyleVar( );
 		ImGui::End( );
 
 		const auto workspace_width = std::clamp( viewport->WorkSize.x - 80.0f, 720.0f, 1260.0f );
@@ -394,7 +398,7 @@ namespace rendering {
 			ImVec2{ 720.0f, 520.0f },
 			ImVec2{ max_workspace_width, max_workspace_height } );
 		ImGui::Begin( "XI.BENZ // WORKSPACE", nullptr,
-			ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
+			ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
 			ImGuiWindowFlags_NoScrollbar );
 		draw_animated_window_separator( );
 		const auto header_pos = ImGui::GetCursorScreenPos( );
@@ -717,6 +721,10 @@ namespace rendering {
 			for ( auto i = 0; i < subtab_count; ++i )
 			{
 				ImGui::PushID( i + 32 );
+				const auto active = selected_subtab == i;
+				ImGui::PushStyleColor( ImGuiCol_Header, active ? ImVec4{ 0.135f, 0.205f, 0.165f, 1.0f } : ImVec4{ 0.0f, 0.0f, 0.0f, 0.0f } );
+				ImGui::PushStyleColor( ImGuiCol_HeaderHovered, ImVec4{ 0.185f, 0.285f, 0.205f, 0.95f } );
+				ImGui::PushStyleColor( ImGuiCol_HeaderActive, ImVec4{ 0.235f, 0.380f, 0.245f, 1.0f } );
 				if ( ImGui::Selectable( subtab_names[ i ], selected_subtab == i, 0, ImVec2{ subtab_width, 30.0f } ) )
 				{
 					if ( this->m_tab == 0 || this->m_tab == 1 )
@@ -734,6 +742,17 @@ namespace rendering {
 					}
 					selected_subtab = i;
 				}
+				if ( active )
+				{
+					const auto item_min = ImGui::GetItemRectMin( );
+					const auto item_max = ImGui::GetItemRectMax( );
+					ImGui::GetWindowDrawList( )->AddRectFilled(
+						ImVec2{ item_min.x + 12.0f, item_max.y - 2.0f },
+						ImVec2{ item_max.x - 12.0f, item_max.y },
+						ImGui::ColorConvertFloat4ToU32( rendering::retro::accent_green ), 2.0f
+					);
+				}
+				ImGui::PopStyleColor( 3 );
 				ImGui::PopID( );
 				if ( i + 1 < subtab_count )
 				{
@@ -745,7 +764,7 @@ namespace rendering {
 		}
 
 		ImGui::PushStyleColor( ImGuiCol_ChildBg, ImVec4{ 0.075f, 0.075f, 0.075f, 0.98f } );
-		ImGui::BeginChild( "##imgui_content", ImVec2{ 0.0f, -30.0f }, true, ImGuiWindowFlags_AlwaysVerticalScrollbar );
+		ImGui::BeginChild( "##imgui_content", ImVec2{ 0.0f, -30.0f }, false, ImGuiWindowFlags_AlwaysVerticalScrollbar );
 		if ( this->m_mono_font )
 		{
 			ImGui::PushFont( this->m_mono_font );
