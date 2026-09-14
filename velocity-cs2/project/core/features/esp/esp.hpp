@@ -266,7 +266,14 @@ namespace features::esp {
 		class overlay
 		{
 		public:
+			struct spectator_info
+			{
+				std::string name{};
+				std::uintptr_t steam_id{};
+			};
+
 			void on_render( xdraw::draw_list& draw_list );
+			[[nodiscard]] std::vector<spectator_info> get_spectators( ) const;
 			void draw_spectators( xdraw::draw_list& draw_list );
 
 		private:

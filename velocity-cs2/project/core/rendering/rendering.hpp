@@ -6,6 +6,9 @@
 
 #include "imgui_menu.hpp"
 
+struct ImDrawList;
+struct ImGuiViewport;
+
 namespace rendering {
 
 	class context
@@ -188,8 +191,8 @@ namespace rendering {
 		static inline std::string s_map_name{};
 
 	private:
-		void watermark( xdraw::draw_list& draw_list );
-		void keybinds( xdraw::draw_list& draw_list );
+		void draw_watermark( ImDrawList* draw, const ImGuiViewport* viewport );
+		void draw_keybinds( ImDrawList* draw, const ImGuiViewport* viewport );
 	};
 
 	class fonts

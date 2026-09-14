@@ -2,6 +2,8 @@
 
 struct IDXGISwapChain;
 struct ImFont;
+struct ImDrawList;
+struct ImGuiViewport;
 
 namespace rendering {
 
@@ -23,6 +25,7 @@ namespace rendering {
 		void draw_sidebar( );
 		void draw_panel( );
 		void try_load_avatar( );
+		void draw_spectators( ImDrawList* draw, const ImGuiViewport* viewport );
 
 		bool m_initialized{};
 		bool m_open{};

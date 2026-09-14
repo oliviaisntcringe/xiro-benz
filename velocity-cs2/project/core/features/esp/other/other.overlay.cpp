@@ -153,13 +153,83 @@ namespace features::esp::other {
 
 	void overlay::on_render( xdraw::draw_list& draw_list )
 	{
-		this->add_spectators( draw_list );
 		this->add_bomb( draw_list );
 	}
 
 	void overlay::draw_spectators( xdraw::draw_list& draw_list )
 	{
-		this->add_spectators( draw_list );
+		(void)draw_list;
+	}
+
+	std::vector<overlay::spectator_info> overlay::get_spectators( ) const
+	{
+		std::vector<spectator_info> result{};
+		const auto local = systems::g_local.get( );
+		if ( !local.is_valid( ) || !systems::g_entities.exists( local.view_controller( ) ) )
+		{
+			return result;
+		}
+
+		const auto game_rules = memory::safe_read<std::uintptr_t>( addresses::globals::game_rules ).value_or( 0 );
+		if ( !game_rules || memory::safe_read<int>( game_rules + SCHEMA( "C_CSGameRules", "m_gamePhase"_hash ) ).value_or( 4 ) >= 4 )
+		{
+			return result;
+		}
+
+		const auto local_controller = local.controller;
+		const auto view_controller = local.view_controller( );
+		const auto view_pawn = local.view_pawn( );
+		if ( !view_pawn )
+		{
+			return result;
+		}
+
+		for ( const auto& player : systems::g_entities.get_by_type( systems::entities::type::player ) )
+		{
+			if ( player.ptr == view_controller || player.ptr == local_controller || result.size( ) >= 32 )
+			{
+				continue;
+			}
+			if ( memory::safe_read<bool>( player.ptr + SCHEMA( "CCSPlayerController", "m_bPawnIsAlive"_hash ) ).value_or( true ) )
+			{
+				continue;
+			}
+
+			const auto observer_pawn_handle = memory::safe_read<std::uint32_t>( player.ptr + SCHEMA( "CCSPlayerController", "m_hObserverPawn"_hash ) ).value_or( 0 );
+			if ( !observer_pawn_handle || observer_pawn_handle == 0xffffffff )
+			{
+				continue;
+			}
+
+			const auto observer_pawn = systems::g_entities.lookup( observer_pawn_handle );
+			const auto observer_services = observer_pawn ? memory::safe_read<std::uintptr_t>( observer_pawn + SCHEMA( "C_BasePlayerPawn", "m_pObserverServices"_hash ) ).value_or( 0 ) : 0;
+			if ( !observer_services || ( observer_services >> 48 ) != 0 )
+			{
+				continue;
+			}
+
+			const auto target_handle = memory::safe_read<std::uint32_t>( observer_services + SCHEMA( "CPlayer_ObserverServices", "m_hObserverTarget"_hash ) ).value_or( 0 );
+			if ( !target_handle || systems::g_entities.lookup( target_handle ) != view_pawn )
+			{
+				continue;
+			}
+
+			const auto name_ptr = memory::safe_read<std::uintptr_t>( player.ptr + SCHEMA( "CCSPlayerController", "m_sSanitizedPlayerName"_hash ) ).value_or( 0 );
+			if ( !name_ptr )
+			{
+				continue;
+			}
+
+			auto name = memory::read_string( name_ptr, 127 );
+			if ( name.empty( ) )
+			{
+				continue;
+			}
+			std::ranges::transform( name, name.begin( ), [ ]( unsigned char c ) { return static_cast< char >( std::tolower( c ) ); } );
+			result.push_back( { std::move( name ), memory::safe_read<std::uintptr_t>( player.ptr + SCHEMA( "CBasePlayerController", "m_steamID"_hash ) ).value_or( 0 ) } );
+		}
+
+		return result;
 	}
 
 	void overlay::add_bomb( xdraw::draw_list& draw_list )

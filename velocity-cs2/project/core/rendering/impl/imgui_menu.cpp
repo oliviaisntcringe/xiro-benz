@@ -148,6 +148,23 @@ namespace rendering {
 			default: return "Custom";
 			}
 		}
+
+		void draw_overlay_frame( ImDrawList* draw, const ImVec2& min, const ImVec2& max )
+		{
+			draw->AddRectFilled( min, max, IM_COL32( 23, 23, 23, 242 ), 0.0f );
+			draw->AddRect( min, max, IM_COL32( 96, 96, 96, 240 ), 0.0f, 0, 1.0f );
+			draw->AddRectFilled( ImVec2{ min.x, max.y - 1.0f }, max, IM_COL32( 63, 111, 53, 255 ) );
+		}
+
+		void draw_overlay_header( ImDrawList* draw, const ImVec2& min, float width, const char* title, int count = -1 )
+		{
+			draw->AddText( ImVec2{ min.x + 12.0f, min.y + 9.0f }, rendering::retro::accent_green, std::format( "[ {} ]", title ).c_str( ) );
+			if ( count >= 0 )
+			{
+				draw->AddText( ImVec2{ min.x + width - 34.0f, min.y + 9.0f }, rendering::retro::accent_purple, std::format( "{:02}", count ).c_str( ) );
+			}
+			draw->AddLine( ImVec2{ min.x + 12.0f, min.y + 29.0f }, ImVec2{ min.x + width - 12.0f, min.y + 29.0f }, rendering::retro::accent_green_dim, 1.0f );
+		}
 	}
 
 	bool imgui_menu::initialize( IDXGISwapChain* swap_chain, HWND window )
@@ -409,93 +426,154 @@ namespace rendering {
 			return;
 		}
 
+		g_widgets.draw( );
 		auto* draw = ImGui::GetForegroundDrawList( );
 		const auto viewport = ImGui::GetMainViewport( );
+		if ( !draw || !viewport )
+		{
+			return;
+		}
+		this->draw_spectators( draw, viewport );
 		const auto& velocity = settings::g_misc.m_hud.m_velocity;
 		const auto& local_status = settings::g_misc.m_hud.m_local_status;
 		const auto local = systems::g_local.get( );
 		if ( ( velocity.counter.value || velocity.chart.value ) && local.is_valid( ) )
 		{
-			const auto speed = memory::read<math::vector3>( local.pawn + SCHEMA( "C_BaseEntity", "m_vecAbsVelocity"_hash ) ).length_2d( );
-			const auto color = ImColor( velocity.color.value.r, velocity.color.value.g, velocity.color.value.b, velocity.color.value.a );
-			const auto x = viewport->WorkPos.x + viewport->WorkSize.x * 0.5f;
-			const auto y = viewport->WorkPos.y + viewport->WorkSize.y - velocity.bottom_offset.value;
-			if ( velocity.counter.value )
-			{
-				draw->AddText( ImVec2{ x - 30.0f, y }, color, std::format( "SPEED {:03.0f}", speed ).c_str( ) );
-			}
+			const auto speed = memory::safe_read<math::vector3>( local.pawn + SCHEMA( "C_BaseEntity", "m_vecAbsVelocity"_hash ) ).value_or( math::vector3{} ).length_2d( );
+			const auto width = velocity.chart.value ? std::clamp( velocity.chart_width.value, 148.0f, 300.0f ) : 150.0f;
+			const auto height = velocity.chart.value ? std::clamp( velocity.chart_height.value + 48.0f, 72.0f, 132.0f ) : 62.0f;
+			const auto min = ImVec2{ viewport->WorkPos.x + viewport->WorkSize.x * 0.5f - width * 0.5f, viewport->WorkPos.y + viewport->WorkSize.y - velocity.bottom_offset.value - height };
+			const auto max = ImVec2{ min.x + width, min.y + height };
+			draw_overlay_frame( draw, min, max );
+			draw_overlay_header( draw, min, width, "VELOCITY" );
+			draw->AddText( ImVec2{ min.x + 12.0f, min.y + 39.0f }, IM_COL32( 228, 228, 228, 255 ), std::format( "{:03.0f} u/s", speed ).c_str( ) );
 			if ( velocity.chart.value )
 			{
-				const auto w = velocity.chart_width.value;
-				const auto h = velocity.chart_height.value;
-				draw->AddRect( ImVec2{ x - w * 0.5f, y + 18.0f }, ImVec2{ x + w * 0.5f, y + 18.0f + h }, color );
-				draw->AddRectFilled( ImVec2{ x - w * 0.5f, y + 18.0f }, ImVec2{ x - w * 0.5f + std::min( speed / 320.0f, 1.0f ) * w, y + 18.0f + h }, color );
+				const auto chart_min = ImVec2{ min.x + 12.0f, min.y + 58.0f };
+				const auto chart_max = ImVec2{ max.x - 12.0f, max.y - 10.0f };
+				draw->AddRect( chart_min, chart_max, IM_COL32( 96, 96, 96, 235 ), 0.0f, 0, 1.0f );
+				draw->AddRectFilled( chart_min, ImVec2{ chart_min.x + ( chart_max.x - chart_min.x ) * std::clamp( speed / 320.0f, 0.0f, 1.0f ), chart_max.y }, IM_COL32( 119, 200, 74, 180 ) );
 			}
 		}
 
 		if ( local.is_valid( ) && local_status.enabled.value && ( local_status.health.value || local_status.ammo.value ) )
 		{
-			const auto health = std::clamp( memory::read<int>( local.pawn + SCHEMA( "C_BaseEntity", "m_iHealth"_hash ) ), 0, 100 );
-			const auto weapon_services = memory::read<std::uintptr_t>( local.pawn + SCHEMA( "C_BasePlayerPawn", "m_pWeaponServices"_hash ) );
+			const auto health = std::clamp( memory::safe_read<int>( local.pawn + SCHEMA( "C_BaseEntity", "m_iHealth"_hash ) ).value_or( 0 ), 0, 100 );
+			const auto weapon_services = memory::safe_read<std::uintptr_t>( local.pawn + SCHEMA( "C_BasePlayerPawn", "m_pWeaponServices"_hash ) ).value_or( 0 );
 			const auto weapon_handle = weapon_services
-				? memory::read<std::uint32_t>( weapon_services + SCHEMA( "CPlayer_WeaponServices", "m_hActiveWeapon"_hash ) )
+				? memory::safe_read<std::uint32_t>( weapon_services + SCHEMA( "CPlayer_WeaponServices", "m_hActiveWeapon"_hash ) ).value_or( 0u )
 				: 0u;
 			const auto weapon = weapon_handle ? systems::g_entities.lookup( weapon_handle ) : 0ull;
 			const auto weapon_vdata = weapon
-				? memory::read<std::uintptr_t>( weapon + SCHEMA( "C_BaseEntity", "m_nSubclassID"_hash ) + 0x8 )
+				? memory::safe_read<std::uintptr_t>( weapon + SCHEMA( "C_BaseEntity", "m_nSubclassID"_hash ) + 0x8 ).value_or( 0 )
 				: 0ull;
-			const auto ammo = weapon ? memory::read<int>( weapon + SCHEMA( "C_BasePlayerWeapon", "m_iClip1"_hash ) ) : 0;
-			const auto max_ammo = weapon_vdata ? memory::read<int>( weapon_vdata + SCHEMA( "CBasePlayerWeaponVData", "m_iMaxClip1"_hash ) ) : 0;
+			const auto ammo = weapon ? memory::safe_read<int>( weapon + SCHEMA( "C_BasePlayerWeapon", "m_iClip1"_hash ) ).value_or( 0 ) : 0;
+			const auto max_ammo = weapon_vdata ? memory::safe_read<int>( weapon_vdata + SCHEMA( "CBasePlayerWeaponVData", "m_iMaxClip1"_hash ) ).value_or( 0 ) : 0;
 			constexpr auto card_width = 260.0f;
-			constexpr auto card_height = 112.0f;
+			const auto row_count = static_cast< int >( local_status.health.value ) + static_cast< int >( local_status.ammo.value && max_ammo > 0 );
+			const auto card_height = 37.0f + static_cast< float >( row_count ) * 36.0f;
 			const auto x = viewport->WorkPos.x + 24.0f;
 			const auto y = viewport->WorkPos.y + viewport->WorkSize.y - local_status.bottom_offset.value - card_height;
 			constexpr auto padding = 14.0f;
 			constexpr auto bar_width = card_width - padding * 2.0f;
-			constexpr auto bar_height = 8.0f;
+			constexpr auto bar_height = 7.0f;
 			const auto health_color = ImColor( local_status.health_color.value.r, local_status.health_color.value.g, local_status.health_color.value.b, local_status.health_color.value.a );
 			const auto ammo_color = ImColor( local_status.ammo_color.value.r, local_status.ammo_color.value.g, local_status.ammo_color.value.b, local_status.ammo_color.value.a );
 
-			draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + card_width, y + card_height }, IM_COL32( 12, 15, 22, 235 ), 8.0f );
-			draw->AddRect( ImVec2{ x, y }, ImVec2{ x + card_width, y + card_height }, IM_COL32( 90, 105, 130, 220 ), 8.0f, 0, 1.0f );
-			draw->AddRectFilled( ImVec2{ x, y }, ImVec2{ x + 4.0f, y + card_height }, health_color, 8.0f );
-			draw->AddText( ImVec2{ x + padding, y + 10.0f }, IM_COL32( 235, 238, 248, 255 ), "PLAYER STATUS" );
+			draw_overlay_frame( draw, ImVec2{ x, y }, ImVec2{ x + card_width, y + card_height } );
+			draw_overlay_header( draw, ImVec2{ x, y }, card_width, "PLAYER STATUS" );
 
 			if ( local_status.health.value )
 			{
-				const auto health_y = y + 38.0f;
-				const auto health_text = std::format( "HEALTH  {}", health );
-				draw->AddText( ImVec2{ x + padding, health_y }, IM_COL32( 235, 238, 248, 255 ), health_text.c_str( ) );
-				draw->AddRectFilled( ImVec2{ x + padding, health_y + 20.0f }, ImVec2{ x + padding + bar_width, health_y + 20.0f + bar_height }, IM_COL32( 35, 40, 52, 255 ), 3.0f );
-				draw->AddRectFilled( ImVec2{ x + padding, health_y + 20.0f }, ImVec2{ x + padding + bar_width * health / 100.0f, health_y + 20.0f + bar_height }, health_color, 3.0f );
+				const auto row_y = y + 36.0f;
+				const auto health_text = std::format( "HEALTH  {:03}", health );
+				draw->AddText( ImVec2{ x + padding, row_y + 3.0f }, IM_COL32( 228, 228, 228, 255 ), health_text.c_str( ) );
+				draw->AddRectFilled( ImVec2{ x + padding, row_y + 20.0f }, ImVec2{ x + padding + bar_width, row_y + 20.0f + bar_height }, IM_COL32( 41, 41, 41, 255 ) );
+				draw->AddRect( ImVec2{ x + padding, row_y + 20.0f }, ImVec2{ x + padding + bar_width, row_y + 20.0f + bar_height }, IM_COL32( 96, 96, 96, 235 ) );
+				draw->AddRectFilled( ImVec2{ x + padding, row_y + 20.0f }, ImVec2{ x + padding + bar_width * health / 100.0f, row_y + 20.0f + bar_height }, health_color );
 			}
 
 			if ( local_status.ammo.value && max_ammo > 0 )
 			{
+				const auto row_index = local_status.health.value ? 1.0f : 0.0f;
+				const auto row_y = y + 36.0f + row_index * 36.0f;
 				const auto clamped_ammo = std::clamp( ammo, 0, max_ammo );
-				const auto ammo_y = y + 38.0f;
-				const auto ammo_text = std::format( "AMMO    {}/{}", clamped_ammo, max_ammo );
-				draw->AddText( ImVec2{ x + padding, ammo_y }, IM_COL32( 235, 238, 248, 255 ), ammo_text.c_str( ) );
-				draw->AddRectFilled( ImVec2{ x + padding, ammo_y + 20.0f }, ImVec2{ x + padding + bar_width, ammo_y + 20.0f + bar_height }, IM_COL32( 35, 40, 52, 255 ), 3.0f );
-				draw->AddRectFilled( ImVec2{ x + padding, ammo_y + 20.0f }, ImVec2{ x + padding + bar_width * clamped_ammo / static_cast<float>( max_ammo ), ammo_y + 20.0f + bar_height }, ammo_color, 3.0f );
+				const auto ammo_text = std::format( "AMMO    {:03}/{:03}", clamped_ammo, max_ammo );
+				draw->AddText( ImVec2{ x + padding, row_y + 3.0f }, IM_COL32( 228, 228, 228, 255 ), ammo_text.c_str( ) );
+				draw->AddRectFilled( ImVec2{ x + padding, row_y + 20.0f }, ImVec2{ x + padding + bar_width, row_y + 20.0f + bar_height }, IM_COL32( 41, 41, 41, 255 ) );
+				draw->AddRect( ImVec2{ x + padding, row_y + 20.0f }, ImVec2{ x + padding + bar_width, row_y + 20.0f + bar_height }, IM_COL32( 96, 96, 96, 235 ) );
+				draw->AddRectFilled( ImVec2{ x + padding, row_y + 20.0f }, ImVec2{ x + padding + bar_width * clamped_ammo / static_cast< float >( max_ammo ), row_y + 20.0f + bar_height }, ammo_color );
 			}
 		}
 
 		const auto& feed = features::misc::g_other.killfeed( );
 		float y = viewport->WorkPos.y + 48.0f;
 		const auto now = std::chrono::duration<float>( std::chrono::steady_clock::now( ).time_since_epoch( ) ).count( );
-		for ( auto it = feed.rbegin( ); it != feed.rend( ); ++it )
+		std::array<std::string, 6> feed_lines{};
+		std::size_t feed_count{};
+		for ( auto it = feed.rbegin( ); it != feed.rend( ) && feed_count < feed_lines.size( ); ++it )
 		{
 			if ( now - it->time > 6.0f )
 			{
 				continue;
 			}
-
-			const auto text = std::format( "{} {} {}{} {}", it->attacker, it->weapon, it->assister.empty( ) ? "" : "+ " + it->assister, it->headshot ? " [HS]" : "", it->victim );
-			draw->AddText( ImVec2{ viewport->WorkPos.x + viewport->WorkSize.x - 360.0f, y }, IM_COL32_WHITE, text.c_str( ) );
-			y += 20.0f;
+			feed_lines[ feed_count++ ] = std::format( "{}  {}{}  {}", it->attacker, it->weapon, it->headshot ? " [HS]" : "", it->victim );
+		}
+		if ( feed_count )
+		{
+			constexpr auto feed_width = 330.0f;
+			constexpr auto feed_row_height = 22.0f;
+			const auto feed_height = 37.0f + feed_row_height * static_cast< float >( feed_count );
+			const auto feed_max_x = viewport->WorkPos.x + viewport->WorkSize.x - 272.0f;
+			const ImVec2 feed_min{ feed_max_x - feed_width, y };
+			const ImVec2 feed_max{ feed_max_x, y + feed_height };
+			draw_overlay_frame( draw, feed_min, feed_max );
+			draw_overlay_header( draw, feed_min, feed_width, "KILLFEED" );
+			for ( std::size_t i = 0; i < feed_count; ++i )
+			{
+				const auto row_y = feed_min.y + 36.0f + feed_row_height * static_cast< float >( i );
+				if ( i )
+				{
+					draw->AddLine( ImVec2{ feed_min.x + 12.0f, row_y }, ImVec2{ feed_max.x - 12.0f, row_y }, IM_COL32( 63, 63, 63, 220 ), 1.0f );
+				}
+				draw->AddText( ImVec2{ feed_min.x + 12.0f, row_y + 4.0f }, IM_COL32( 228, 228, 228, 255 ), feed_lines[ i ].c_str( ) );
+			}
 		}
 
+	}
+
+	void imgui_menu::draw_spectators( ImDrawList* draw, const ImGuiViewport* viewport )
+	{
+		const auto& setting = settings::g_esp.m_other.spectator_list;
+		if ( !setting.value || !viewport )
+		{
+			return;
+		}
+
+		const auto spectators = features::esp::other::g_overlay.get_spectators( );
+		if ( spectators.empty( ) )
+		{
+			return;
+		}
+
+		constexpr auto width = 244.0f;
+		constexpr auto row_height = 23.0f;
+		const auto height = 37.0f + row_height * static_cast< float >( spectators.size( ) );
+		const ImVec2 min{ viewport->WorkPos.x + viewport->WorkSize.x - width - 14.0f, viewport->WorkPos.y + 48.0f };
+		const ImVec2 max{ min.x + width, min.y + height };
+		draw_overlay_frame( draw, min, max );
+		draw_overlay_header( draw, min, width, "SPECTATORS", static_cast< int >( spectators.size( ) ) );
+
+		for ( std::size_t i = 0; i < spectators.size( ); ++i )
+		{
+			const auto y = min.y + 36.0f + row_height * static_cast< float >( i );
+			if ( i )
+			{
+				draw->AddLine( ImVec2{ min.x + 12.0f, y }, ImVec2{ max.x - 12.0f, y }, IM_COL32( 63, 63, 63, 220 ), 1.0f );
+			}
+			draw->AddRectFilled( ImVec2{ min.x + 12.0f, y + 8.0f }, ImVec2{ min.x + 15.0f, y + 16.0f }, IM_COL32( 119, 200, 74, 255 ) );
+			draw->AddText( ImVec2{ min.x + 24.0f, y + 4.0f }, IM_COL32( 228, 228, 228, 255 ), spectators[ i ].name.c_str( ) );
+		}
 	}
 
 	void imgui_menu::render( )

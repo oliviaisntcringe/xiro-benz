@@ -29,7 +29,6 @@ namespace features::misc {
 		this->do_scope( draw_list, cx, cy, static_cast< float >( screen_h ), local.pawn );
 		this->do_crosshair( draw_list, cx, cy );
 		this->do_hat( draw_list, local.pawn );
-		this->do_velocity( draw_list, cx, static_cast< float >( screen_h ), local.pawn );
 	}
 
 	void hud::do_crosshair( xdraw::draw_list& draw_list, float cx, float cy ) const
