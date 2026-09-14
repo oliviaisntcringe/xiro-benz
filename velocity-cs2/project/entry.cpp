@@ -199,6 +199,7 @@ namespace {
 
 		if ( diag::is_module_address( info->ExceptionRecord->ExceptionAddress ) )
 		{
+			diag::write_exception_details( diag::level::error, "VEH EXCEPTION", info );
 			diag::record_crash(
 				info,
 				diag::g_exception_scope_depth
@@ -212,43 +213,7 @@ namespace {
 			return EXCEPTION_CONTINUE_SEARCH;
 		}
 
-		const auto code = info->ExceptionRecord->ExceptionCode;
-		const auto instruction =
-			reinterpret_cast<std::uintptr_t>( info->ExceptionRecord->ExceptionAddress );
-		const auto accessed =
-			info->ExceptionRecord->NumberParameters > 1
-				? info->ExceptionRecord->ExceptionInformation[ 1 ]
-				: 0;
-
-		HMODULE fault_module{};
-		char module_path[ MAX_PATH ]{ "unknown" };
-		std::uintptr_t module_base{};
-		if ( instruction &&
-			GetModuleHandleExA(
-				GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-					GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-				reinterpret_cast<LPCSTR>( instruction ), &fault_module ) )
-		{
-			module_base = reinterpret_cast<std::uintptr_t>( fault_module );
-			GetModuleFileNameA( fault_module, module_path, MAX_PATH );
-		}
-
-		const auto* module_name = strrchr( module_path, '\\' );
-		module_name = module_name ? module_name + 1 : module_path;
-
-		char buf[ 384 ]{};
-		_snprintf_s(
-			buf, sizeof( buf ), _TRUNCATE,
-			"FEATURE EXCEPTION [%s] 0x%08lX at %s+0x%llX (0x%p), accessed 0x%p",
-			diag::g_exception_phase,
-			code,
-			module_name,
-			module_base
-				? static_cast<unsigned long long>( instruction - module_base )
-				: 0ull,
-			info->ExceptionRecord->ExceptionAddress,
-			reinterpret_cast<void*>( accessed ) );
-		diag::step( buf );
+		diag::write_exception_details( diag::level::error, "FEATURE EXCEPTION", info );
 
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
@@ -260,41 +225,7 @@ namespace {
 			return EXCEPTION_CONTINUE_SEARCH;
 		}
 
-		const auto instruction =
-			reinterpret_cast<std::uintptr_t>( info->ExceptionRecord->ExceptionAddress );
-		const auto accessed =
-			info->ExceptionRecord->NumberParameters > 1
-				? info->ExceptionRecord->ExceptionInformation[ 1 ]
-				: 0;
-
-		HMODULE fault_module{};
-		char module_path[ MAX_PATH ]{ "unknown" };
-		std::uintptr_t module_base{};
-		if ( instruction &&
-			GetModuleHandleExA(
-				GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-					GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-				reinterpret_cast<LPCSTR>( instruction ), &fault_module ) )
-		{
-			module_base = reinterpret_cast<std::uintptr_t>( fault_module );
-			GetModuleFileNameA( fault_module, module_path, MAX_PATH );
-		}
-
-		const auto* module_name = strrchr( module_path, '\\' );
-		module_name = module_name ? module_name + 1 : module_path;
-
-		char buf[ 384 ]{};
-		_snprintf_s(
-			buf, sizeof( buf ), _TRUNCATE,
-			"UNHANDLED EXCEPTION 0x%08lX at %s+0x%llX (0x%p), accessed 0x%p",
-			info->ExceptionRecord->ExceptionCode,
-			module_name,
-			module_base
-				? static_cast<unsigned long long>( instruction - module_base )
-				: 0ull,
-			info->ExceptionRecord->ExceptionAddress,
-			reinterpret_cast<void*>( accessed ) );
-		diag::write( diag::level::fatal, buf );
+		diag::write_exception_details( diag::level::fatal, "UNHANDLED EXCEPTION", info );
 		diag::record_crash( info, "unhandled exception" );
 
 		const auto previous_filter =

@@ -561,6 +561,12 @@ namespace hooks {
 
 	void __fastcall cheat::generate_primitives( std::uintptr_t thisptr, std::uintptr_t scene_object, std::uintptr_t scene_view, std::uintptr_t primitive_buffer )
 	{
+		diag::hook_scope hook_context{
+			"generate_primitives",
+			thisptr,
+			scene_object,
+			scene_view,
+			primitive_buffer };
 		diag::exception_scope exception_scope{ "chams: generate primitives" };
 		const auto original_fn = m_generate_primitives.original<void( __fastcall* )( std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t )>( );
 		auto& player_chams = features::esp::player::g_chams;

@@ -31,6 +31,14 @@ namespace diag {
 	inline thread_local std::uint32_t g_probe_scope_depth{};
 	inline thread_local const char* g_exception_phase{ "none" };
 
+	struct hook_snapshot
+	{
+		const char* name{ "none" };
+		std::uintptr_t args[ 4 ]{};
+	};
+
+	inline thread_local hook_snapshot g_hook_snapshot{};
+
 	// DbgHelp declares this structure under 4-byte packing, including on x64.
 #pragma pack( push, 4 )
 	struct minidump_exception_information
@@ -51,6 +59,7 @@ namespace diag {
 		EXCEPTION_RECORD record{};
 		CONTEXT context{};
 		EXCEPTION_POINTERS pointers{};
+		hook_snapshot hook{};
 		char stage[ 128 ]{};
 		DWORD fault_thread_id{};
 	};
@@ -333,6 +342,160 @@ namespace diag {
 		const auto value = reinterpret_cast<std::uintptr_t>( address );
 		return g_module && value >= reinterpret_cast<std::uintptr_t>( g_module ) &&
 			value < g_module_end;
+	}
+
+	class hook_scope
+	{
+	public:
+		hook_scope(
+			const char* name,
+			std::uintptr_t arg0 = 0,
+			std::uintptr_t arg1 = 0,
+			std::uintptr_t arg2 = 0,
+			std::uintptr_t arg3 = 0 )
+			: m_previous( g_hook_snapshot )
+		{
+			g_hook_snapshot.name = name ? name : "none";
+			g_hook_snapshot.args[ 0 ] = arg0;
+			g_hook_snapshot.args[ 1 ] = arg1;
+			g_hook_snapshot.args[ 2 ] = arg2;
+			g_hook_snapshot.args[ 3 ] = arg3;
+		}
+
+		~hook_scope( )
+		{
+			g_hook_snapshot = m_previous;
+		}
+
+		hook_scope( const hook_scope& ) = delete;
+		hook_scope& operator=( const hook_scope& ) = delete;
+
+	private:
+		hook_snapshot m_previous{};
+	};
+
+	// Keep this probe independent from memory::safe_read so it can run from
+	// the process-wide exception handler without introducing an include cycle.
+	inline bool try_read_u64( std::uintptr_t address, std::uint64_t& value )
+	{
+		__try
+		{
+			value = *reinterpret_cast<const std::uint64_t*>( address );
+			return true;
+		}
+		__except ( EXCEPTION_EXECUTE_HANDLER )
+		{
+			return false;
+		}
+	}
+
+	inline const char* exception_access_kind( const EXCEPTION_RECORD* record )
+	{
+		if ( !record || record->ExceptionCode != EXCEPTION_ACCESS_VIOLATION ||
+			record->NumberParameters == 0 )
+		{
+			return "unknown";
+		}
+
+		switch ( record->ExceptionInformation[ 0 ] )
+		{
+		case 0:
+			return "read";
+		case 1:
+			return "write";
+		case 8:
+			return "execute";
+		default:
+			return "unknown";
+		}
+	}
+
+	inline void write_exception_details(
+		level severity,
+		const char* label,
+		const EXCEPTION_POINTERS* info )
+	{
+		if ( !info || !info->ExceptionRecord )
+		{
+			return;
+		}
+
+		const auto* record = info->ExceptionRecord;
+		const auto instruction = reinterpret_cast<std::uintptr_t>( record->ExceptionAddress );
+		const auto accessed = record->NumberParameters > 1
+			? record->ExceptionInformation[ 1 ]
+			: 0ull;
+
+		HMODULE fault_module{};
+		char module_path[ MAX_PATH ]{ "unknown" };
+		std::uintptr_t module_base{};
+		if ( instruction && GetModuleHandleExA(
+			GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+			GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			reinterpret_cast<LPCSTR>( instruction ), &fault_module ) )
+		{
+			module_base = reinterpret_cast<std::uintptr_t>( fault_module );
+			GetModuleFileNameA( fault_module, module_path, MAX_PATH );
+		}
+
+		const auto* module_name = strrchr( module_path, '\\' );
+		module_name = module_name ? module_name + 1 : module_path;
+		const auto relative = module_base && instruction >= module_base
+			? static_cast<unsigned long long>( instruction - module_base )
+			: 0ull;
+
+		writef(
+			severity,
+			"%s [%s] code=0x%08lX kind=%s rip=0x%p module=%s+0x%llX access=0x%p",
+			label ? label : "EXCEPTION",
+			g_exception_phase ? g_exception_phase : "none",
+			record->ExceptionCode,
+			exception_access_kind( record ),
+			record->ExceptionAddress,
+			module_name,
+			relative,
+			reinterpret_cast<void*>( accessed ) );
+
+		writef(
+			severity,
+			"exception hook=%s arg0=0x%p arg1=0x%p arg2=0x%p arg3=0x%p",
+			g_hook_snapshot.name ? g_hook_snapshot.name : "none",
+			reinterpret_cast<void*>( g_hook_snapshot.args[ 0 ] ),
+			reinterpret_cast<void*>( g_hook_snapshot.args[ 1 ] ),
+			reinterpret_cast<void*>( g_hook_snapshot.args[ 2 ] ),
+			reinterpret_cast<void*>( g_hook_snapshot.args[ 3 ] ) );
+
+		if ( info->ContextRecord )
+		{
+			const auto& context = *info->ContextRecord;
+#if defined( _M_X64 ) || defined( __x86_64__ )
+			writef(
+				severity,
+				"registers rcx=0x%llX rdx=0x%llX r8=0x%llX r9=0x%llX rsp=0x%llX rbp=0x%llX",
+				static_cast<unsigned long long>( context.Rcx ),
+				static_cast<unsigned long long>( context.Rdx ),
+				static_cast<unsigned long long>( context.R8 ),
+				static_cast<unsigned long long>( context.R9 ),
+				static_cast<unsigned long long>( context.Rsp ),
+				static_cast<unsigned long long>( context.Rbp ) );
+
+				for ( auto i = 0u; i < 6u; ++i )
+				{
+					std::uint64_t value{};
+					if ( !try_read_u64( context.Rsp + i * sizeof( std::uint64_t ), value ) )
+					{
+						break;
+					}
+
+					writef(
+						severity,
+						"stack[%u] rsp+0x%X=0x%llX",
+						i,
+						i * static_cast<unsigned>( sizeof( std::uint64_t ) ),
+						static_cast<unsigned long long>( value ) );
+				}
+#endif
+		}
 	}
 
 	class exception_scope
@@ -646,7 +809,8 @@ namespace diag {
 	inline void record_crash_impl(
 		EXCEPTION_POINTERS* info,
 		const char* stage,
-		DWORD fault_thread_id )
+		DWORD fault_thread_id,
+		const hook_snapshot* hook )
 	{
 		const auto* record = info->ExceptionRecord;
 		char location[ MAX_PATH + 32 ]{};
@@ -687,6 +851,18 @@ namespace diag {
 				location );
 		}
 
+		if ( hook )
+		{
+			writef(
+				level::fatal,
+				"crash hook=%s arg0=0x%p arg1=0x%p arg2=0x%p arg3=0x%p",
+				hook->name ? hook->name : "none",
+				reinterpret_cast<void*>( hook->args[ 0 ] ),
+				reinterpret_cast<void*>( hook->args[ 1 ] ),
+				reinterpret_cast<void*>( hook->args[ 2 ] ),
+				reinterpret_cast<void*>( hook->args[ 3 ] ) );
+		}
+
 #if defined( _M_X64 )
 		if ( info->ContextRecord )
 		{
@@ -717,7 +893,8 @@ namespace diag {
 		record_crash_impl(
 			&g_crash_request.pointers,
 			g_crash_request.stage,
-			g_crash_request.fault_thread_id );
+			g_crash_request.fault_thread_id,
+			&g_crash_request.hook );
 		return 0;
 	}
 
@@ -740,6 +917,7 @@ namespace diag {
 			&g_crash_request.record,
 			info->ContextRecord ? &g_crash_request.context : nullptr
 		};
+		g_crash_request.hook = g_hook_snapshot;
 		_snprintf_s(
 			g_crash_request.stage,
 			sizeof( g_crash_request.stage ),
@@ -779,7 +957,8 @@ namespace diag {
 		record_crash_impl(
 			&g_crash_request.pointers,
 			g_crash_request.stage,
-			fault_thread_id );
+			fault_thread_id,
+			&g_crash_request.hook );
 	}
 
 	inline void capture_snapshot( const char* stage )
