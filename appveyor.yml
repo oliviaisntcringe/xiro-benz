@@ -11,32 +11,31 @@ environment:
     - configuration: Release
 
 platform: x64
-configuration: $(configuration)
 
 init:
   - cmd: git config --global core.autocrlf false
 
 before_build:
-  - cmd: mkdir velocity-cs2\bin\$(configuration)
-  - cmd: mkdir velocity-cs2\bin\intermediates\$(configuration)
+  - cmd: mkdir velocity-cs2\bin\%configuration%
+  - cmd: mkdir velocity-cs2\bin\intermediates\%configuration%
 
 build_script:
   - cmd: >-
       msbuild velocity-cs2\velocity-cs2.vcxproj
       /m
-      /p:Configuration=$(configuration)
+      /p:Configuration=%configuration%
       /p:Platform=x64
       /p:PlatformToolset=v143
-      /p:OutDir=%APPVEYOR_BUILD_FOLDER%\velocity-cs2\bin\$(configuration)\
-      /p:IntDir=%APPVEYOR_BUILD_FOLDER%\velocity-cs2\bin\intermediates\$(configuration)\
+      /p:OutDir=%APPVEYOR_BUILD_FOLDER%\velocity-cs2\bin\%configuration%\
+      /p:IntDir=%APPVEYOR_BUILD_FOLDER%\velocity-cs2\bin\intermediates\%configuration%\
       /verbosity:minimal
 
 cache:
-  - velocity-cs2\bin\$(configuration)
-  - velocity-cs2\bin\intermediates\$(configuration)
+  - velocity-cs2\bin\%configuration%
+  - velocity-cs2\bin\intermediates\%configuration%
 
 artifacts:
-  - path: velocity-cs2\bin\$(configuration)\*.dll
-    name: velocity-cs2-$(configuration)-x64
-  - path: velocity-cs2\bin\$(configuration)\*.pdb
-    name: velocity-cs2-$(configuration)-x64-symbols
+  - path: velocity-cs2\bin\%configuration%\*.dll
+    name: velocity-cs2-%configuration%-x64
+  - path: velocity-cs2\bin\%configuration%\*.pdb
+    name: velocity-cs2-%configuration%-x64-symbols
