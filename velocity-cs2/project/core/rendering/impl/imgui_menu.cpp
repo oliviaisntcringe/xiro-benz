@@ -320,37 +320,97 @@ namespace rendering {
 		this->try_load_avatar( );
 		const auto viewport = ImGui::GetMainViewport( );
 		draw_imgui_backdrop( viewport );
-		const auto panel_width = 860.0f;
-		const auto panel_height = 700.0f;
-		const auto panel_pos = ImVec2{
-			viewport->WorkPos.x + ( viewport->WorkSize.x - panel_width ) * 0.5f,
-			viewport->WorkPos.y + ( viewport->WorkSize.y - panel_height ) * 0.5f
-		};
-		const auto max_panel_width = std::max( 420.0f, viewport->WorkSize.x - 24.0f );
-		const auto max_panel_height = std::max( 320.0f, viewport->WorkSize.y - 24.0f );
+		static constexpr const char* top_names[ 5 ]{ "Visuals", "Aiming", "Misc", "Skins", "Config" };
+		const auto top_tab = this->m_tab == 0 || this->m_tab == 1 ? 0
+			: this->m_tab == 2 || this->m_tab == 3 ? 1
+			: this->m_tab == 4 || this->m_tab == 6 ? 2
+			: this->m_tab == 5 ? 3 : 4;
 
-		ImGui::SetNextWindowPos( panel_pos, ImGuiCond_FirstUseEver );
-		ImGui::SetNextWindowSize( ImVec2{ panel_width, panel_height }, ImGuiCond_Always );
+		// The tab strip is intentionally a separate, compact window. It stays
+		// visible above the workspace while the workspace can be freely resized.
+		const auto tab_width = std::clamp( viewport->WorkSize.x - 32.0f, 640.0f, 980.0f );
+		const auto tab_pos = ImVec2{
+			viewport->WorkPos.x + ( viewport->WorkSize.x - tab_width ) * 0.5f,
+			viewport->WorkPos.y + 18.0f
+		};
+		ImGui::SetNextWindowPos( tab_pos, ImGuiCond_Always );
+		ImGui::SetNextWindowSize( ImVec2{ tab_width, 48.0f }, ImGuiCond_Always );
+		ImGui::Begin( "##xiro_top_tabs", nullptr,
+			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
+			ImGuiWindowFlags_NoFocusOnAppearing );
+		const auto tab_min = ImGui::GetWindowPos( );
+		const auto tab_max = ImVec2{ tab_min.x + tab_width, tab_min.y + 48.0f };
+		rendering::retro::draw_retro_header( ImGui::GetWindowDrawList( ), tab_min, tab_max );
+		ImGui::SetCursorPos( ImVec2{ 12.0f, 8.0f } );
+		if ( this->m_mono_font )
+		{
+			ImGui::PushFont( this->m_mono_font );
+		}
+		ImGui::TextColored( rendering::retro::accent_green, "XI" );
+		ImGui::SameLine( 0.0f, 2.0f );
+		ImGui::TextColored( rendering::retro::accent_purple, "7" );
+		if ( this->m_mono_font )
+		{
+			ImGui::PopFont( );
+		}
+		ImGui::SameLine( 62.0f );
+		for ( auto i = 0; i < 5; ++i )
+		{
+			const auto active = top_tab == i;
+			ImGui::PushID( i );
+			ImGui::PushStyleColor( ImGuiCol_Button, active ? ImVec4{ 0.18f, 0.31f, 0.13f, 1.0f } : ImVec4{ 0.08f, 0.08f, 0.08f, 0.96f } );
+			ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4{ 0.24f, 0.40f, 0.16f, 1.0f } );
+			ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4{ 0.32f, 0.54f, 0.21f, 1.0f } );
+			const auto width = std::max( 88.0f, ( tab_width - 82.0f ) / 5.0f );
+			if ( ImGui::Button( top_names[ i ], ImVec2{ width, 31.0f } ) )
+			{
+				this->m_tab = i == 0 ? 0 : i == 1 ? 2 : i == 2 ? 4 : i == 3 ? 5 : 7;
+				if ( this->m_tab == 0 && this->m_visual_section >= 7 )
+				{
+					this->m_visual_section = 0;
+				}
+			}
+			ImGui::PopStyleColor( 3 );
+			ImGui::PopID( );
+			if ( i != 4 )
+			{
+				ImGui::SameLine( 0.0f, 4.0f );
+			}
+		}
+		ImGui::End( );
+
+		const auto workspace_width = std::clamp( viewport->WorkSize.x - 80.0f, 720.0f, 1260.0f );
+		const auto workspace_height = std::clamp( viewport->WorkSize.y - 130.0f, 520.0f, 860.0f );
+		const auto max_workspace_width = std::max( 720.0f, viewport->WorkSize.x - 24.0f );
+		const auto max_workspace_height = std::max( 520.0f, viewport->WorkSize.y - 90.0f );
+		const auto workspace_pos = ImVec2{
+			viewport->WorkPos.x + ( viewport->WorkSize.x - workspace_width ) * 0.5f,
+			viewport->WorkPos.y + 82.0f
+		};
+		ImGui::SetNextWindowPos( workspace_pos, ImGuiCond_FirstUseEver );
+		ImGui::SetNextWindowSize( ImVec2{ workspace_width, workspace_height }, ImGuiCond_FirstUseEver );
 		ImGui::SetNextWindowSizeConstraints(
-			ImVec2{ 420.0f, 320.0f },
-			ImVec2{ max_panel_width, max_panel_height }
-		);
-		ImGui::Begin( "TRIADA.BENZ", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar );
+			ImVec2{ 720.0f, 520.0f },
+			ImVec2{ max_workspace_width, max_workspace_height } );
+		ImGui::Begin( "XI.BENZ // WORKSPACE", nullptr,
+			ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
+			ImGuiWindowFlags_NoScrollbar );
 		draw_animated_window_separator( );
 		const auto header_pos = ImGui::GetCursorScreenPos( );
 		const auto header_width = ImGui::GetContentRegionAvail( ).x;
-		const auto header_max = ImVec2{ header_pos.x + header_width, header_pos.y + 76.0f };
+		const auto header_max = ImVec2{ header_pos.x + header_width, header_pos.y + 58.0f };
 		rendering::retro::draw_retro_header( ImGui::GetWindowDrawList( ), header_pos, header_max );
 		if ( this->m_mono_font )
 		{
 			ImGui::PushFont( this->m_mono_font );
 		}
-		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x + 18.0f, header_pos.y + 14.0f } );
+		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x + 18.0f, header_pos.y + 12.0f } );
 		ImGui::TextColored( rendering::retro::accent_green, "XI.BENZ" );
 		ImGui::SameLine( );
 		ImGui::TextColored( rendering::retro::accent_purple, "RIFK7" );
-		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x + 18.0f, header_pos.y + 42.0f } );
-		ImGui::TextColored( rendering::retro::text_muted, "operator console // build 2026.09" );
+		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x + 18.0f, header_pos.y + 35.0f } );
+		ImGui::TextColored( rendering::retro::text_muted, "operator workspace // %s", top_names[ top_tab ] );
 		if ( this->m_mono_font )
 		{
 			ImGui::PopFont( );
@@ -590,23 +650,10 @@ namespace rendering {
 		ImGui_ImplDX11_RenderDrawData( ImGui::GetDrawData( ) );
 	}
 
-	void imgui_menu::draw_sidebar( )
-	{
-		static constexpr const char* tabs[ 9 ]{ "VISUALS", "WORLD", "LEGIT", "RAGE", "MISC", "SKINS", "PERSONAL", "CONFIG", "INFO" };
-		for ( auto i = 0; i < 9; ++i )
-		{
-			if ( ImGui::Selectable( tabs[ i ], this->m_tab == i, 0, ImVec2{ 66.0f, 42.0f } ) )
-			{
-				this->m_tab = i;
-			}
-		}
-	}
-
 	void imgui_menu::draw_panel( )
 	{
 		static constexpr const char* tab_names[ 9 ]{ "Visuals", "World", "Legit", "Rage", "Misc", "Skins", "Personal", "Config", "Info" };
 		static constexpr const char* visual_sections[ 9 ]{ "Enemy", "Team", "Local", "Viewmodel", "Items", "Projectiles", "Other", "Scene", "Weather" };
-		static constexpr const char* tab_codes[ 9 ]{ "01", "02", "03", "04", "05", "06", "07", "08", "09" };
 		const auto accent = rendering::retro::accent_green;
 		const auto muted = rendering::retro::text_muted;
 		const auto panel_width = ImGui::GetContentRegionAvail( ).x;
@@ -618,30 +665,6 @@ namespace rendering {
 			const auto max = ImVec2{ min.x + ImGui::GetContentRegionAvail( ).x, min.y + thickness };
 			draw->AddRectFilled( min, max, ImGui::ColorConvertFloat4ToU32( color ) );
 			ImGui::Dummy( ImVec2{ 0.0f, thickness + 7.0f } );
-		};
-
-		auto draw_tab = [ & ]( int index )
-		{
-			const auto width = std::max( 96.0f, ( panel_width - 24.0f ) / 4.0f );
-			const auto active = this->m_tab == index;
-			ImGui::PushID( index );
-			ImGui::PushStyleColor( ImGuiCol_Button, active ? ImVec4{ 0.16f, 0.27f, 0.12f, 1.0f } : ImVec4{ 0.10f, 0.10f, 0.10f, 1.0f } );
-			ImGui::PushStyleColor( ImGuiCol_ButtonHovered, ImVec4{ 0.20f, 0.34f, 0.15f, 1.0f } );
-			ImGui::PushStyleColor( ImGuiCol_ButtonActive, ImVec4{ 0.28f, 0.48f, 0.18f, 1.0f } );
-			if ( ImGui::Button( std::format( "{}  {}", tab_codes[ index ], tab_names[ index ] ).c_str( ), ImVec2{ width, 31.0f } ) )
-			{
-				this->m_tab = index;
-				if ( index == 0 && this->m_visual_section >= 7 )
-				{
-					this->m_visual_section = 0;
-				}
-				else if ( index == 1 && this->m_visual_section < 7 )
-				{
-					this->m_visual_section = 7;
-				}
-			}
-			ImGui::PopStyleColor( 3 );
-			ImGui::PopID( );
 		};
 
 		auto draw_section_title = [ & ]( const char* title, const char* description )
@@ -660,18 +683,66 @@ namespace rendering {
 			draw_rule( rendering::retro::accent_green_dim );
 		};
 
-		ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2{ 6.0f, 6.0f } );
-		for ( auto i = 0; i < 9; ++i )
-		{
-			if ( i > 0 && i % 3 != 0 )
-			{
-				ImGui::SameLine( );
-			}
-			draw_tab( i );
-		}
-		ImGui::PopStyleVar( );
-		ImGui::Spacing( );
 		draw_section_title( tab_names[ this->m_tab ], "operator workspace / select a module" );
+
+		const char* subtab_names[ 2 ]{};
+		int subtab_count{};
+		int selected_subtab{};
+		if ( this->m_tab == 0 || this->m_tab == 1 )
+		{
+			subtab_names[ 0 ] = "Players";
+			subtab_names[ 1 ] = "World";
+			subtab_count = 2;
+			selected_subtab = this->m_tab == 1;
+		}
+		else if ( this->m_tab == 2 || this->m_tab == 3 )
+		{
+			subtab_names[ 0 ] = "Legit";
+			subtab_names[ 1 ] = "Rage";
+			subtab_count = 2;
+			selected_subtab = this->m_tab == 3;
+		}
+		else if ( this->m_tab == 4 || this->m_tab == 6 )
+		{
+			subtab_names[ 0 ] = "Misc";
+			subtab_names[ 1 ] = "Personal";
+			subtab_count = 2;
+			selected_subtab = this->m_tab == 6;
+		}
+
+		if ( subtab_count )
+		{
+			ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2{ 6.0f, 6.0f } );
+			const auto subtab_width = std::max( 110.0f, ( panel_width - 6.0f ) * 0.5f );
+			for ( auto i = 0; i < subtab_count; ++i )
+			{
+				ImGui::PushID( i + 32 );
+				if ( ImGui::Selectable( subtab_names[ i ], selected_subtab == i, 0, ImVec2{ subtab_width, 30.0f } ) )
+				{
+					if ( this->m_tab == 0 || this->m_tab == 1 )
+					{
+						this->m_tab = i == 0 ? 0 : 1;
+						this->m_visual_section = i == 0 ? 0 : 7;
+					}
+					else if ( this->m_tab == 2 || this->m_tab == 3 )
+					{
+						this->m_tab = i == 0 ? 2 : 3;
+					}
+					else
+					{
+						this->m_tab = i == 0 ? 4 : 6;
+					}
+					selected_subtab = i;
+				}
+				ImGui::PopID( );
+				if ( i + 1 < subtab_count )
+				{
+					ImGui::SameLine( );
+				}
+			}
+			ImGui::PopStyleVar( );
+			ImGui::Spacing( );
+		}
 
 		ImGui::PushStyleColor( ImGuiCol_ChildBg, ImVec4{ 0.075f, 0.075f, 0.075f, 0.98f } );
 		ImGui::BeginChild( "##imgui_content", ImVec2{ 0.0f, -30.0f }, true, ImGuiWindowFlags_AlwaysVerticalScrollbar );

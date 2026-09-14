@@ -22,7 +22,6 @@ namespace rendering {
 		[[nodiscard]] bool is_open( ) const { return this->m_open; }
 
 	private:
-		void draw_sidebar( );
 		void draw_panel( );
 		void try_load_avatar( );
 		void draw_spectators( ImDrawList* draw, const ImGuiViewport* viewport );
