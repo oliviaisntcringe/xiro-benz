@@ -42,7 +42,7 @@ namespace rendering {
 			return;
 		}
 
-		auto* draw = ImGui::GetForegroundDrawList( viewport );
+		auto* draw = ImGui::GetForegroundDrawList( );
 		const auto& wm = settings::g_misc.m_watermark;
 		if ( wm.enabled.value )
 		{

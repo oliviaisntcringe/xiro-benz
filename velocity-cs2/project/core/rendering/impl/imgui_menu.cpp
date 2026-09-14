@@ -158,12 +158,15 @@ namespace rendering {
 
 		void draw_overlay_header( ImDrawList* draw, const ImVec2& min, float width, const char* title, int count = -1 )
 		{
-			draw->AddText( ImVec2{ min.x + 12.0f, min.y + 9.0f }, rendering::retro::accent_green, std::format( "[ {} ]", title ).c_str( ) );
+			const auto green = ImGui::ColorConvertFloat4ToU32( rendering::retro::accent_green );
+			const auto purple = ImGui::ColorConvertFloat4ToU32( rendering::retro::accent_purple );
+			const auto green_dim = ImGui::ColorConvertFloat4ToU32( rendering::retro::accent_green_dim );
+			draw->AddText( ImVec2{ min.x + 12.0f, min.y + 9.0f }, green, std::format( "[ {} ]", title ).c_str( ) );
 			if ( count >= 0 )
 			{
-				draw->AddText( ImVec2{ min.x + width - 34.0f, min.y + 9.0f }, rendering::retro::accent_purple, std::format( "{:02}", count ).c_str( ) );
+				draw->AddText( ImVec2{ min.x + width - 34.0f, min.y + 9.0f }, purple, std::format( "{:02}", count ).c_str( ) );
 			}
-			draw->AddLine( ImVec2{ min.x + 12.0f, min.y + 29.0f }, ImVec2{ min.x + width - 12.0f, min.y + 29.0f }, rendering::retro::accent_green_dim, 1.0f );
+			draw->AddLine( ImVec2{ min.x + 12.0f, min.y + 29.0f }, ImVec2{ min.x + width - 12.0f, min.y + 29.0f }, green_dim, 1.0f );
 		}
 	}
 
