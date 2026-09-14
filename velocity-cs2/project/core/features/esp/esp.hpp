@@ -1,5 +1,7 @@
 #pragma once
 
+#include <shared_mutex>
+
 namespace features::esp {
 
 	namespace player {
@@ -19,6 +21,7 @@ namespace features::esp {
 				[[nodiscard]] bool is_active( std::uintptr_t scene_object ) const;
 				[[nodiscard]] bool has_active( std::uintptr_t pawn ) const;
 				[[nodiscard]] std::uintptr_t get_scene_object( std::uintptr_t pawn ) const;
+				[[nodiscard]] std::shared_mutex& mutex( ) const { return this->m_mutex; }
 
 				struct object {
 					std::uintptr_t scene_object {};
@@ -34,6 +37,7 @@ namespace features::esp {
 			private:
 
 				std::unordered_map<std::uintptr_t, object> m_objects{};
+				mutable std::shared_mutex m_mutex{};
 			};
 
 			class onshot {
@@ -46,6 +50,7 @@ namespace features::esp {
 				[[nodiscard]] bool is_active (std::uintptr_t scene_object) const;
 				[[nodiscard]] std::uintptr_t get_scene_object (std::uintptr_t pawn) const;
 				[[nodiscard]] float get_alpha (std::uintptr_t pawn) const;
+				[[nodiscard]] std::shared_mutex& mutex( ) const { return this->m_mutex; }
 
 			private:
 				struct pending_entry {
@@ -56,6 +61,7 @@ namespace features::esp {
 				// Scene objects must be created from the frame-stage callback, not CreateMove.
 				std::unordered_map<std::uintptr_t, pending_entry> m_pending {};
 				std::unordered_map<std::uintptr_t, backtrack::object> m_entries {};
+				mutable std::shared_mutex m_mutex{};
 			};
 
 			[[nodiscard]] onshot& os () { return this->m_onshot; }

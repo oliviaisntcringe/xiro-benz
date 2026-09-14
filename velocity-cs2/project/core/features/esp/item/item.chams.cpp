@@ -22,16 +22,16 @@ namespace features::esp::item {
 			return false;
 		}
 
-		const auto owner_handle = memory::read<std::uint32_t>( owner_entity + SCHEMA( "C_BaseEntity", "m_hOwnerEntity"_hash ) );
+		const auto owner_handle = memory::safe_read<std::uint32_t>( owner_entity + SCHEMA( "C_BaseEntity", "m_hOwnerEntity"_hash ) ).value_or( 0u );
 		if ( owner_handle && owner_handle != 0xffffffff )
 		{
 			return false;
 		}
 
-		const auto game_scene_node = memory::read<std::uintptr_t>( owner_entity + SCHEMA( "C_BaseEntity", "m_pGameSceneNode"_hash ) );
+		const auto game_scene_node = memory::safe_read<std::uintptr_t>( owner_entity + SCHEMA( "C_BaseEntity", "m_pGameSceneNode"_hash ) ).value_or( 0 );
 		if ( game_scene_node )
 		{
-			const auto parent_node = memory::read<std::uintptr_t>( game_scene_node + SCHEMA( "CGameSceneNode", "m_pParent"_hash ) );
+			const auto parent_node = memory::safe_read<std::uintptr_t>( game_scene_node + SCHEMA( "CGameSceneNode", "m_pParent"_hash ) ).value_or( 0 );
 			if ( parent_node )
 			{
 				return false;

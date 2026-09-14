@@ -562,8 +562,12 @@ namespace hooks {
 	void __fastcall cheat::generate_primitives( std::uintptr_t thisptr, std::uintptr_t scene_object, std::uintptr_t scene_view, std::uintptr_t primitive_buffer )
 	{
 		diag::exception_scope exception_scope{ "chams: generate primitives" };
+		const auto original_fn = m_generate_primitives.original<void( __fastcall* )( std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t )>( );
+		auto& player_chams = features::esp::player::g_chams;
+		std::shared_lock backtrack_lock( player_chams.bt( ).mutex( ) );
+		std::shared_lock onshot_lock( player_chams.os( ).mutex( ) );
 
-		if ( scene_object )
+		if ( scene_object && original_fn )
 		{
 			if ( features::esp::player::g_chams.bt( ).is_active( scene_object ) )
 			{
@@ -575,7 +579,7 @@ namespace hooks {
 				return;
 			}
 
-			const auto owner_handle = memory::read<std::uint32_t>( scene_object + 0xc0 );
+			const auto owner_handle = memory::safe_read<std::uint32_t>( scene_object + 0xc0 ).value_or( 0u );
 			if ( owner_handle )
 			{
 				const auto owner_entity = systems::g_entities.lookup( owner_handle );
@@ -584,12 +588,12 @@ namespace hooks {
 					const auto owner_hash = fnv1a::runtime_hash( systems::g_entities.get_schema_name( owner_entity ) );
 					if ( owner_hash )
 					{
-						if ( features::esp::player::g_chams.on_generate_primitives( owner_entity, owner_hash, scene_object, primitive_buffer, m_generate_primitives.original<void( __fastcall* )( std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t )>( ), thisptr, scene_view ) )
+						if ( features::esp::player::g_chams.on_generate_primitives( owner_entity, owner_hash, scene_object, primitive_buffer, original_fn, thisptr, scene_view ) )
 						{
 							return;
 						}
 
-						if ( features::esp::item::g_chams.on_generate_primitives( owner_entity, owner_hash, scene_object, primitive_buffer, m_generate_primitives.original<void( __fastcall* )( std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t )>( ), thisptr, scene_view ) )
+						if ( features::esp::item::g_chams.on_generate_primitives( owner_entity, owner_hash, scene_object, primitive_buffer, original_fn, thisptr, scene_view ) )
 						{
 							return;
 						}
@@ -599,7 +603,7 @@ namespace hooks {
 							owner_hash,
 							scene_object,
 							primitive_buffer,
-							m_generate_primitives.original<void( __fastcall* )( std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t )>( ),
+							original_fn,
 							thisptr,
 							scene_view
 						);

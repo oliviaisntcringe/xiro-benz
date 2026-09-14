@@ -18,19 +18,19 @@ namespace features::esp::player {
 
 		const auto is_local_attachment = [ & ]( std::uintptr_t view_pawn ) -> bool
 			{
-				const auto game_scene_node = memory::read<std::uintptr_t>( owner_entity + SCHEMA( "C_BaseEntity", "m_pGameSceneNode"_hash ) );
+				const auto game_scene_node = memory::safe_read<std::uintptr_t>( owner_entity + SCHEMA( "C_BaseEntity", "m_pGameSceneNode"_hash ) ).value_or( 0 );
 				if ( !game_scene_node )
 				{
 					return false;
 				}
 
-				const auto parent_node = memory::read<std::uintptr_t>( game_scene_node + SCHEMA( "CGameSceneNode", "m_pParent"_hash ) );
+				const auto parent_node = memory::safe_read<std::uintptr_t>( game_scene_node + SCHEMA( "CGameSceneNode", "m_pParent"_hash ) ).value_or( 0 );
 				if ( !parent_node )
 				{
 					return false;
 				}
 
-				const auto parent_owner = memory::read<std::uintptr_t>( parent_node + SCHEMA( "CGameSceneNode", "m_pOwner"_hash ) );
+				const auto parent_owner = memory::safe_read<std::uintptr_t>( parent_node + SCHEMA( "CGameSceneNode", "m_pOwner"_hash ) ).value_or( 0 );
 				return parent_owner == view_pawn;
 			};
 
@@ -88,8 +88,8 @@ namespace features::esp::player {
 		const auto local = systems::g_local.get( );
 		const auto& chams_cfg = settings::g_esp.m_player.m_chams;
 
-		const auto team = memory::read<int>( owner_entity + SCHEMA( "C_BaseEntity", "m_iTeamNum"_hash ) );
-		const auto health = memory::read<int>( owner_entity + SCHEMA( "C_BaseEntity", "m_iHealth"_hash ) );
+		const auto team = memory::safe_read<int>( owner_entity + SCHEMA( "C_BaseEntity", "m_iTeamNum"_hash ) ).value_or( 0 );
+		const auto health = memory::safe_read<int>( owner_entity + SCHEMA( "C_BaseEntity", "m_iHealth"_hash ) ).value_or( 0 );
 
 		const auto is_other_team = local.is_this_other_team( team );
 		const auto is_local = owner_entity == local.view_pawn( );
@@ -289,6 +289,7 @@ namespace features::esp::player {
 
 	void chams::backtrack::update( )
 	{
+		std::unique_lock lock( this->m_mutex );
 		const auto& cfg = settings::g_esp.m_player.m_chams;
 		const auto local = systems::g_local.get( );
 
@@ -345,10 +346,12 @@ namespace features::esp::player {
 				continue;
 			}
 
-			if ( !memory::read<bool>( p.ptr + SCHEMA( "CCSPlayerController", "m_bPawnIsAlive"_hash ) ) )
+			if ( !memory::safe_read<bool>( p.ptr + SCHEMA( "CCSPlayerController", "m_bPawnIsAlive"_hash ) ).value_or( false ) )
 			{
-				auto it = this->m_objects.find( p.ptr );
-				if ( it != this->m_objects.end( ) )
+				const auto dead_pawn_handle = memory::safe_read<std::uint32_t>( p.ptr + SCHEMA( "CBasePlayerController", "m_hPawn"_hash ) ).value_or( 0u );
+				const auto dead_pawn = systems::g_entities.lookup( dead_pawn_handle );
+				auto it = this->m_objects.find( dead_pawn );
+				if ( dead_pawn && it != this->m_objects.end( ) )
 				{
 					it->second.destroy( );
 					this->m_objects.erase( it );
@@ -445,6 +448,7 @@ namespace features::esp::player {
 
 	void chams::backtrack::shutdown( )
 	{
+		std::unique_lock lock( this->m_mutex );
 		for ( auto& [pawn, obj] : this->m_objects )
 		{
 			obj.destroy( );
@@ -607,6 +611,7 @@ namespace features::esp::player {
 	}
 
 	void chams::onshot::push (std::uintptr_t pawn) {
+		std::unique_lock lock( this->m_mutex );
 		const auto& cfg = settings::g_esp.m_player.m_chams;
 		if (!cfg.onshot.enabled.value)
 			return;
@@ -623,6 +628,7 @@ namespace features::esp::player {
 	}
 
 	void chams::onshot::update () {
+		std::unique_lock lock( this->m_mutex );
 		const auto& cfg = settings::g_esp.m_player.m_chams;
 
 		if (!cfg.onshot.enabled.value) {
@@ -669,6 +675,7 @@ namespace features::esp::player {
 	}
 
 	void chams::onshot::shutdown () {
+		std::unique_lock lock( this->m_mutex );
 		for (auto& [pawn, e] : this->m_entries)
 			e.destroy ();
 		this->m_entries.clear ();

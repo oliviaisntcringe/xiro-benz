@@ -144,7 +144,7 @@ namespace systems {
 
 	std::uintptr_t entities::get_by_index( std::int32_t index )
 	{
-		const auto entity_list = memory::read<std::uintptr_t>( addresses::globals::entity_list );
+		const auto entity_list = memory::safe_read<std::uintptr_t>( addresses::globals::entity_list ).value_or( 0 );
 		if ( !entity_list )
 		{
 			return 0;
@@ -179,19 +179,19 @@ namespace systems {
 			return 0;
 		}
 
-		const auto entity_list = memory::read<std::uintptr_t>( addresses::globals::entity_list );
+		const auto entity_list = memory::safe_read<std::uintptr_t>( addresses::globals::entity_list ).value_or( 0 );
 		if ( !entity_list )
 		{
 			return 0;
 		}
 
-		const auto list_entry = memory::read<std::uintptr_t>( entity_list + ( static_cast< std::uintptr_t >( ( handle & 0x7fff ) >> 9 ) * 8 ) + 0x10 );
+		const auto list_entry = memory::safe_read<std::uintptr_t>( entity_list + ( static_cast< std::uintptr_t >( ( handle & 0x7fff ) >> 9 ) * 8 ) + 0x10 ).value_or( 0 );
 		if ( !list_entry || list_entry == 0xffffffffffffffff )
 		{
 			return 0;
 		}
 
-		const auto entity = memory::read<std::uintptr_t>( list_entry + ( static_cast< std::uintptr_t >( handle & 0x1ff ) * 112 ) );
+		const auto entity = memory::safe_read<std::uintptr_t>( list_entry + ( static_cast< std::uintptr_t >( handle & 0x1ff ) * 112 ) ).value_or( 0 );
 		if ( !entity || entity == 0xffffffffffffffff || entity < 0x10000 )
 		{
 			return 0;
