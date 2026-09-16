@@ -1,4 +1,5 @@
 #include <pch/pch.hpp>
+#include <utilities/diag.hpp>
 #include <utilities/memory/memory.hpp>
 #include <protection/game_addresses.hpp>
 #include "../hooking.hpp"
@@ -147,133 +148,174 @@ namespace hooking {
 
 	bool jmp::create( void* target, void* hook_function )
 	{
-		if ( this->is_valid( ) )
+		void* allocated_trampoline{};
+		const auto requested_target = reinterpret_cast< std::uintptr_t >( target );
+
+		__try
 		{
+			if ( this->is_valid( ) )
+			{
+				return true;
+			}
+
+			if ( !target || !hook_function )
+			{
+				return false;
+			}
+
+			auto resolved = reinterpret_cast< std::uintptr_t >( target );
+
+			for ( auto depth = 0; depth < 8; ++depth )
+			{
+				MEMORY_BASIC_INFORMATION resolved_mbi{};
+				auto resolved_length{ 0ull };
+				if ( detail::nt_query_virtual_memory( GetCurrentProcess( ), reinterpret_cast< void* >( resolved ), 0, &resolved_mbi, sizeof( resolved_mbi ), &resolved_length ) < 0
+					|| resolved_mbi.State != MEM_COMMIT
+					|| !( resolved_mbi.Protect & ( PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY ) ) )
+				{
+					return false;
+				}
+
+				const auto region_end = reinterpret_cast< std::uintptr_t >( resolved_mbi.BaseAddress ) + resolved_mbi.RegionSize;
+				if ( resolved > region_end || region_end - resolved < 15 )
+				{
+					return false;
+				}
+
+				const auto byte = *reinterpret_cast< std::uint8_t* >( resolved );
+
+				if ( byte == 0xe9 )
+				{
+					const auto rel = *reinterpret_cast< std::int32_t* >( resolved + 1 );
+					resolved = resolved + 5 + rel;
+				}
+				else if ( byte == 0xff && *reinterpret_cast< std::uint8_t* >( resolved + 1 ) == 0x25 )
+				{
+					const auto ptr = resolved + 6 + *reinterpret_cast< std::int32_t* >( resolved + 2 );
+					resolved = *reinterpret_cast< std::uintptr_t* >( ptr );
+				}
+				else
+				{
+					break;
+				}
+
+				if ( depth == 7 )
+				{
+					return false;
+				}
+			}
+
+			target = reinterpret_cast< void* >( resolved );
+
+			MEMORY_BASIC_INFORMATION mbi{};
+			auto return_length{ 0ull };
+
+			if ( detail::nt_query_virtual_memory( GetCurrentProcess( ), target, 0, &mbi, sizeof( mbi ), &return_length ) < 0 )
+			{
+				return false;
+			}
+
+			if ( mbi.State != MEM_COMMIT )
+			{
+				return false;
+			}
+
+			if ( !( mbi.Protect & ( PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY ) ) )
+			{
+				return false;
+			}
+
+			const auto target_region_end = reinterpret_cast< std::uintptr_t >( mbi.BaseAddress ) + mbi.RegionSize;
+			if ( resolved > target_region_end || target_region_end - resolved < 15 )
+			{
+				return false;
+			}
+
+			allocated_trampoline = allocator::allocate( 64, target );
+			if ( !allocated_trampoline )
+			{
+				return false;
+			}
+
+			auto original_len{ 0ull };
+			auto trampoline_len{ 0ull };
+
+			if ( !detail::build_trampoline( target, allocated_trampoline, &original_len, &trampoline_len ) )
+			{
+				allocator::free( allocated_trampoline );
+				allocated_trampoline = nullptr;
+				return false;
+			}
+
+			const auto patch_size = detail::write_jmp_auto( this->m_hook_bytes, static_cast< std::uint8_t* >( target ) + 5, hook_function );
+			std::memcpy( this->m_original_bytes, target, original_len );
+
+			this->m_target = target;
+			this->m_hook = hook_function;
+			this->m_trampoline = allocated_trampoline;
+			this->m_original_length = original_len;
+			this->m_patch_size = patch_size;
+			this->m_enabled = false;
+			allocated_trampoline = nullptr;
+
 			return true;
 		}
-
-		if ( !target || !hook_function )
+		__except ( EXCEPTION_EXECUTE_HANDLER )
 		{
-			return false;
-		}
-
-		auto resolved = reinterpret_cast< std::uintptr_t >( target );
-
-		for ( auto depth = 0; depth < 8; ++depth )
-		{
-			MEMORY_BASIC_INFORMATION resolved_mbi{};
-			auto resolved_length{ 0ull };
-			if ( detail::nt_query_virtual_memory( GetCurrentProcess( ), reinterpret_cast< void* >( resolved ), 0, &resolved_mbi, sizeof( resolved_mbi ), &resolved_length ) < 0
-				|| resolved_mbi.State != MEM_COMMIT
-				|| !( resolved_mbi.Protect & ( PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY ) ) )
+			if ( allocated_trampoline )
 			{
-				return false;
+				allocator::free( allocated_trampoline );
 			}
 
-			const auto region_end = reinterpret_cast< std::uintptr_t >( resolved_mbi.BaseAddress ) + resolved_mbi.RegionSize;
-			if ( resolved > region_end || region_end - resolved < 6 )
-			{
-				return false;
-			}
-
-			const auto byte = *reinterpret_cast< std::uint8_t* >( resolved );
-
-			if ( byte == 0xe9 )
-			{
-				const auto rel = *reinterpret_cast< std::int32_t* >( resolved + 1 );
-				resolved = resolved + 5 + rel;
-			}
-			else if ( byte == 0xff && *reinterpret_cast< std::uint8_t* >( resolved + 1 ) == 0x25 )
-			{
-				const auto ptr = resolved + 6 + *reinterpret_cast< std::int32_t* >( resolved + 2 );
-				resolved = *reinterpret_cast< std::uintptr_t* >( ptr );
-			}
-			else
-			{
-				break;
-			}
-
-			if ( depth == 7 )
-			{
-				return false;
-			}
-		}
-
-		target = reinterpret_cast< void* >( resolved );
-
-		MEMORY_BASIC_INFORMATION mbi{};
-		auto return_length{ 0ull };
-
-		if ( detail::nt_query_virtual_memory( GetCurrentProcess( ), target, 0, &mbi, sizeof( mbi ), &return_length ) < 0 )
-		{
+			diag::writef(
+				diag::level::error,
+				"[hook] create exception target=0x%p resolved=0x%p code=0x%08lX",
+				reinterpret_cast<void*>( requested_target ),
+				target,
+				GetExceptionCode( ) );
 			return false;
 		}
-
-		if ( mbi.State != MEM_COMMIT )
-		{
-			return false;
-		}
-
-		if ( !( mbi.Protect & ( PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY ) ) )
-		{
-			return false;
-		}
-
-		const auto trampoline = allocator::allocate( 64, target );
-		if ( !trampoline )
-		{
-			return false;
-		}
-
-		auto original_len{ 0ull };
-		auto trampoline_len{ 0ull };
-
-		if ( !detail::build_trampoline( target, trampoline, &original_len, &trampoline_len ) )
-		{
-			allocator::free( trampoline );
-			return false;
-		}
-
-		const auto patch_size = detail::write_jmp_auto( this->m_hook_bytes, static_cast< std::uint8_t* >( target ) + 5, hook_function );
-		std::memcpy( this->m_original_bytes, target, original_len );
-
-		this->m_target = target;
-		this->m_hook = hook_function;
-		this->m_trampoline = trampoline;
-		this->m_original_length = original_len;
-		this->m_patch_size = patch_size;
-		this->m_enabled = false;
-
-		return true;
 	}
 
 	bool jmp::enable( )
 	{
-		if ( !this->is_valid( ) )
+		__try
 		{
-			return false;
-		}
+			if ( !this->is_valid( ) )
+			{
+				return false;
+			}
 
-		if ( this->m_enabled )
-		{
+			if ( this->m_enabled )
+			{
+				return true;
+			}
+
+			auto base = this->m_target;
+			auto size = this->m_patch_size;
+			auto old_protect{ 0ul };
+
+			if ( detail::nt_protect_virtual_memory( GetCurrentProcess( ), &base, &size, PAGE_EXECUTE_READWRITE, &old_protect ) < 0 )
+			{
+				return false;
+			}
+
+			std::memcpy( this->m_target, this->m_hook_bytes, this->m_patch_size );
+
+			detail::nt_protect_virtual_memory( GetCurrentProcess( ), &base, &size, old_protect, &old_protect );
+
+			this->m_enabled = true;
 			return true;
 		}
-
-		auto base = this->m_target;
-		auto size = this->m_patch_size;
-		auto old_protect{ 0ul };
-
-		if ( detail::nt_protect_virtual_memory( GetCurrentProcess( ), &base, &size, PAGE_EXECUTE_READWRITE, &old_protect ) < 0 )
+		__except ( EXCEPTION_EXECUTE_HANDLER )
 		{
+			diag::writef(
+				diag::level::error,
+				"[hook] enable exception target=0x%p code=0x%08lX",
+				this->m_target,
+				GetExceptionCode( ) );
 			return false;
 		}
-
-		std::memcpy( this->m_target, this->m_hook_bytes, this->m_patch_size );
-
-		detail::nt_protect_virtual_memory( GetCurrentProcess( ), &base, &size, old_protect, &old_protect );
-
-		this->m_enabled = true;
-		return true;
 	}
 
 	bool jmp::disable( )

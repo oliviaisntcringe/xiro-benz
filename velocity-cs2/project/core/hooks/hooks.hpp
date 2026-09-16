@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include <utilities/hooking/hooking.hpp>
 
 namespace hooks {
@@ -11,6 +13,7 @@ namespace hooks {
 
 		static bool initialize( );
 		static void shutdown( );
+		static void set_ready( bool ready );
 
 		static HRESULT __fastcall present( IDXGISwapChain* thisptr, UINT sync_interval, UINT flags );
 		static HRESULT __fastcall resize_buffers( IDXGISwapChain* thisptr, UINT buffer_count, UINT width, UINT height, DXGI_FORMAT new_format, UINT swap_chain_flags );
@@ -58,6 +61,7 @@ namespace hooks {
 		static char __fastcall set_info( std::uintptr_t rcx, std::uintptr_t a2 );
 
 	private:
+		inline static std::atomic_bool m_hooks_ready{ false };
 		inline static hooking::jmp m_present{};
 		inline static hooking::jmp m_resize_buffers{};
 		inline static hooking::jmp m_wnd_proc{};

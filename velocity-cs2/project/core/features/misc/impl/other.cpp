@@ -8,6 +8,29 @@
 namespace features::misc {
 	namespace {
 
+		[[nodiscard]] std::string safe_string( std::uintptr_t address, std::size_t max_length )
+		{
+			if ( !address || !max_length )
+			{
+				return {};
+			}
+
+			// Event callbacks run on an engine-owned object whose backing storage can
+			// disappear as the event is dispatched. Copy the bytes under SEH before
+			// constructing a std::string from them.
+			const auto bounded_length = std::min( max_length, std::size_t{ 127 } );
+			std::array<char, 128> buffer{};
+			const auto bytes = memory::safe_read<std::array<char, 128>>( address );
+			if ( !bytes )
+			{
+				return {};
+			}
+
+			buffer = *bytes;
+			const auto length = strnlen_s( buffer.data( ), bounded_length );
+			return std::string{ buffer.data( ), length };
+		}
+
 		[[nodiscard]] std::string controller_name( std::uintptr_t controller )
 		{
 			if ( !controller )
@@ -17,7 +40,7 @@ namespace features::misc {
 
 			const auto name_ptr = memory::safe_read<std::uintptr_t>(
 				controller + SCHEMA( "CCSPlayerController", "m_sSanitizedPlayerName"_hash ) ).value_or( 0 );
-			return memory::read_string( name_ptr, 127 );
+			return safe_string( name_ptr, 127 );
 		}
 
 		void submit_name_change( const std::string& display_name )
@@ -54,15 +77,48 @@ namespace features::misc {
 		};
 		const auto victim = get_controller( "userid" );
 		const auto attacker = get_controller( "attacker" );
-		const auto assister = get_controller( "assister" );
-		const auto weapon = memory::call<const char*>( PATTERN( patterns::game_event_get_string ), event, "weapon", "" );
+		if ( !victim || !attacker )
+		{
+			return;
+		}
+
 		const auto headshot = memory::call<bool>( PATTERN( patterns::game_event_get_int ), event, "headshot", false );
+
+		// The event-string call used by the ImGui rewrite resolves to an incompatible
+		// helper on this client build. Read the weapon from the attacker, as the
+		// tactical HUD path did, so a death event cannot cross that bad call.
+		std::string weapon_name{};
+		if ( attacker )
+		{
+			const auto pawn_handle = memory::safe_read<std::uint32_t>(
+				attacker + SCHEMA( "CBasePlayerController", "m_hPawn"_hash ) ).value_or( 0u );
+			const auto pawn = pawn_handle && pawn_handle != 0xffffffffu ? systems::g_entities.lookup( pawn_handle ) : 0;
+			const auto services = pawn
+				? memory::safe_read<std::uintptr_t>( pawn + SCHEMA( "C_BasePlayerPawn", "m_pWeaponServices"_hash ) ).value_or( 0 )
+				: 0;
+			const auto weapon_handle = services
+				? memory::safe_read<std::uint32_t>( services + SCHEMA( "CPlayer_WeaponServices", "m_hActiveWeapon"_hash ) ).value_or( 0u )
+				: 0u;
+			const auto weapon = weapon_handle && weapon_handle != 0xffffffffu ? systems::g_entities.lookup( weapon_handle ) : 0;
+			const auto vdata = weapon
+				? memory::safe_read<std::uintptr_t>( weapon + SCHEMA( "C_BaseEntity", "m_nSubclassID"_hash ) + 0x8 ).value_or( 0 )
+				: 0;
+			const auto name_ptr = vdata
+				? memory::safe_read<const char*>( vdata + SCHEMA( "CCSWeaponBaseVData", "m_szName"_hash ) ).value_or( nullptr )
+				: nullptr;
+			weapon_name = safe_string( reinterpret_cast<std::uintptr_t>( name_ptr ), 32 );
+			if ( weapon_name.starts_with( "weapon_" ) )
+			{
+				weapon_name.erase( 0, 7 );
+			}
+		}
+
 		const auto now = std::chrono::duration<float>( std::chrono::steady_clock::now( ).time_since_epoch( ) ).count( );
 		this->m_killfeed.push_back( {
 			.victim = controller_name( victim ),
 			.attacker = controller_name( attacker ),
-			.assister = controller_name( assister ),
-			.weapon = weapon ? weapon : "",
+			.assister = {},
+			.weapon = std::move( weapon_name ),
 			.headshot = headshot,
 			.time = now
 		} );

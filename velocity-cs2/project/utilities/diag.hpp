@@ -24,9 +24,16 @@ namespace diag {
 	inline wchar_t g_previous_log_path[ MAX_PATH ]{};
 	inline wchar_t g_dump_path[ MAX_PATH ]{};
 	inline wchar_t g_previous_dump_path[ MAX_PATH ]{};
+	inline wchar_t g_log_directory[ MAX_PATH ]{};
 	inline HANDLE g_log_file{};
 	inline HMODULE g_module{};
 	inline std::uintptr_t g_module_end{};
+	inline volatile LONG64 g_log_sequence{};
+	inline volatile LONG64 g_hook_event_sequence{};
+	inline volatile LONG g_log_lock{};
+	inline volatile LONG g_log_dropped{};
+	inline bool g_verbose_logging{};
+	inline thread_local bool g_writing_log{};
 	inline thread_local std::uint32_t g_exception_scope_depth{};
 	inline thread_local std::uint32_t g_probe_scope_depth{};
 	inline thread_local const char* g_exception_phase{ "none" };
@@ -126,6 +133,86 @@ namespace diag {
 		path[ capacity - 1 ] = L'\0';
 	}
 
+	inline void ensure_directory_separator( wchar_t* path, std::size_t capacity )
+	{
+		if ( !path || capacity < 2 )
+		{
+			return;
+		}
+
+		std::size_t length{};
+		while ( length + 1 < capacity && path[ length ] )
+		{
+			++length;
+		}
+
+		if ( !length || path[ length - 1 ] == L'\\' || path[ length - 1 ] == L'/' )
+		{
+			return;
+		}
+
+		if ( length + 1 < capacity )
+		{
+			path[ length ] = L'\\';
+			path[ length + 1 ] = L'\0';
+		}
+	}
+
+	inline void copy_path( wchar_t* destination, std::size_t capacity, const wchar_t* source )
+	{
+		if ( !destination || !capacity )
+		{
+			return;
+		}
+
+		std::size_t i{};
+		for ( ; i + 1 < capacity && source && source[ i ]; ++i )
+		{
+			destination[ i ] = source[ i ];
+		}
+		destination[ i ] = L'\0';
+	}
+
+	inline bool environment_flag( const wchar_t* name, bool fallback )
+	{
+		wchar_t value[ 16 ]{};
+		const auto length = GetEnvironmentVariableW( name, value, static_cast< DWORD >( std::size( value ) ) );
+		if ( !length || length >= std::size( value ) )
+		{
+			return fallback;
+		}
+
+		return value[ 0 ] != L'0' && value[ 0 ] != L'n' && value[ 0 ] != L'N' && value[ 0 ] != L'f' && value[ 0 ] != L'F';
+	}
+
+	inline bool acquire_log_lock( )
+	{
+		if ( g_writing_log )
+		{
+			return false;
+		}
+
+		for ( auto attempt = 0; attempt < 64; ++attempt )
+		{
+			if ( InterlockedCompareExchange( &g_log_lock, 1, 0 ) == 0 )
+			{
+				g_writing_log = true;
+				return true;
+			}
+
+			YieldProcessor( );
+		}
+
+		InterlockedIncrement( &g_log_dropped );
+		return false;
+	}
+
+	inline void release_log_lock( )
+	{
+		g_writing_log = false;
+		InterlockedExchange( &g_log_lock, 0 );
+	}
+
 	inline void make_artifact_path(
 		wchar_t* destination,
 		std::size_t capacity,
@@ -163,12 +250,14 @@ namespace diag {
 		SYSTEMTIME time{};
 		GetLocalTime( &time );
 
+		const auto sequence = InterlockedIncrement64( &g_log_sequence );
 		char line[ 4096 ]{};
 		const int length = _snprintf_s(
 			line,
 			sizeof( line ),
 			_TRUNCATE,
-			"[%04u-%02u-%02u %02u:%02u:%02u.%03u] [%s] [P%lu:T%lu] %.*s\r\n",
+			"#%llu [%04u-%02u-%02u %02u:%02u:%02u.%03u] [%s] [P%lu:T%lu] [phase=%s] [hook=%s] %.*s\r\n",
+			static_cast< unsigned long long >( sequence ),
 			time.wYear,
 			time.wMonth,
 			time.wDay,
@@ -179,6 +268,8 @@ namespace diag {
 			level_name( severity ),
 			GetCurrentProcessId( ),
 			GetCurrentThreadId( ),
+			g_exception_phase ? g_exception_phase : "none",
+			g_hook_snapshot.name ? g_hook_snapshot.name : "none",
 			static_cast<int>( message_length ),
 			message );
 
@@ -188,23 +279,26 @@ namespace diag {
 			++bytes;
 		}
 
-		if ( g_log_file )
+		const auto locked = acquire_log_lock( );
+		if ( locked && g_log_file )
 		{
 			DWORD written{};
 			WriteFile( g_log_file, line, bytes, &written, nullptr );
-			if ( severity == level::error || severity == level::fatal )
-			{
-				FlushFileBuffers( g_log_file );
-			}
+			FlushFileBuffers( g_log_file );
 		}
 
-		const auto output = GetStdHandle( STD_OUTPUT_HANDLE );
-		DWORD console_mode{};
-		if ( output && output != INVALID_HANDLE_VALUE &&
-			GetConsoleMode( output, &console_mode ) )
+		if ( locked )
 		{
-			DWORD written{};
-			WriteFile( output, line, bytes, &written, nullptr );
+			const auto output = GetStdHandle( STD_OUTPUT_HANDLE );
+			DWORD console_mode{};
+			if ( output && output != INVALID_HANDLE_VALUE &&
+				GetConsoleMode( output, &console_mode ) )
+			{
+				DWORD written{};
+				WriteFile( output, line, bytes, &written, nullptr );
+			}
+
+			release_log_lock( );
 		}
 
 		OutputDebugStringA( line );
@@ -227,9 +321,9 @@ namespace diag {
 	{
 		g_module = module_handle;
 
-		wchar_t directory[ MAX_PATH ]{};
+		wchar_t module_directory[ MAX_PATH ]{};
 		const DWORD path_length =
-			GetModuleFileNameW( module_handle, directory, MAX_PATH );
+			GetModuleFileNameW( module_handle, module_directory, MAX_PATH );
 		if ( !path_length || path_length >= MAX_PATH )
 		{
 			return;
@@ -237,22 +331,44 @@ namespace diag {
 
 		for ( DWORD i = path_length; i > 0; --i )
 		{
-			if ( directory[ i - 1 ] == L'\\' || directory[ i - 1 ] == L'/' )
+			if ( module_directory[ i - 1 ] == L'\\' || module_directory[ i - 1 ] == L'/' )
 			{
-				directory[ i ] = L'\0';
+				module_directory[ i ] = L'\0';
 				break;
 			}
 		}
 
+		wchar_t override_directory[ MAX_PATH ]{};
+		const auto override_length = GetEnvironmentVariableW(
+			L"XI_BENZ_LOG_DIR",
+			override_directory,
+			static_cast< DWORD >( std::size( override_directory ) ) );
+		if ( override_length && override_length < std::size( override_directory ) )
+		{
+			ensure_directory_separator( override_directory, std::size( override_directory ) );
+			copy_path( g_log_directory, std::size( g_log_directory ), override_directory );
+		}
+		else
+		{
+			copy_path( g_log_directory, std::size( g_log_directory ), module_directory );
+		}
+
+#if defined( DEV )
+		g_verbose_logging = environment_flag( L"XI_BENZ_VERBOSE_LOG", true );
+#else
+		g_verbose_logging = environment_flag( L"XI_BENZ_VERBOSE_LOG", false );
+#endif
+		(void) CreateDirectoryW( g_log_directory, nullptr );
+
 		make_artifact_path(
 			g_log_path,
 			MAX_PATH,
-			directory,
+			g_log_directory,
 			L"velocity_init.log" );
 		make_artifact_path(
 			g_previous_log_path,
 			MAX_PATH,
-			directory,
+			g_log_directory,
 			L"velocity_init.previous.log" );
 
 		MoveFileExW(
@@ -271,6 +387,51 @@ namespace diag {
 		if ( g_log_file == INVALID_HANDLE_VALUE )
 		{
 			g_log_file = nullptr;
+		}
+
+		if ( !g_log_file )
+		{
+			const auto primary_error = GetLastError( );
+			wchar_t temp_directory[ MAX_PATH ]{};
+			const auto temp_length = GetTempPathW(
+				static_cast< DWORD >( std::size( temp_directory ) ),
+				temp_directory );
+			if ( temp_length && temp_length < std::size( temp_directory ) )
+			{
+				ensure_directory_separator( temp_directory, std::size( temp_directory ) );
+				copy_path( g_log_directory, std::size( g_log_directory ), temp_directory );
+				make_artifact_path( g_log_path, MAX_PATH, g_log_directory, L"xiro-benz.velocity_init.log" );
+				make_artifact_path( g_previous_log_path, MAX_PATH, g_log_directory, L"xiro-benz.velocity_init.previous.log" );
+				MoveFileExW(
+					g_log_path,
+					g_previous_log_path,
+					MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH );
+				g_log_file = CreateFileW(
+					g_log_path,
+					FILE_APPEND_DATA,
+					FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+					nullptr,
+					CREATE_ALWAYS,
+					FILE_ATTRIBUTE_NORMAL,
+					nullptr );
+				if ( g_log_file == INVALID_HANDLE_VALUE )
+				{
+					g_log_file = nullptr;
+				}
+			}
+
+			if ( !g_log_file )
+			{
+				char fallback_message[ 256 ]{};
+				_snprintf_s(
+					fallback_message,
+					sizeof( fallback_message ),
+					_TRUNCATE,
+					"[xiro-benz] diagnostics log open failed; primary_win32_error=%lu fallback_win32_error=%lu\n",
+					primary_error,
+					GetLastError( ) );
+				OutputDebugStringA( fallback_message );
+			}
 		}
 		InterlockedExchange( &g_crash_report_enabled, 1 );
 
@@ -294,12 +455,12 @@ namespace diag {
 		make_artifact_path(
 			g_dump_path,
 			MAX_PATH,
-			directory,
+			g_log_directory,
 			L"velocity_crash.dmp" );
 		make_artifact_path(
 			g_previous_dump_path,
 			MAX_PATH,
-			directory,
+			g_log_directory,
 			L"velocity_crash.previous.dmp" );
 		MoveFileExW(
 			g_dump_path,
@@ -309,13 +470,17 @@ namespace diag {
 
 		writef(
 			level::info,
-			"diagnostics initialized; module=0x%p size=0x%llX",
+			"diagnostics initialized; module=0x%p size=0x%llX log=%ls previous=%ls dump=%ls verbose=%s",
 			module_handle,
 			g_module_end
 				? static_cast<unsigned long long>(
 					g_module_end -
 					reinterpret_cast<std::uintptr_t>( module_handle ) )
-				: 0ull );
+				: 0ull,
+			g_log_path,
+			g_previous_log_path,
+			g_dump_path,
+			g_verbose_logging ? "true" : "false" );
 	}
 
 	inline void initialize_crash_dumps( )
@@ -360,10 +525,32 @@ namespace diag {
 			g_hook_snapshot.args[ 1 ] = arg1;
 			g_hook_snapshot.args[ 2 ] = arg2;
 			g_hook_snapshot.args[ 3 ] = arg3;
+			const auto hook_event = InterlockedIncrement64( &g_hook_event_sequence );
+			m_trace = g_verbose_logging && ( hook_event <= 64 || hook_event % 256 == 0 );
+			m_started = GetTickCount64( );
+			if ( m_trace )
+			{
+				writef(
+					level::debug,
+					"hook enter name=%s arg0=0x%p arg1=0x%p arg2=0x%p arg3=0x%p",
+					g_hook_snapshot.name,
+					reinterpret_cast<void*>( arg0 ),
+					reinterpret_cast<void*>( arg1 ),
+					reinterpret_cast<void*>( arg2 ),
+					reinterpret_cast<void*>( arg3 ) );
+			}
 		}
 
 		~hook_scope( )
 		{
+			if ( m_trace )
+			{
+				writef(
+					level::debug,
+					"hook leave name=%s duration_ms=%llu",
+					g_hook_snapshot.name,
+					GetTickCount64( ) - m_started );
+			}
 			g_hook_snapshot = m_previous;
 		}
 
@@ -372,6 +559,8 @@ namespace diag {
 
 	private:
 		hook_snapshot m_previous{};
+		bool m_trace{};
+		ULONGLONG m_started{};
 	};
 
 	// Keep this probe independent from memory::safe_read so it can run from
@@ -997,6 +1186,7 @@ namespace diag {
 		}
 
 		write( level::info, "diagnostics shutting down" );
+		writef( level::info, "diagnostics log writes dropped=%ld", g_log_dropped );
 		FlushFileBuffers( g_log_file );
 		CloseHandle( g_log_file );
 		g_log_file = nullptr;

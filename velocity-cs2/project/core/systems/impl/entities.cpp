@@ -7,6 +7,15 @@
 
 namespace systems {
 
+	namespace {
+
+		[[nodiscard]] bool valid_pointer( std::uintptr_t pointer )
+		{
+			return pointer >= 0x10000 && pointer != static_cast< std::uintptr_t >( -1 );
+		}
+
+	} // namespace
+
 	void entities::on_add_entity( std::uintptr_t entity, std::uint32_t handle )
 	{
 		if ( !entity )
@@ -21,7 +30,7 @@ namespace systems {
 		}
 
 		const auto schema_name = this->get_schema_name( entity );
-		if ( !schema_name || !schema_name[ 0 ] )
+		if ( !schema_name )
 		{
 			return;
 		}
@@ -120,26 +129,57 @@ namespace systems {
 
 	const char* entities::get_schema_name( std::uintptr_t entity ) const
 	{
+		if ( !valid_pointer( entity ) )
+		{
+			return nullptr;
+		}
+
 		const auto identity = memory::safe_read<std::uintptr_t>( entity + 0x10 ).value_or( 0 );
-		if ( !identity )
+		if ( !valid_pointer( identity ) )
 		{
 			return nullptr;
 		}
 
 		const auto entity_class = memory::safe_read<std::uintptr_t>( identity + 0x8 ).value_or( 0 );
-		if ( !entity_class )
+		if ( !valid_pointer( entity_class ) )
 		{
 			return nullptr;
 		}
 
 		// CEntityClass owns the current SchemaClassInfo pointer at 0x58.
 		const auto class_info = memory::safe_read<std::uintptr_t>( entity_class + 0x58 ).value_or( 0 );
-		if ( !class_info )
+		if ( !valid_pointer( class_info ) )
 		{
 			return nullptr;
 		}
 
-		return memory::safe_read<const char*>( class_info + 0x8 ).value_or( nullptr );
+		const auto schema_name = memory::safe_read<std::uintptr_t>( class_info + 0x8 ).value_or( 0 );
+		if ( !valid_pointer( schema_name ) )
+		{
+			if ( schema_name == static_cast< std::uintptr_t >( -1 ) )
+			{
+				static std::atomic_bool reported{};
+				if ( !reported.exchange( true, std::memory_order_relaxed ) )
+				{
+					diag::writef(
+						diag::level::warning,
+						"[entities] rejected schema name pointer=-1 entity=0x%p class_info=0x%p",
+						reinterpret_cast< void* >( entity ),
+						reinterpret_cast< void* >( class_info ) );
+				}
+			}
+
+			return nullptr;
+		}
+
+		// Validate the first byte before exposing a raw game-memory string to callers.
+		const auto first_character = memory::safe_read<char>( schema_name );
+		if ( !first_character || *first_character == '\0' )
+		{
+			return nullptr;
+		}
+
+		return reinterpret_cast< const char* >( schema_name );
 	}
 
 	std::uintptr_t entities::get_by_index( std::int32_t index )

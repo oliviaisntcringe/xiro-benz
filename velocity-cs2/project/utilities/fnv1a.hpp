@@ -17,17 +17,25 @@ namespace fnv1a {
 
 	inline std::uint32_t runtime_hash( const char* str ) noexcept
 	{
-		if ( !str )
+		const auto address = reinterpret_cast< std::uintptr_t >( str );
+		if ( !str || address < 0x10000 || address == static_cast< std::uintptr_t >( -1 ) )
 		{
 			return 0;
 		}
 
 		std::uint32_t hash{ 2166136261u };
 
-		while ( *str )
+		__try
 		{
-			hash ^= static_cast< std::uint32_t >( *str++ );
-			hash *= 16777619u;
+			while ( *str )
+			{
+				hash ^= static_cast< std::uint32_t >( *str++ );
+				hash *= 16777619u;
+			}
+		}
+		__except ( EXCEPTION_EXECUTE_HANDLER )
+		{
+			return 0;
 		}
 
 		return hash;

@@ -104,11 +104,19 @@ namespace rendering {
 	void context::on_present( IDXGISwapChain* swap_chain )
 	{
 		diag::exception_scope render_scope{ "render: present" };
+		static volatile LONG64 frame_sequence{};
+		const auto frame = InterlockedIncrement64( &frame_sequence );
+		const auto trace_frame = diag::g_verbose_logging && ( frame <= 8 || frame % 120 == 0 );
+		if ( trace_frame )
+		{
+			diag::writef( diag::level::debug, "render frame begin index=%llu swap_chain=0x%p initialized=%s", frame, swap_chain, this->m_initialized ? "true" : "false" );
+		}
 		diag::set_exception_phase( "render: context initialization" );
 		if ( !this->m_initialized ) [[unlikely]]
 		{
 			if ( !this->initialize( swap_chain ) ) [[unlikely]]
 			{
+				diag::writef( diag::level::error, "render frame skipped index=%llu reason=context initialization failed", frame );
 				return;
 			}
 		}
@@ -120,7 +128,7 @@ namespace rendering {
 
 		if ( !this->m_context || !this->m_rtv || !g_imgui_menu.is_initialized( ) )
 		{
-			diag::write( diag::level::error, "render: skipped frame because D3D11 or ImGui state is incomplete" );
+			diag::writef( diag::level::error, "render frame skipped index=%llu reason=D3D11 or ImGui state incomplete", frame );
 			return;
 		}
 
@@ -135,20 +143,31 @@ namespace rendering {
 
 			if ( this->m_ui_assets_ready && g_imgui_menu.gameplay_ready( ) && systems::g_local.get( ).is_valid( ) && systems::g_view.has_camera( ) )
 			{
+				diag::set_exception_phase( "render: impacts early" );
 				features::misc::g_impacts.on_render_early( dl );
+				diag::set_exception_phase( "render: antiaim" );
 				features::combat::g_misc.antiaim( ).on_render( dl );
+				diag::set_exception_phase( "render: edgebug" );
 				features::movement::g_edgebug.on_render( dl );
+				diag::set_exception_phase( "render: item overlay" );
 				features::esp::item::g_overlay.on_render( dl );
+				diag::set_exception_phase( "render: projectile overlay" );
 				features::esp::projectile::g_overlay.on_render( dl, xdraw::get( xdraw::layer::middle ) );
+				diag::set_exception_phase( "render: player overlay" );
 				features::esp::player::g_overlay.on_render( dl );
+				diag::set_exception_phase( "render: projectile trajectory" );
 				features::misc::g_projectile_trajectory.on_render( dl );
+				diag::set_exception_phase( "render: rage" );
 				features::combat::g_rage.on_render( dl );
+				diag::set_exception_phase( "render: legit" );
 				features::combat::g_legit.on_render( dl );
+				diag::set_exception_phase( "render: impacts" );
 				features::misc::g_impacts.on_render( dl );
 				{
 					diag::exception_scope hud_scope{ "render: custom hud" };
 					features::misc::g_hud.on_render( dl );
 				}
+				diag::set_exception_phase( "render: other overlay" );
 				features::esp::other::g_overlay.on_render( dl );
 			}
 
@@ -160,6 +179,10 @@ namespace rendering {
 		g_imgui_menu.draw( );
 		diag::set_exception_phase( "render: ImGui submit" );
 		g_imgui_menu.render( );
+		if ( trace_frame )
+		{
+			diag::writef( diag::level::debug, "render frame end index=%llu gameplay_ready=%s menu_open=%s", frame, g_imgui_menu.gameplay_ready( ) ? "true" : "false", g_imgui_menu.is_open( ) ? "true" : "false" );
+		}
 	}
 
 	void context::on_resize_buffers( )

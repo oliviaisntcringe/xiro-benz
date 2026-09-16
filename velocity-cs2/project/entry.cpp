@@ -396,6 +396,7 @@ namespace {
 		rendering::g_imgui_menu.loading_check_result( 1 );
 
 		diag::step( "stage: done" );
+		hooks::cheat::set_ready( true );
 		return 1;
 	}
 
@@ -446,8 +447,8 @@ extern "C" int __stdcall entry( HMODULE module_handle, DWORD reason, LPVOID rese
 		_CRT_INIT( module_handle, reason, reserved );
 		DisableThreadLibraryCalls( module_handle );
 
-		install_exception_handlers( );
 		diag::set_module( module_handle );
+		install_exception_handlers( );
 		diag::step( "stage: dll attach" );
 		diag::step( "build: development diagnostics" );
 

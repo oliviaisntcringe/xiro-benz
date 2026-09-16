@@ -9,7 +9,7 @@ namespace systems
     bool model_preview::initialize( )
     {
         m_initialized = true;
-        m_current_texture = nullptr;
+        m_current_texture.store( 0, std::memory_order_release );
         logging::console::print( "[model_preview] initialized" );
         return true;
     }
@@ -23,31 +23,17 @@ namespace systems
         std::uintptr_t a1,
         std::uintptr_t scene_view )
     {
-        if ( !m_initialized || !owner_entity || !scene_object )
+        if ( !m_initialized || owner_entity < 0x10000 || scene_object < 0x10000 ||
+            owner_entity == static_cast< std::uintptr_t >( -1 ) ||
+            scene_object == static_cast< std::uintptr_t >( -1 ) )
             return false;
 
         if ( owner_hash != "C_CSGO_PreviewPlayer"_hash )
             return false;
 
-        if ( auto* data = reinterpret_cast< c_generate_primitives_data* >( scene_object ) )
-        {
-            const auto capture_layer = [ this ]( c_scene_layer* scene_layer )
-            {
-                if ( !scene_layer || !scene_layer->m_texture_handle || !scene_layer->m_texture_handle->m_texture )
-                {
-                    return;
-                }
-
-                m_current_texture = scene_layer->m_texture_handle->m_texture;
-            };
-
-            capture_layer( data->m_scene_layer );
-            if ( !m_current_texture )
-            {
-                capture_layer( data->m_scene_layer_2 );
-            }
-        }
-
+        // Keep the branch's stable behavior: preview rendering is UI-only and
+        // does not inspect scene-layer texture internals from this worker hook.
+        // The ImGui menu remains available and displays its waiting state.
         return false;
     }
 }

@@ -311,6 +311,13 @@ namespace memory {
 
 
 	std::uintptr_t resolve_pattern (std::string_view pattern) {
+		const auto started = GetTickCount64( );
+		diag::writef(
+			diag::level::debug,
+			"[pattern] resolve request=%.*s",
+			static_cast<int>( pattern.size( ) ),
+			pattern.data( ) );
+
 		// parse "module.dll:pattern" format
 		const auto colon = pattern.find (':');
 		if (colon == std::string_view::npos) {
@@ -448,6 +455,14 @@ done_scanning:
 			result = *reinterpret_cast<const std::uintptr_t*> (result);
 		}
 
+		diag::writef(
+			diag::level::debug,
+			"[pattern] resolved request=%.*s match=0x%p result=0x%p duration_ms=%llu",
+			static_cast<int>( pattern.size( ) ),
+			pattern.data( ),
+			reinterpret_cast<void*>( match ),
+			reinterpret_cast<void*>( result ),
+			GetTickCount64( ) - started );
 		return result;
 	}
 

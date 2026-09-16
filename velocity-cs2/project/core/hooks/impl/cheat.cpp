@@ -14,12 +14,7 @@
 namespace hooks {
 
 	bool cheat::initialize () {
-		if (!hooking::manager::create ({
-			{ &m_present, &present, xs ("present"), addresses::functions::present },
-			{ &m_resize_buffers, &resize_buffers, xs ("resize_buffers"), addresses::functions::resize_buffers }
-			})) {
-			return false;
-		}
+		m_hooks_ready.store( false, std::memory_order_release );
 
 		const hooking::manager::entry feature_hooks[] {
 			{ &m_cmd_interpreter, &cmd_interpreter, xs ("cmd_interpreter"), PATTERN (patterns::cmd_interpreter) },
@@ -75,11 +70,35 @@ namespace hooks {
 				unavailable_hooks);
 		}
 
+		// Keep the runtime path disabled while hooks are being installed and while
+		// the initialization thread finishes cvars/skybox setup. Present and scene
+		// hooks can run on worker threads as soon as their individual patch is live.
+		if ( !hooking::manager::create( {
+			{ &m_present, &present, xs( "present" ), addresses::functions::present },
+			{ &m_resize_buffers, &resize_buffers, xs( "resize_buffers" ), addresses::functions::resize_buffers }
+			} ) )
+		{
+			return false;
+		}
+
+		diag::write( diag::level::info, "[hook] feature batch installed; runtime path held until initialization completes" );
+
 		return true;
+	}
+
+	void cheat::set_ready( bool ready )
+	{
+		m_hooks_ready.store( ready, std::memory_order_release );
+		diag::write(
+			ready ? diag::level::info : diag::level::debug,
+			ready
+				? "[hook] runtime path released after initialization"
+				: "[hook] runtime path held" );
 	}
 
 	void cheat::shutdown( )
 	{
+		m_hooks_ready.store( false, std::memory_order_release );
 		m_wnd_proc.reset( );
 		m_om_set_render_targets.reset( );
 		m_present.reset( );
@@ -132,6 +151,11 @@ namespace hooks {
 			reinterpret_cast< std::uintptr_t >( thisptr ),
 			sync_interval,
 			flags };
+		if ( !m_hooks_ready.load( std::memory_order_acquire ) )
+		{
+			return m_present.call<HRESULT>( thisptr, sync_interval, flags );
+		}
+
 		rendering::g_context.on_present( thisptr );
 
 		if ( !m_wnd_proc.is_enabled( ) && rendering::g_context.get_window( ) )
@@ -156,6 +180,11 @@ namespace hooks {
 
 	HRESULT __fastcall cheat::resize_buffers( IDXGISwapChain* thisptr, UINT buffer_count, UINT width, UINT height, DXGI_FORMAT new_format, UINT swap_chain_flags )
 	{
+		if ( !m_hooks_ready.load( std::memory_order_acquire ) )
+		{
+			return m_resize_buffers.call<long>( thisptr, buffer_count, width, height, new_format, swap_chain_flags );
+		}
+
 		rendering::g_context.on_resize_buffers( );
 
 		const auto result = m_resize_buffers.call<long>( thisptr, buffer_count, width, height, new_format, swap_chain_flags );
@@ -578,6 +607,16 @@ namespace hooks {
 			scene_object,
 			scene_view,
 			primitive_buffer };
+		// GeneratePrimitives can be called by a render worker as soon as this
+		// individual hook is enabled. The initialization thread may still be
+		// constructing entity/material/chams state at that point, so keep the
+		// engine path untouched until the complete hook batch is ready.
+		if ( !m_hooks_ready.load( std::memory_order_acquire ) )
+		{
+			m_generate_primitives.call<void>( thisptr, scene_object, scene_view, primitive_buffer );
+			return;
+		}
+
 		diag::exception_scope exception_scope{ "chams: generate primitives" };
 		const auto original_fn = m_generate_primitives.original<void( __fastcall* )( std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t )>( );
 		auto& player_chams = features::esp::player::g_chams;
@@ -910,6 +949,7 @@ namespace hooks {
 		features::world::g_scene.reset_skybox_state( );
 		features::misc::g_impacts.on_level_change( );
 		features::misc::g_scoreboard_weapons.on_level_change( );
+		systems::g_model_preview.reset( );
 
 		return m_level_initialization.call<std::uintptr_t>( a1, new_map );
 	}
@@ -924,6 +964,7 @@ namespace hooks {
 		features::esp::player::g_chams.bt( ).shutdown( );
 		features::esp::player::g_chams.os( ).shutdown( );
 		features::misc::g_dlight.on_level_shutdown( );
+		systems::g_model_preview.reset( );
 
 		// clear all local player data on level shutdown
 		systems::g_local.reset();

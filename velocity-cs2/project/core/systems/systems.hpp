@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <utilities/proto/proto.hpp>
+#include <utilities/memory/memory.hpp>
 #include <core/settings.hpp>
 
 namespace systems {
@@ -626,7 +627,7 @@ namespace systems {
 		}; //Size: 0x00B8
 
 		bool m_initialized = false;
-		void* m_current_texture = nullptr;
+		std::atomic<std::uintptr_t> m_current_texture{};
 	public:
 		bool initialize( );
 
@@ -640,20 +641,43 @@ namespace systems {
 			std::uintptr_t scene_view
 		);
 
-		void* get_current_texture( ) const { return m_current_texture; }
-		bool has_texture( ) const { return m_current_texture != nullptr; }
+		void* get_current_texture( ) const
+		{
+			return reinterpret_cast<void*>( m_current_texture.load( std::memory_order_acquire ) );
+		}
+
+		bool has_texture( ) const
+		{
+			return m_current_texture.load( std::memory_order_acquire ) != 0;
+		}
+
 		ID3D11ShaderResourceView* get_current_texture_srv( ) const
 		{
-			if ( !m_current_texture )
+			const auto valid_view = []( ID3D11ShaderResourceView* view )
+			{
+				const auto address = reinterpret_cast< std::uintptr_t >( view );
+				return address >= 0x10000 && address != static_cast< std::uintptr_t >( -1 );
+			};
+
+			const auto texture = m_current_texture.load( std::memory_order_acquire );
+			if ( texture < 0x10000 || texture == static_cast< std::uintptr_t >( -1 ) )
 			{
 				return nullptr;
 			}
 
-			const auto texture = reinterpret_cast< c_texture_dx11* >( m_current_texture );
-			return texture->m_texture_SRV0 ? texture->m_texture_SRV0 : texture->m_texture_SRV1;
+			const auto srv0 = memory::safe_read<ID3D11ShaderResourceView*>(
+				texture + offsetof( c_texture_dx11, m_texture_SRV0 ) ).value_or( nullptr );
+			if ( valid_view( srv0 ) )
+			{
+				return srv0;
+			}
+
+			const auto srv1 = memory::safe_read<ID3D11ShaderResourceView*>(
+				texture + offsetof( c_texture_dx11, m_texture_SRV1 ) ).value_or( nullptr );
+			return valid_view( srv1 ) ? srv1 : nullptr;
 		}
 
-		void reset( ) { m_current_texture = nullptr; }
+		void reset( ) { m_current_texture.store( 0, std::memory_order_release ); }
 	};
 
 	inline input g_input{};
