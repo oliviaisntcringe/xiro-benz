@@ -9,12 +9,111 @@
 #include "../primitive_buffer.hpp"
 
 namespace features::esp::player {
+	namespace {
+		std::atomic_bool g_scene_object_path_disabled{};
+
+		bool create_scene_object_safe(
+			std::uintptr_t mesh_system,
+			std::uintptr_t model_handle,
+			__m128* transform,
+			std::int64_t flags,
+			std::uintptr_t world_group_handle,
+			std::uintptr_t& scene_object ) noexcept
+		{
+			__try
+			{
+				scene_object = memory::call_vfunc<std::uintptr_t>(
+					mesh_system,
+					20,
+					model_handle,
+					transform,
+					"AnimatableSceneObjectDesc",
+					flags,
+					0x4100000001ll,
+					world_group_handle );
+				return true;
+			}
+			__except ( EXCEPTION_EXECUTE_HANDLER )
+			{
+				scene_object = 0;
+				return false;
+			}
+		}
+
+		bool destroy_scene_object_safe(
+			std::uintptr_t scene_system,
+			std::uintptr_t scene_object ) noexcept
+		{
+			__try
+			{
+				memory::call_vfunc<void>( scene_system, 16, scene_object );
+				return true;
+			}
+			__except ( EXCEPTION_EXECUTE_HANDLER )
+			{
+				return false;
+			}
+		}
+
+		bool get_world_group_id_safe(
+			std::uintptr_t function,
+			std::uintptr_t game_scene_node,
+			int& scratch,
+			int*& world_group_id ) noexcept
+		{
+			world_group_id = nullptr;
+			__try
+			{
+				world_group_id = memory::call<int*>( function, game_scene_node, &scratch );
+				return world_group_id != nullptr;
+			}
+			__except ( EXCEPTION_EXECUTE_HANDLER )
+			{
+				world_group_id = nullptr;
+				return false;
+			}
+		}
+
+		bool get_world_group_handle_safe(
+			std::uintptr_t function,
+			std::uintptr_t render_game_system,
+			int world_group_id,
+			std::uintptr_t& world_group_handle ) noexcept
+		{
+			world_group_handle = 0;
+			__try
+			{
+				world_group_handle = memory::call<std::uintptr_t>(
+					function,
+					render_game_system,
+					world_group_id );
+				return world_group_handle != 0;
+			}
+			__except ( EXCEPTION_EXECUTE_HANDLER )
+			{
+				world_group_handle = 0;
+				return false;
+			}
+		}
+
+		void report_scene_path_rejection( const char* reason ) noexcept
+		{
+			g_scene_object_path_disabled.store( true, std::memory_order_release );
+			static std::atomic_bool reported{};
+			if ( !reported.exchange( true, std::memory_order_relaxed ) )
+			{
+				logging::console::print( reason );
+			}
+		}
+	}
 
 	bool chams::on_generate_primitives( std::uintptr_t owner_entity, std::uint32_t owner_hash, std::uintptr_t scene_object, std::uintptr_t primitive_buffer, void( __fastcall* original_fn )( std::uintptr_t, std::uintptr_t, std::uintptr_t, std::uintptr_t ), std::uintptr_t a1, std::uintptr_t scene_view )
 	{
 		const auto is_player = owner_hash == "C_CSPlayerPawn"_hash;
 		const auto is_arms = owner_hash == "C_CS2HudModelArms"_hash;
 		const auto is_weapon = owner_hash == "C_CS2HudModelWeapon"_hash;
+		const auto scene_object_path_enabled =
+			!g_scene_object_path_disabled.load( std::memory_order_acquire );
 
 		const auto is_local_attachment = [ & ]( std::uintptr_t view_pawn ) -> bool
 			{
@@ -95,7 +194,7 @@ namespace features::esp::player {
 		const auto is_local = owner_entity == local.view_pawn( );
 		const auto is_dead = health <= 0;
 
-		if ( is_player && is_other_team && !is_dead && chams_cfg.backtrack.enabled.value )
+		if ( scene_object_path_enabled && is_player && is_other_team && !is_dead && chams_cfg.backtrack.enabled.value )
 		{
 			if ( this->m_backtrack.has_active( owner_entity ) )
 			{
@@ -119,7 +218,7 @@ namespace features::esp::player {
 				}
 			}
 		}
-		if (is_player && is_other_team && chams_cfg.onshot.enabled.value) {
+		if ( scene_object_path_enabled && is_player && is_other_team && chams_cfg.onshot.enabled.value ) {
 			if (this->m_onshot.has_active (owner_entity)) {
 				const auto os_obj = this->m_onshot.get_scene_object (owner_entity);
 				if (os_obj) {
@@ -493,57 +592,107 @@ namespace features::esp::player {
 	{
 		this->pawn = target_pawn;
 		this->scene_object = 0;
+		if ( !target_pawn || g_scene_object_path_disabled.load( std::memory_order_acquire ) )
+		{
+			return;
+		}
 
-		const auto game_scene_node = memory::read<std::uintptr_t>( target_pawn + SCHEMA( "C_BaseEntity", "m_pGameSceneNode"_hash ) );
+		const auto game_scene_node = memory::safe_read<std::uintptr_t>( target_pawn + SCHEMA( "C_BaseEntity", "m_pGameSceneNode"_hash ) ).value_or( 0 );
 		if ( !game_scene_node )
 		{
 			return;
 		}
 
-		auto temp{ 0 };
+		const auto world_group_pattern = PATTERN( patterns::get_world_group_id );
+		const auto world_group_handle_pattern = PATTERN( patterns::get_world_group_handle );
+		if ( !world_group_pattern || !world_group_handle_pattern )
+		{
+			report_scene_path_rejection( xs( "[chams] scene-object path disabled: world-group pattern unavailable" ) );
+			return;
+		}
 
-		const auto world_group_id = memory::call<int*>(PATTERN (patterns::get_world_group_id), game_scene_node, &temp );
-		if ( !world_group_id )
+		auto temp{ 0 };
+		int* world_group_id{};
+		if ( !get_world_group_id_safe( world_group_pattern, game_scene_node, temp, world_group_id ) )
+		{
+			report_scene_path_rejection( xs( "[chams] scene-object path disabled: world-group id call faulted" ) );
+			return;
+		}
+
+		const auto world_group_value = memory::safe_read<int>( reinterpret_cast<std::uintptr_t>( world_group_id ) );
+		if ( !world_group_value )
 		{
 			return;
 		}
 
-		const auto render_game_system = memory::read<std::uintptr_t>( addresses::globals::render_game_system_storage );
+		const auto render_game_system = memory::safe_read<std::uintptr_t>( addresses::globals::render_game_system_storage ).value_or( 0 );
 		if ( !render_game_system )
 		{
 			return;
 		}
 
-		const auto world_group_handle = memory::call<std::uintptr_t>(PATTERN (patterns::get_world_group_handle), render_game_system, *world_group_id );
-		if ( !world_group_handle )
+		std::uintptr_t world_group_handle{};
+		if ( !get_world_group_handle_safe( world_group_handle_pattern, render_game_system, *world_group_value, world_group_handle ) )
+		{
+			report_scene_path_rejection( xs( "[chams] scene-object path disabled: world-group handle call faulted" ) );
+			return;
+		}
+
+		const auto flags = ( *world_group_value != 0 ) ? 0x2000000000ll : 0x2000000008ll;
+		const auto model_handle = memory::safe_read<std::uintptr_t>( game_scene_node + SCHEMA( "CSkeletonInstance", "m_modelState"_hash ) + SCHEMA( "CModelState", "m_hModel"_hash ) ).value_or( 0 );
+		if ( !model_handle || !addresses::globals::mesh_system )
 		{
 			return;
 		}
 
-		const auto flags = ( *world_group_id != 0 ) ? 0x2000000000ll : 0x2000000008ll;
-		const auto model_handle = memory::read<std::uintptr_t>( game_scene_node + SCHEMA( "CSkeletonInstance", "m_modelState"_hash ) + SCHEMA( "CModelState", "m_hModel"_hash ) );
 		const auto node_to_world = game_scene_node + SCHEMA( "CGameSceneNode", "m_nodeToWorld"_hash );
 
 		__m128 copy[ 2 ]{};
-		copy[ 0 ] = *reinterpret_cast< __m128* >( node_to_world );
-		copy[ 1 ] = *reinterpret_cast< __m128* >( node_to_world + 16 );
+		const auto node_to_world_first = memory::safe_read<__m128>( node_to_world );
+		const auto node_to_world_second = memory::safe_read<__m128>( node_to_world + 16 );
+		if ( !node_to_world_first || !node_to_world_second )
+		{
+			return;
+		}
+		copy[ 0 ] = *node_to_world_first;
+		copy[ 1 ] = *node_to_world_second;
 
-		this->scene_object = memory::call_vfunc<std::uintptr_t>( addresses::globals::mesh_system, 20, model_handle, &copy, "AnimatableSceneObjectDesc", flags, 0x4100000001ll, world_group_handle );
+		if ( !create_scene_object_safe( addresses::globals::mesh_system, model_handle, copy, flags, world_group_handle, this->scene_object ) )
+		{
+			report_scene_path_rejection( xs( "[chams] scene-object path disabled: scene object creation faulted" ) );
+			return;
+		}
 		if ( !this->scene_object )
 		{
 			return;
 		}
 
-		memory::write<std::uintptr_t>( this->scene_object + 0x110, game_scene_node );
-		memory::write<int>( this->scene_object + 0xc0, -1 );
+		if ( !memory::safe_write<std::uintptr_t>( this->scene_object + 0x110, game_scene_node ) ||
+			!memory::safe_write<int>( this->scene_object + 0xc0, -1 ) )
+		{
+			const auto created_scene_object = this->scene_object;
+			this->scene_object = 0;
+			if ( addresses::globals::scene_system )
+			{
+				(void) destroy_scene_object_safe( addresses::globals::scene_system, created_scene_object );
+			}
+			report_scene_path_rejection( xs( "[chams] scene-object path disabled: scene object write faulted" ) );
+			return;
+		}
 
-		const auto model_data = memory::read<std::uintptr_t>( model_handle );
+		const auto model_data = memory::safe_read<std::uintptr_t>( model_handle ).value_or( 0 );
 		if ( model_data )
 		{
-			const auto has_force_lod = ( memory::read<std::uint32_t>( model_data + 16 ) & 0x400 ) != 0 || ( memory::read<std::uint32_t>( model_data + 20 ) & 0x400 ) != 0;
-			auto lod = memory::read<std::uint8_t>( this->scene_object + 0x9a );
-			lod = has_force_lod ? ( lod | 0x10 ) : ( lod & 0xef );
-			memory::write( this->scene_object + 0x9a, lod );
+			const auto model_flags_0 = memory::safe_read<std::uint32_t>( model_data + 16 ).value_or( 0 );
+			const auto model_flags_1 = memory::safe_read<std::uint32_t>( model_data + 20 ).value_or( 0 );
+			const auto has_force_lod = ( model_flags_0 & 0x400 ) != 0 || ( model_flags_1 & 0x400 ) != 0;
+			const auto lod_value = memory::safe_read<std::uint8_t>( this->scene_object + 0x9a );
+			if ( lod_value )
+			{
+				auto lod = *lod_value;
+				lod = has_force_lod ? ( lod | 0x10 ) : ( lod & 0xef );
+				(void) memory::safe_write( this->scene_object + 0x9a, lod );
+			}
 		}
 	}
 
@@ -554,14 +703,23 @@ namespace features::esp::player {
 			return;
 		}
 
-		const auto flags = memory::read<std::uint64_t>( this->scene_object + 128 );
-		if ( flags & 0x4000000000000000ull )
+		const auto flags = memory::safe_read<std::uint64_t>( this->scene_object + 128 );
+		if ( !flags || ( *flags & 0x4000000000000000ull ) )
 		{
 			this->scene_object = 0;
 			return;
 		}
 
-		memory::call_vfunc<void>( addresses::globals::scene_system, 16, this->scene_object );
+		if ( !addresses::globals::scene_system )
+		{
+			this->scene_object = 0;
+			return;
+		}
+
+		if ( !destroy_scene_object_safe( addresses::globals::scene_system, this->scene_object ) )
+		{
+			report_scene_path_rejection( xs( "[chams] scene-object path disabled: scene object destruction faulted" ) );
+		}
 		this->scene_object = 0;
 	}
 
@@ -572,10 +730,10 @@ namespace features::esp::player {
 			return;
 		}
 
-		const auto obj_bone_count = memory::read<int>( this->scene_object + 0xd0 );
-		const auto render_bones = memory::read<std::uintptr_t>( this->scene_object + 0xd8 );
+		const auto obj_bone_count = memory::safe_read<int>( this->scene_object + 0xd0 ).value_or( 0 );
+		const auto render_bones = memory::safe_read<std::uintptr_t>( this->scene_object + 0xd8 ).value_or( 0 );
 
-		if ( !render_bones || obj_bone_count <= 0 )
+		if ( !bones || count <= 0 || !render_bones || obj_bone_count <= 0 )
 		{
 			return;
 		}
@@ -597,18 +755,18 @@ namespace features::esp::player {
 			const auto bwy = b.rotation.w * b.rotation.y;
 			const auto bwz = b.rotation.w * b.rotation.z;
 
-			memory::write<float>( dst + 0, 1.0f - 2.0f * ( byy + bzz ) );
-			memory::write<float>( dst + 4, 2.0f * ( bxy - bwz ) );
-			memory::write<float>( dst + 8, 2.0f * ( bxz + bwy ) );
-			memory::write<float>( dst + 12, b.position.x );
-			memory::write<float>( dst + 16, 2.0f * ( bxy + bwz ) );
-			memory::write<float>( dst + 20, 1.0f - 2.0f * ( bxx + bzz ) );
-			memory::write<float>( dst + 24, 2.0f * ( byz - bwx ) );
-			memory::write<float>( dst + 28, b.position.y );
-			memory::write<float>( dst + 32, 2.0f * ( bxz - bwy ) );
-			memory::write<float>( dst + 36, 2.0f * ( byz + bwx ) );
-			memory::write<float>( dst + 40, 1.0f - 2.0f * ( bxx + byy ) );
-			memory::write<float>( dst + 44, b.position.z );
+			const float values[ 12 ]{
+				1.0f - 2.0f * ( byy + bzz ), 2.0f * ( bxy - bwz ), 2.0f * ( bxz + bwy ), b.position.x,
+				2.0f * ( bxy + bwz ), 1.0f - 2.0f * ( bxx + bzz ), 2.0f * ( byz - bwx ), b.position.y,
+				2.0f * ( bxz - bwy ), 2.0f * ( byz + bwx ), 1.0f - 2.0f * ( bxx + byy ), b.position.z
+			};
+			for ( auto component = 0u; component < std::size( values ); ++component )
+			{
+				if ( !memory::safe_write<float>( dst + component * sizeof( float ), values[ component ] ) )
+				{
+					return;
+				}
+			}
 		}
 	}
 

@@ -6,6 +6,7 @@
 #include <dxgi.h>
 
 #include <algorithm>
+#include <cmath>
 #include <external/imgui/imgui.h>
 #include <external/imgui/backends/imgui_impl_dx11.h>
 #include <external/imgui/backends/imgui_impl_win32.h>
@@ -37,6 +38,8 @@ namespace {
 		float smoothness{ 0.35f };
 		int accent{};
 		char profile_name[ 32 ]{ "preview" };
+		float loading_elapsed{};
+		bool loading_complete{};
 	};
 
 	void create_render_target( )
@@ -200,6 +203,94 @@ namespace {
 		ImGui::TextColored( rendering::retro::text_muted, "XI.BENZ // %s // design preview", top_names[ state.top_tab ] );
 	}
 
+	void draw_preview_loading( float elapsed )
+	{
+		const auto* viewport = ImGui::GetMainViewport( );
+		if ( !viewport )
+		{
+			return;
+		}
+
+		const auto center = ImVec2{
+			viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+			viewport->WorkPos.y + viewport->WorkSize.y * 0.40f
+		};
+		auto* draw = ImGui::GetForegroundDrawList( );
+		draw->AddRectFilled(
+			viewport->WorkPos,
+			ImVec2{ viewport->WorkPos.x + viewport->WorkSize.x, viewport->WorkPos.y + viewport->WorkSize.y },
+			IM_COL32( 3, 6, 8, 236 )
+		);
+
+		static constexpr const char* glyphs[ 10 ]{ ".", "+", "x", "*", "o", "#", "@", "%", ":", "=" };
+		for ( auto i = 0; i < 96; ++i )
+		{
+			const auto t = static_cast< float >( i ) / 95.0f;
+			const auto angle = t * 6.2831853f * 4.0f + elapsed * 2.7f - t * 1.4f;
+			const auto radius = 9.0f + t * t * 190.0f;
+			const auto wobble = std::sin( elapsed * 4.0f + t * 18.0f ) * 4.0f;
+			const auto x = center.x + std::cos( angle ) * ( radius + wobble );
+			const auto y = center.y + std::sin( angle ) * ( radius + wobble ) * 0.62f;
+			const auto glyph = glyphs[ ( i + static_cast< int >( elapsed * 12.0f ) ) % 10 ];
+			const auto alpha = static_cast< int >( 38.0f + 172.0f * ( 1.0f - t ) * std::clamp( elapsed / 2.35f, 0.0f, 1.0f ) );
+			draw->AddText( ImVec2{ x, y }, IM_COL32( 119, 200, 74, alpha ), glyph );
+		}
+
+		const auto ring_phase = std::sin( elapsed * 3.4f ) * 0.5f + 0.5f;
+		draw->AddCircle( center, 18.0f + ring_phase * 8.0f, IM_COL32( 119, 200, 74, 190 ), 48, 2.0f );
+		draw->AddCircle( center, 8.0f + ring_phase * 3.0f, IM_COL32( 185, 224, 128, 210 ), 32, 1.0f );
+
+		if ( elapsed > 1.85f && elapsed < 3.15f )
+		{
+			const auto blast = std::clamp( ( elapsed - 1.85f ) / 0.85f, 0.0f, 1.0f );
+			draw->AddCircleFilled( center, 26.0f * ( 1.0f - blast * 0.65f ), IM_COL32( 198, 238, 138, static_cast< int >( 100.0f * ( 1.0f - blast ) ) ) );
+			for ( auto i = 0; i < 28; ++i )
+			{
+				const auto angle = static_cast< float >( i ) / 28.0f * 6.2831853f + elapsed * 1.2f;
+				const auto inner = 25.0f + blast * 18.0f;
+				const auto outer = inner + blast * ( 80.0f + static_cast< float >( i % 5 ) * 18.0f );
+				draw->AddLine(
+					ImVec2{ center.x + std::cos( angle ) * inner, center.y + std::sin( angle ) * inner },
+					ImVec2{ center.x + std::cos( angle ) * outer, center.y + std::sin( angle ) * outer },
+					IM_COL32( 119, 200, 74, static_cast< int >( 190.0f * ( 1.0f - blast ) ) ), 1.5f
+				);
+			}
+		}
+
+		const auto logo_alpha = static_cast< int >( 255.0f * std::clamp( ( elapsed - 1.15f ) / 0.55f, 0.0f, 1.0f ) );
+		if ( logo_alpha > 0 )
+		{
+			const auto logo = "XI.BENZ";
+			const auto logo_size = 34.0f + ring_phase * 2.0f;
+			const auto logo_dimensions = ImGui::CalcTextSize( logo );
+			draw->AddText( ImGui::GetFont( ), logo_size, ImVec2{ center.x - logo_dimensions.x * 0.5f, center.y + 48.0f }, IM_COL32( 185, 224, 128, logo_alpha ), logo );
+			const auto signature = ">signature velocity_init: OK";
+			const auto signature_dimensions = ImGui::CalcTextSize( signature );
+			draw->AddText( ImVec2{ center.x - signature_dimensions.x * 0.5f, center.y + 86.0f }, IM_COL32( 156, 178, 164, logo_alpha ), signature );
+		}
+
+		static constexpr const char* checks[ 8 ]{
+			"diagnostics / crash capture", "COM / multithreaded", "configuration / binds", "module memory regions",
+			"integrity checks", "steam services", "function addresses", "render hooks"
+		};
+		const auto check_count = std::clamp( static_cast< int >( elapsed / 0.42f ) + 1, 1, 8 );
+		const auto panel_width = std::min( 650.0f, std::max( 300.0f, viewport->WorkSize.x - 48.0f ) );
+		const auto panel_x = viewport->WorkPos.x + ( viewport->WorkSize.x - panel_width ) * 0.5f;
+		const auto panel_y = viewport->WorkPos.y + viewport->WorkSize.y - 178.0f;
+		draw->AddRectFilled( ImVec2{ panel_x, panel_y }, ImVec2{ panel_x + panel_width, panel_y + 140.0f }, IM_COL32( 12, 19, 23, 238 ), 8.0f );
+		draw->AddRect( ImVec2{ panel_x, panel_y }, ImVec2{ panel_x + panel_width, panel_y + 140.0f }, IM_COL32( 72, 92, 98, 230 ), 8.0f, 0, 1.0f );
+		draw->AddText( ImVec2{ panel_x + 18.0f, panel_y + 14.0f }, IM_COL32( 119, 200, 74, 255 ), "INITIALIZING XI.BENZ" );
+		for ( auto i = 0; i < check_count; ++i )
+		{
+			const auto column = i / 4;
+			const auto row = i % 4;
+			const auto x = panel_x + 18.0f + static_cast< float >( column ) * panel_width * 0.5f;
+			const auto y = panel_y + 42.0f + static_cast< float >( row ) * 17.0f;
+			draw->AddText( ImVec2{ x, y }, IM_COL32( 185, 224, 128, 255 ), "OK" );
+			draw->AddText( ImVec2{ x + 34.0f, y }, IM_COL32( 204, 214, 213, 230 ), checks[ i ] );
+		}
+	}
+
 	void draw_preview( preview_state& state )
 	{
 		const auto* viewport = ImGui::GetMainViewport( );
@@ -213,6 +304,21 @@ namespace {
 			viewport->WorkPos.y + viewport->WorkSize.y
 		};
 		ImGui::GetBackgroundDrawList( )->AddRectFilled( viewport->WorkPos, viewport_max, IM_COL32( 8, 8, 8, 255 ) );
+		if ( ImGui::IsKeyPressed( ImGuiKey_F8, false ) )
+		{
+			state.loading_elapsed = 0.0f;
+			state.loading_complete = false;
+		}
+		if ( !state.loading_complete )
+		{
+			state.loading_elapsed += std::clamp( ImGui::GetIO( ).DeltaTime, 0.0f, 0.1f );
+			draw_preview_loading( state.loading_elapsed );
+			if ( state.loading_elapsed >= 4.4f )
+			{
+				state.loading_complete = true;
+			}
+			return;
+		}
 
 		static constexpr const char* top_names[ 5 ]{
 			"Visuals", "Aiming", "Misc", "Skins", "Config"

@@ -127,6 +127,11 @@ namespace hooks {
 
 	HRESULT __fastcall cheat::present( IDXGISwapChain* thisptr, UINT sync_interval, UINT flags )
 	{
+		diag::hook_scope hook_context{
+			"present",
+			reinterpret_cast< std::uintptr_t >( thisptr ),
+			sync_interval,
+			flags };
 		rendering::g_context.on_present( thisptr );
 
 		if ( !m_wnd_proc.is_enabled( ) && rendering::g_context.get_window( ) )
@@ -212,6 +217,7 @@ namespace hooks {
 
 	void __fastcall cheat::frame_stage_notify( std::uintptr_t thisptr, int stage )
 	{
+		diag::hook_scope hook_context{ "frame_stage_notify", thisptr, static_cast< std::uintptr_t >( stage ) };
 		if ( systems::g_entities.is_empty( ) )
 		{
 			systems::g_entities.force_update( );
@@ -285,6 +291,11 @@ namespace hooks {
 
 	void __fastcall cheat::create_move( std::uintptr_t thisptr, int slot, bool active )
 	{
+		diag::hook_scope hook_context{
+			"create_move",
+			thisptr,
+			static_cast< std::uintptr_t >( slot ),
+			static_cast< std::uintptr_t >( active ) };
 		const auto local = systems::g_local.get( );
 
 		if ( !local.pawn || !local.controller )
@@ -881,6 +892,11 @@ namespace hooks {
 
 	std::uintptr_t __fastcall cheat::level_initialization( std::uintptr_t a1, const char* new_map )
 	{
+		// Level shutdown is the normal cleanup point; repeat it here as a
+		// fail-safe for clients that skip that callback during reconnects.
+		features::esp::player::g_chams.bt( ).shutdown( );
+		features::esp::player::g_chams.os( ).shutdown( );
+
 		if ( new_map && new_map[ 0 ] )
 		{
 			const char* leaf = std::strrchr( new_map, '/' );
@@ -902,7 +918,11 @@ namespace hooks {
 	{
 		rendering::g_widgets.s_map_name.clear();
 
-		// Release feature-owned scene objects before Source 2 tears their parents down.
+		// Release every feature-owned scene object before Source 2 tears its scene
+		// graph down. Keeping chams objects across a map transition leaves dangling
+		// scene pointers for the next frame-stage update.
+		features::esp::player::g_chams.bt( ).shutdown( );
+		features::esp::player::g_chams.os( ).shutdown( );
 		features::misc::g_dlight.on_level_shutdown( );
 
 		// clear all local player data on level shutdown

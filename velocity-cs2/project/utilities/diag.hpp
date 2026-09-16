@@ -646,9 +646,15 @@ namespace diag {
 		(void)fault_thread_id;
 		return false;
 #else
-		if ( !g_minidump_write || !g_dump_path[ 0 ] )
+		if ( !g_minidump_write )
 		{
 			write( level::error, "minidump unavailable: dbghelp export not resolved" );
+			return false;
+		}
+
+		if ( !g_dump_path[ 0 ] )
+		{
+			write( level::error, "minidump unavailable: dump path not initialized" );
 			return false;
 		}
 

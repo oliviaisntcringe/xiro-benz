@@ -242,14 +242,20 @@ namespace {
 #if defined( DEV )
 	#define INIT_FAIL( msg ) \
 		do { \
+			rendering::g_imgui_menu.loading_failed( msg ); \
 			diag::write( diag::level::error, msg ); \
 			return 0; \
 		} while ( 0 )
 
-	#define INIT_WARN( msg ) diag::write( diag::level::warning, msg )
+	#define INIT_WARN( msg ) \
+		do { \
+			rendering::g_imgui_menu.loading_check_result( 0 ); \
+			diag::write( diag::level::warning, msg ); \
+		} while ( 0 )
 #else
 	#define INIT_FAIL( msg ) \
 		do { \
+			rendering::g_imgui_menu.loading_failed( msg ); \
 			diag::write( diag::level::error, msg ); \
 			MessageBoxA( nullptr, xs( msg ), xs( "..." ), MB_ICONERROR ); \
 			return 0; \
@@ -258,34 +264,55 @@ namespace {
 	#define INIT_WARN( msg ) INIT_FAIL( msg )
 #endif
 
+	#define INIT_TEST( label, expression, failure ) \
+		do { \
+			rendering::g_imgui_menu.loading_begin_check( label ); \
+		if ( !( expression ) ) \
+			INIT_FAIL( failure ); \
+		rendering::g_imgui_menu.loading_check_result( 1 ); \
+		} while ( 0 )
+
 	DWORD WINAPI init_thread_impl( LPVOID param )
 	{
 		const auto module_handle = static_cast<HMODULE>( param );
 
 		diag::step( "stage: thread start" );
+		rendering::g_imgui_menu.loading_begin_check( "diagnostics / crash capture" );
 		diag::initialize_crash_dumps( );
 		logging::console::initialize( );
+		rendering::g_imgui_menu.loading_check_result( 1 );
 
 		diag::step( "stage: coinit" );
+		rendering::g_imgui_menu.loading_begin_check( "COM / multithreaded" );
 		const auto coinit_result =
 			CoInitializeEx( nullptr, COINIT_MULTITHREADED );
 		if ( FAILED( coinit_result ) )
 		{
+			rendering::g_imgui_menu.loading_check_result( 0 );
 			diag::writef(
 				diag::level::warning,
 				"CoInitializeEx failed; hresult=0x%08lX",
 				coinit_result );
 		}
+		else
+		{
+			rendering::g_imgui_menu.loading_check_result( 1 );
+		}
 
 		diag::step( "stage: config" );
+		rendering::g_imgui_menu.loading_begin_check( "configuration / binds" );
 		config::initialize( );
 		settings::finalize_binds( );
+		rendering::g_imgui_menu.loading_check_result( 1 );
 
 		diag::step( "stage: regions" );
+		rendering::g_imgui_menu.loading_begin_check( "module memory regions" );
 		security::regions::add_module( module_handle );
+		rendering::g_imgui_menu.loading_check_result( 1 );
 
 		diag::step( "stage: logging" );
 		{
+			rendering::g_imgui_menu.loading_begin_check( "console logger" );
 			if ( !logging::console::initialize( ) )
 			{
 #if defined( DEV )
@@ -294,7 +321,12 @@ namespace {
 				INIT_FAIL( "failed to initialize console logging." );
 #endif
 			}
+			else
+			{
+				rendering::g_imgui_menu.loading_check_result( 1 );
+			}
 
+			rendering::g_imgui_menu.loading_begin_check( "popup logger" );
 			if ( !logging::popup::initialize( ) )
 			{
 #if defined( DEV )
@@ -303,118 +335,65 @@ namespace {
 				INIT_FAIL( "failed to initialize popup logging." );
 #endif
 			}
+			else
+			{
+				rendering::g_imgui_menu.loading_check_result( 1 );
+			}
 		}
 
 		diag::step( "stage: integrity" );
 		{
-			if ( !security::integrity::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize integrity checks." );
-			}
+			INIT_TEST( "integrity checks", security::integrity::initialize( ), "failed to initialize integrity checks." );
 
 #if defined( DEV )
-			install_game_crash_capture( );
-			install_termination_capture( );
+			rendering::g_imgui_menu.loading_begin_check( "Source 2 crash capture" );
+			rendering::g_imgui_menu.loading_check_result( install_game_crash_capture( ) ? 1 : 0 );
+			rendering::g_imgui_menu.loading_begin_check( "forced termination capture" );
+			rendering::g_imgui_menu.loading_check_result( install_termination_capture( ) ? 1 : 0 );
 #endif
 
-			if ( !threadpool::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize thread pool." );
-			}
-
-			if ( !steam::http::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize steam http." );
-			}
-
-			if ( !steam::friends::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize steam friends." );
-			}
-
-			if ( !steam::user::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize steam user." );
-			}
-
-			if ( !steam::utils::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize steam utils." );
-			}
+			INIT_TEST( "thread pool", threadpool::initialize( ), "failed to initialize thread pool." );
+			INIT_TEST( "steam http", steam::http::initialize( ), "failed to initialize steam http." );
+			INIT_TEST( "steam friends", steam::friends::initialize( ), "failed to initialize steam friends." );
+			INIT_TEST( "steam user", steam::user::initialize( ), "failed to initialize steam user." );
+			INIT_TEST( "steam utils", steam::utils::initialize( ), "failed to initialize steam utils." );
 		}
 
 		diag::step( "stage: addresses" );
 		{
-			if ( !addresses::modules::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize module addresses." );
-			}
-
-			if ( !addresses::globals::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize global addresses." );
-			}
-
-			if ( !addresses::functions::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize function addresses." );
-			}
+			INIT_TEST( "module addresses", addresses::modules::initialize( ), "failed to initialize module addresses." );
+			INIT_TEST( "global addresses", addresses::globals::initialize( ), "failed to initialize global addresses." );
+			INIT_TEST( "function addresses", addresses::functions::initialize( ), "failed to initialize function addresses." );
 		}
 
 		diag::step( "stage: systems" );
 		{
-			if ( !systems::materials::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize materials system." );
-			}
-
-			if ( !systems::events::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize event system." );
-			}
-
-			if ( !systems::g_icons.initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize vpk parse system." );
-			}
-
-			if ( !systems::g_model_preview.initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize model preview system." );
-			}
+			INIT_TEST( "materials system", systems::materials::initialize( ), "failed to initialize materials system." );
+			INIT_TEST( "event system", systems::events::initialize( ), "failed to initialize event system." );
+			INIT_TEST( "vpk parse system", systems::g_icons.initialize( ), "failed to initialize vpk parse system." );
+			INIT_TEST( "model preview system", systems::g_model_preview.initialize( ), "failed to initialize model preview system." );
 		}
 
 		diag::step( "stage: econ" );
 		{
-			if ( !features::changer::g_econ_item_system.initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize econ item system." );
-			}
+			INIT_TEST( "econ item system", features::changer::g_econ_item_system.initialize( ), "failed to initialize econ item system." );
 		}
 
 		diag::step( "stage: hooks" );
 		{
-			if ( !hooks::utility::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize utility hooks." );
-			}
-
-			if ( !hooks::cheat::initialize( ) )
-			{
-				INIT_FAIL( "failed to initialize cheat hooks." );
-			}
+			INIT_TEST( "utility hooks", hooks::utility::initialize( ), "failed to initialize utility hooks." );
+			INIT_TEST( "feature hooks", hooks::cheat::initialize( ), "failed to initialize cheat hooks." );
 		}
 
 		diag::step( "stage: cvars" );
 		{
-			if ( !addresses::globals::cvar->unlock_all( ) )
-			{
-				INIT_FAIL( "failed to unlock hidden cvars." );
-			}
+			INIT_TEST( "hidden cvars", addresses::globals::cvar->unlock_all( ), "failed to unlock hidden cvars." );
 		}
 
 		diag::step( "stage: skyboxes" );
+		rendering::g_imgui_menu.loading_begin_check( "skybox discovery" );
 		features::world::g_scene.discover_skyboxes( );
+		rendering::g_imgui_menu.loading_check_result( 1 );
 
 		diag::step( "stage: done" );
 		return 1;
@@ -431,14 +410,31 @@ namespace {
 
 	DWORD WINAPI init_thread( LPVOID param )
 	{
+		DWORD result{};
 		__try
 		{
-			return init_thread_impl( param );
+			result = init_thread_impl( param );
 		}
 		__except ( diag_exception_filter( GetExceptionInformation( ) ) )
 		{
-			return 0;
+			rendering::g_imgui_menu.loading_failed( "initialization thread exception" );
+			result = 0;
 		}
+
+		if ( result != 0 )
+		{
+			rendering::g_imgui_menu.loading_complete( );
+			return result;
+		}
+
+		if ( rendering::g_imgui_menu.is_open( ) )
+		{
+			rendering::g_imgui_menu.toggle( );
+		}
+
+		Sleep( 2500 );
+		FreeLibraryAndExitThread( static_cast<HMODULE>( param ), 0 );
+		return 0;
 	}
 
 } // namespace
@@ -460,6 +456,7 @@ extern "C" int __stdcall entry( HMODULE module_handle, DWORD reason, LPVOID rese
 		const auto thread = CreateThread( nullptr, 0, init_thread, module_handle, 0, nullptr );
 		if ( !thread )
 		{
+			rendering::g_imgui_menu.loading_failed( "failed to create initialization thread" );
 			diag::writef(
 				diag::level::error,
 				"failed to create initialization thread; win32_error=%lu",
@@ -497,6 +494,7 @@ extern "C" int __stdcall entry( HMODULE module_handle, DWORD reason, LPVOID rese
 		features::esp::player::g_chams.os( ).shutdown( );
 
 		features::world::g_weather.release( );
+		rendering::g_imgui_menu.shutdown( );
 		rendering::g_menu.shutdown( );
 
 		systems::events::shutdown( );

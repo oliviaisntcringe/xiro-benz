@@ -260,6 +260,7 @@
     <ClInclude Include="project\core\rendering\imgui_menu.hpp" />
     <ClInclude Include="project\core\resources\fonts\inter.hpp" />
     <ClInclude Include="project\core\resources\fonts\pixel7.hpp" />
+    <ClInclude Include="project\core\resources\logos\logo.hpp" />
     <ClInclude Include="project\core\resources\particles\effects.hpp" />
     <ClInclude Include="project\core\resources\particles\weather.hpp" />
     <ClInclude Include="project\core\settings.hpp" />

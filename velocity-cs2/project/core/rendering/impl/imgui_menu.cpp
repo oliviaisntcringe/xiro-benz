@@ -3,7 +3,9 @@
 #include <core/settings.hpp>
 #include <utilities/memory/memory.hpp>
 #include <utilities/steam/steam.hpp>
+#include <utilities/diag.hpp>
 #include <external/xdraw/xdraw.hpp>
+#include <core/resources/logos/logo.hpp>
 
 #include <external/imgui/imgui.h>
 #include <external/imgui/backends/imgui_impl_dx11.h>
@@ -26,7 +28,48 @@ namespace rendering {
 			bool skull{};
 		};
 
-		void draw_imgui_backdrop( ImGuiViewport* viewport )
+		void draw_texture_contain(
+			ImDrawList* draw,
+			ID3D11ShaderResourceView* texture,
+			int texture_width,
+			int texture_height,
+			const ImVec2& center,
+			float max_size,
+			ImU32 tint )
+		{
+			if ( !draw || !texture || texture_width <= 0 || texture_height <= 0 || max_size <= 0.0f )
+			{
+				return;
+			}
+
+			const auto aspect = static_cast< float >( texture_width ) / static_cast< float >( texture_height );
+			auto width = max_size;
+			auto height = max_size;
+			if ( aspect > 1.0f )
+			{
+				height = max_size / aspect;
+			}
+			else
+			{
+				width = max_size * aspect;
+			}
+
+			const auto half_size = ImVec2{ width * 0.5f, height * 0.5f };
+			draw->AddImage(
+				reinterpret_cast< ImTextureID >( texture ),
+				ImVec2{ center.x - half_size.x, center.y - half_size.y },
+				ImVec2{ center.x + half_size.x, center.y + half_size.y },
+				ImVec2{ 0.0f, 0.0f },
+				ImVec2{ 1.0f, 1.0f },
+				tint
+			);
+		}
+
+		void draw_imgui_backdrop(
+			ImGuiViewport* viewport,
+			ID3D11ShaderResourceView* logo_texture,
+			int logo_width,
+			int logo_height )
 		{
 			if ( !viewport )
 			{
@@ -82,13 +125,28 @@ namespace rendering {
 				viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
 				viewport->WorkPos.y + viewport->WorkSize.y * 0.5f
 			};
-			const auto logo = "RIFK7";
-			const auto logo_size = ImGui::CalcTextSize( logo );
-			draw->AddText(
-				ImVec2{ center.x - logo_size.x * 0.5f, center.y - logo_size.y * 0.5f },
-				IM_COL32( 119, 200, 74, 48 ),
-				logo
-			);
+			if ( logo_texture )
+			{
+				draw_texture_contain(
+					draw,
+					logo_texture,
+					logo_width,
+					logo_height,
+					ImVec2{ center.x, center.y - 10.0f },
+					180.0f,
+					IM_COL32( 119, 200, 74, 30 )
+				);
+			}
+			else
+			{
+				static constexpr auto fallback_logo = "RIFK7";
+				const auto fallback_size = ImGui::CalcTextSize( fallback_logo );
+				draw->AddText(
+					ImVec2{ center.x - fallback_size.x * 0.5f, center.y - fallback_size.y * 0.5f },
+					IM_COL32( 119, 200, 74, 48 ),
+					fallback_logo
+				);
+			}
 			draw->AddLine(
 				ImVec2{ viewport->WorkPos.x + width * 0.22f, center.y + 24.0f },
 				ImVec2{ viewport->WorkPos.x + width * 0.78f, center.y + 24.0f },
@@ -226,8 +284,195 @@ namespace rendering {
 			return false;
 		}
 
+		this->m_logo_width = 0;
+		this->m_logo_height = 0;
+		this->m_logo = xdraw::load_texture(
+			std::span<const std::byte>{ reinterpret_cast< const std::byte* >( logo ), logo_size },
+			&this->m_logo_width,
+			&this->m_logo_height
+		);
+		if ( !this->m_logo )
+		{
+			this->m_logo_width = 0;
+			this->m_logo_height = 0;
+		}
+
 		this->m_initialized = true;
 		return true;
+	}
+
+	void imgui_menu::loading_begin_check( const char* label ) noexcept
+	{
+		const auto index = this->m_loading_check_count.load( std::memory_order_relaxed );
+		if ( index < 0 || index >= k_loading_check_capacity )
+		{
+			return;
+		}
+
+		this->m_loading_labels[ index ] = label ? label : "unnamed check";
+		this->m_loading_check_states[ index ].store( 0, std::memory_order_release );
+		this->m_loading_current_check.store( index, std::memory_order_release );
+		this->m_loading_check_count.store( index + 1, std::memory_order_release );
+	}
+
+	void imgui_menu::loading_check_result( int result ) noexcept
+	{
+		const auto index = this->m_loading_current_check.load( std::memory_order_acquire );
+		if ( index < 0 || index >= k_loading_check_capacity )
+		{
+			return;
+		}
+
+		this->m_loading_check_states[ index ].store( result > 0 ? 1 : result < 0 ? -1 : 2, std::memory_order_release );
+	}
+
+	void imgui_menu::loading_failed( const char* reason ) noexcept
+	{
+		this->loading_check_result( -1 );
+		this->m_loading_error.store( reason ? reason : "unknown initialization failure", std::memory_order_release );
+		this->m_loading_state.store( 2, std::memory_order_release );
+	}
+
+	void imgui_menu::loading_complete( ) noexcept
+	{
+		this->loading_check_result( 1 );
+		this->m_loading_state.store( 1, std::memory_order_release );
+	}
+
+	void imgui_menu::draw_loading_screen( const ImGuiViewport* viewport )
+	{
+		if ( !viewport )
+		{
+			return;
+		}
+
+		const auto dt = std::clamp( ImGui::GetIO( ).DeltaTime, 0.0f, 0.1f );
+		this->m_loading_elapsed += dt;
+		const auto elapsed = this->m_loading_elapsed;
+		const auto state = this->m_loading_state.load( std::memory_order_acquire );
+		const auto failed = state == 2;
+		const auto fade = state == 1 && elapsed > 3.6f
+			? 1.0f - std::clamp( ( elapsed - 3.6f ) / 0.8f, 0.0f, 1.0f )
+			: 1.0f;
+		const auto alpha = static_cast< int >( 236.0f * fade );
+		const auto center = ImVec2{
+			viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+			viewport->WorkPos.y + viewport->WorkSize.y * 0.40f
+		};
+		auto* draw = ImGui::GetForegroundDrawList( );
+		draw->AddRectFilled(
+			viewport->WorkPos,
+			ImVec2{ viewport->WorkPos.x + viewport->WorkSize.x, viewport->WorkPos.y + viewport->WorkSize.y },
+			IM_COL32( 3, 6, 8, alpha )
+		);
+
+		static constexpr const char* glyphs[ 10 ]{ ".", "+", "x", "*", "o", "#", "@", "%", ":", "=" };
+		const auto spin = elapsed * 2.7f;
+		const auto wormhole_progress = std::clamp( elapsed / 2.35f, 0.0f, 1.0f );
+		for ( auto i = 0; i < 96; ++i )
+		{
+			const auto t = static_cast< float >( i ) / 95.0f;
+			const auto angle = t * 6.2831853f * 4.0f + spin - t * 1.4f;
+			const auto radius = 9.0f + t * t * 190.0f;
+			const auto wobble = std::sin( elapsed * 4.0f + t * 18.0f ) * 4.0f;
+			const auto x = center.x + std::cos( angle ) * ( radius + wobble );
+			const auto y = center.y + std::sin( angle ) * ( radius + wobble ) * 0.62f;
+			const auto glyph = glyphs[ ( i + static_cast< int >( elapsed * 12.0f ) ) % std::size( glyphs ) ];
+			const auto base_alpha = static_cast< int >( 38.0f + 172.0f * ( 1.0f - t ) * wormhole_progress );
+			const auto color = failed
+				? IM_COL32( 224, 88, 92, base_alpha )
+				: IM_COL32( 119, 200, 74, base_alpha );
+			draw->AddText( ImVec2{ x, y }, color, glyph );
+		}
+
+		const auto ring_phase = std::sin( elapsed * 3.4f ) * 0.5f + 0.5f;
+		draw->AddCircle( center, 18.0f + ring_phase * 8.0f, failed ? IM_COL32( 224, 88, 92, 190 ) : IM_COL32( 119, 200, 74, 190 ), 48, 2.0f );
+		draw->AddCircle( center, 8.0f + ring_phase * 3.0f, IM_COL32( 185, 224, 128, 210 ), 32, 1.0f );
+
+		if ( !failed && elapsed > 1.85f && elapsed < 3.15f )
+		{
+			const auto blast = std::clamp( ( elapsed - 1.85f ) / 0.85f, 0.0f, 1.0f );
+			const auto flash_alpha = static_cast< int >( 100.0f * ( 1.0f - blast ) );
+			draw->AddCircleFilled( center, 26.0f * ( 1.0f - blast * 0.65f ), IM_COL32( 198, 238, 138, flash_alpha ) );
+			for ( auto i = 0; i < 28; ++i )
+			{
+				const auto angle = static_cast< float >( i ) / 28.0f * 6.2831853f + elapsed * 1.2f;
+				const auto inner = 25.0f + blast * 18.0f;
+				const auto outer = inner + blast * ( 80.0f + static_cast< float >( i % 5 ) * 18.0f );
+				draw->AddLine(
+					ImVec2{ center.x + std::cos( angle ) * inner, center.y + std::sin( angle ) * inner },
+					ImVec2{ center.x + std::cos( angle ) * outer, center.y + std::sin( angle ) * outer },
+					IM_COL32( 119, 200, 74, static_cast< int >( 190.0f * ( 1.0f - blast ) ) ),
+					1.5f
+				);
+			}
+		}
+
+		const auto logo_alpha = static_cast< int >( 255.0f * std::clamp( ( elapsed - 1.15f ) / 0.55f, 0.0f, 1.0f ) * fade );
+		if ( logo_alpha > 0 )
+		{
+			const auto logo_tint = failed ? IM_COL32( 242, 112, 116, logo_alpha ) : IM_COL32( 185, 224, 128, logo_alpha );
+			const auto has_logo = this->m_logo && this->m_logo_width > 0 && this->m_logo_height > 0;
+			if ( has_logo )
+			{
+				draw_texture_contain(
+					draw,
+					this->m_logo.Get( ),
+					this->m_logo_width,
+					this->m_logo_height,
+					ImVec2{ center.x, center.y + 2.0f },
+					96.0f + ring_phase * 8.0f,
+					logo_tint
+				);
+			}
+
+			static constexpr auto logo_label = "XI.BENZ";
+			const auto logo_text_size = 34.0f + ring_phase * 2.0f;
+			const auto logo_dimensions = ImGui::CalcTextSize( logo_label );
+			const auto logo_y = center.y + ( has_logo ? 64.0f : 48.0f );
+			draw->AddText(
+				ImGui::GetFont(),
+				logo_text_size,
+				ImVec2{ center.x - logo_dimensions.x * 0.5f, logo_y },
+				logo_tint,
+				logo_label
+			);
+			const auto signature = failed ? ">signature velocity_init: FAIL" : state == 1 ? ">signature velocity_init: OK" : ">signature velocity_init: ...";
+			const auto signature_dimensions = ImGui::CalcTextSize( signature );
+			draw->AddText(
+				ImVec2{ center.x - signature_dimensions.x * 0.5f, logo_y + 38.0f },
+				failed ? IM_COL32( 242, 112, 116, logo_alpha ) : IM_COL32( 156, 178, 164, logo_alpha ),
+				signature
+			);
+		}
+
+		const auto check_count = std::clamp( this->m_loading_check_count.load( std::memory_order_acquire ), 0, k_loading_check_capacity );
+		const auto panel_width = std::min( 650.0f, std::max( 300.0f, viewport->WorkSize.x - 48.0f ) );
+		const auto panel_height = std::min( 330.0f, std::max( 170.0f, viewport->WorkSize.y * 0.34f ) );
+		const auto panel_x = viewport->WorkPos.x + ( viewport->WorkSize.x - panel_width ) * 0.5f;
+		const auto panel_y = std::min( center.y + 132.0f, viewport->WorkPos.y + viewport->WorkSize.y - panel_height - 24.0f );
+		draw->AddRectFilled( ImVec2{ panel_x, panel_y }, ImVec2{ panel_x + panel_width, panel_y + panel_height }, IM_COL32( 12, 19, 23, static_cast< int >( 238.0f * fade ) ), 8.0f );
+		draw->AddRect( ImVec2{ panel_x, panel_y }, ImVec2{ panel_x + panel_width, panel_y + panel_height }, IM_COL32( 72, 92, 98, static_cast< int >( 230.0f * fade ) ), 8.0f, 0, 1.0f );
+		draw->AddText( ImVec2{ panel_x + 18.0f, panel_y + 14.0f }, IM_COL32( 119, 200, 74, static_cast< int >( 255.0f * fade ) ), failed ? "INITIALIZATION ABORTED" : "INITIALIZING XI.BENZ" );
+
+		const auto row_height = 17.0f;
+		const auto visible_rows = std::max( 1, static_cast< int >( ( panel_height - 62.0f ) / row_height ) );
+		const auto first_row = std::max( 0, check_count - visible_rows );
+		for ( auto i = first_row; i < check_count; ++i )
+		{
+			const auto check_state = this->m_loading_check_states[ i ].load( std::memory_order_acquire );
+			const auto marker = check_state < 0 ? "!!" : check_state > 0 ? "OK" : check_state == 2 ? "--" : "..";
+			const auto color = check_state < 0 ? IM_COL32( 242, 112, 116, 255 ) : check_state == 2 ? IM_COL32( 235, 193, 93, 255 ) : check_state > 0 ? IM_COL32( 185, 224, 128, 255 ) : IM_COL32( 156, 178, 164, 255 );
+			const auto y = panel_y + 42.0f + static_cast< float >( i - first_row ) * row_height;
+			draw->AddText( ImVec2{ panel_x + 18.0f, y }, color, marker );
+			draw->AddText( ImVec2{ panel_x + 52.0f, y }, IM_COL32( 204, 214, 213, 230 ), this->m_loading_labels[ i ] ? this->m_loading_labels[ i ] : "unnamed check" );
+		}
+
+		if ( failed )
+		{
+			const auto* reason = this->m_loading_error.load( std::memory_order_acquire );
+			draw->AddText( ImVec2{ panel_x + 18.0f, panel_y + panel_height - 26.0f }, IM_COL32( 242, 112, 116, 255 ), reason ? reason : "unknown initialization failure" );
+		}
 	}
 
 	void imgui_menu::shutdown( )
@@ -240,6 +485,9 @@ namespace rendering {
 		ImGui_ImplDX11_Shutdown( );
 		ImGui_ImplWin32_Shutdown( );
 		ImGui::DestroyContext( );
+		this->m_logo.Reset( );
+		this->m_logo_width = 0;
+		this->m_logo_height = 0;
 		this->m_avatar.Reset( );
 		this->m_initialized = false;
 	}
@@ -304,14 +552,27 @@ namespace rendering {
 
 	void imgui_menu::draw( )
 	{
-		if ( !this->m_initialized || !this->m_open )
+		if ( !this->m_initialized )
+		{
+			return;
+		}
+
+		const auto loading_state = this->m_loading_state.load( std::memory_order_acquire );
+		const auto loading_visible = loading_state != 1 || this->m_loading_elapsed < 4.4f;
+		if ( loading_visible )
+		{
+			this->draw_loading_screen( ImGui::GetMainViewport( ) );
+			return;
+		}
+
+		if ( !this->m_open )
 		{
 			return;
 		}
 
 		this->try_load_avatar( );
 		const auto viewport = ImGui::GetMainViewport( );
-		draw_imgui_backdrop( viewport );
+		draw_imgui_backdrop( viewport, this->m_logo.Get( ), this->m_logo_width, this->m_logo_height );
 		static constexpr const char* top_names[ 5 ]{ "Visuals", "Aiming", "Misc", "Skins", "Config" };
 		const auto top_tab = this->m_tab == 0 || this->m_tab == 1 ? 0
 			: this->m_tab == 2 || this->m_tab == 3 ? 1
@@ -488,7 +749,7 @@ namespace rendering {
 
 	void imgui_menu::draw_overlays( )
 	{
-		if ( !this->m_initialized )
+		if ( !this->gameplay_ready( ) )
 		{
 			return;
 		}
@@ -649,9 +910,29 @@ namespace rendering {
 		{
 			return;
 		}
+		if ( !ImGui::GetCurrentContext( ) )
+		{
+			static std::atomic_bool reported{};
+			if ( !reported.exchange( true, std::memory_order_relaxed ) )
+			{
+				diag::write( diag::level::error, "render: ImGui submit skipped because the context is missing" );
+			}
+			return;
+		}
 
 		ImGui::Render( );
-		ImGui_ImplDX11_RenderDrawData( ImGui::GetDrawData( ) );
+		if ( auto* draw_data = ImGui::GetDrawData( ) )
+		{
+			ImGui_ImplDX11_RenderDrawData( draw_data );
+		}
+		else
+		{
+			static std::atomic_bool reported{};
+			if ( !reported.exchange( true, std::memory_order_relaxed ) )
+			{
+				diag::write( diag::level::error, "render: ImGui produced no draw data" );
+			}
+		}
 	}
 
 	void imgui_menu::draw_panel( )
