@@ -8,6 +8,10 @@ struct ImFont;
 struct ImDrawList;
 struct ImGuiViewport;
 
+namespace config {
+	struct col;
+}
+
 namespace rendering {
 
 	class imgui_menu
@@ -35,7 +39,17 @@ namespace rendering {
 
 	private:
 		void draw_loading_screen( const ImGuiViewport* viewport );
+		void draw_left_rail( float width, float height );
 		void draw_panel( );
+		void draw_visuals_tab( );
+		void draw_misc_tab( );
+		void draw_skins_tab( );
+		void draw_legit_tab( );
+		void draw_rage_tab( );
+		void draw_personal_tab( );
+		void draw_config_tab( );
+		void draw_color( const char* label, config::col& color );
+		bool draw_function( const char* label, xui::setting& setting, bool expandable = false );
 		void try_load_avatar( );
 		void draw_spectators( ImDrawList* draw, const ImGuiViewport* viewport );
 
