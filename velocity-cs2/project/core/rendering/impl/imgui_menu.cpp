@@ -67,7 +67,7 @@ namespace rendering {
 			}
 
 			static constexpr auto title = "trida.benz";
-			const auto* render_font = font ? font : ImGui::GetFont( );
+			auto* render_font = font ? font : ImGui::GetFont( );
 			constexpr auto font_size = 25.0f;
 			const auto shadow = IM_COL32( 141, 74, 176, 110 );
 			const auto green_dim = IM_COL32( 119, 200, 74, 95 );
@@ -80,7 +80,7 @@ namespace rendering {
 			for ( auto i = 0; i < 3; ++i )
 			{
 				const auto y = pos.y + 6.0f + static_cast< float >( i ) * 7.0f;
-				const auto wave = std::sin( phase + static_cast< float >( i ) * 1.7f ) * 3.0f;
+				const auto wave = static_cast< float >( std::sin( phase + static_cast< float >( i ) * 1.7f ) * 3.0f );
 				draw->AddLine(
 					ImVec2{ pos.x + wave, y },
 					ImVec2{ pos.x + text_width - wave, y },
@@ -933,7 +933,7 @@ namespace rendering {
 		auto* draw = ImGui::GetWindowDrawList( );
 		const auto active = active_nav_index( this->m_tab );
 		const auto content_width = std::max( 1.0f, width - 8.0f );
-		const auto* glyph_font = this->m_mono_font ? this->m_mono_font : ImGui::GetFont( );
+		auto* glyph_font = this->m_mono_font ? this->m_mono_font : ImGui::GetFont( );
 		const auto row_height = std::clamp( ( height - 24.0f ) / 8.0f, 48.0f, 60.0f );
 
 		ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2{ 0.0f, 3.0f } );
