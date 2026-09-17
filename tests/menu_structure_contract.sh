@@ -27,5 +27,6 @@ done
 
 grep -Fq 'project\core\rendering\impl\imgui_menu.cpp' "$project"
 grep -Fq 'project\core\rendering\impl\menu_xui\menu.rifk.cpp' "$project"
+grep -Fq 'auto& hat = settings::g_misc.m_hud.m_hat;' "$imgui_dir/imgui_menu.personal.cpp"
 
 echo "menu structure contract: PASS"

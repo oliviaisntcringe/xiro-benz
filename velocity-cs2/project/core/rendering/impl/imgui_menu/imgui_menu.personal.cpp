@@ -9,6 +9,7 @@ namespace rendering {
 
 void imgui_menu::draw_personal_tab( )
 {
+		auto& hat = settings::g_misc.m_hud.m_hat;
 			static constexpr const char* hat_types[ 5 ]{ "Kasa", "Bucket", "Halo", "Crown", "Horns" };
 
 			ImGui::Text( "Personal" );
