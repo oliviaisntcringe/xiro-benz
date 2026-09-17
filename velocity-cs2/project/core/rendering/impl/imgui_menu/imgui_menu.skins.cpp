@@ -3,6 +3,8 @@
 #include <core/settings.hpp>
 #include <external/imgui/imgui.h>
 #include <core/rendering/rendering.hpp>
+#include <core/systems/systems.hpp>
+#include "../retro_style.hpp"
 #include "../../imgui_menu.hpp"
 
 namespace rendering {
@@ -20,6 +22,7 @@ void imgui_menu::draw_skins_tab( )
 			static bool weapon_selection_dirty{};
 			static char skin_search[ 128 ]{};
 			static int agent_team{ 2 };
+			static int sticker_slot{};
 
 			auto display_name = [ ]( const std::string& localized, const std::string& fallback )
 			{
@@ -144,8 +147,45 @@ void imgui_menu::draw_skins_tab( )
 				ImGui::TextWrapped( "%s | %s", weapon_name.c_str( ), skin_name.c_str( ) );
 				ImGui::Separator( );
 
-				const auto preview = econ.get_skin_image( item->def_index, selected_paint ? selected_paint->id : 0 );
-				if ( preview && preview->width > 0 && preview->height > 0 )
+				systems::model_preview_request preview_request{};
+				preview_request.definition_index = static_cast< std::uint16_t >( std::max< int >( item->def_index, 0 ) );
+				preview_request.paint_kit = selected_paint ? selected_paint->id : 0;
+				preview_request.rarity = econ.combined_rarity( item->def_index, preview_request.paint_kit );
+				if ( applied_it != changer.skins.data.end( ) )
+				{
+					const auto& skin = applied_it->second;
+					preview_request.wear = skin.wear;
+					preview_request.seed = skin.seed;
+					preview_request.stattrak = skin.stattrak;
+					for ( std::size_t slot{}; slot < preview_request.stickers.size( ); ++slot )
+					{
+						const auto& source = skin.stickers[ slot ];
+						auto& destination = preview_request.stickers[ slot ];
+						destination.enabled = source.enabled;
+						destination.kit = source.kit;
+						destination.wear = source.wear;
+						destination.scale = source.scale;
+						destination.rotation = source.rotation;
+						destination.offset_x = source.offset_x;
+						destination.offset_y = source.offset_y;
+					}
+					preview_request.keychain.enabled = skin.keychain.enabled;
+					preview_request.keychain.id = skin.keychain.id;
+					preview_request.keychain.seed = skin.keychain.seed;
+					preview_request.keychain.offset_x = skin.keychain.offset_x;
+					preview_request.keychain.offset_y = skin.keychain.offset_y;
+					preview_request.keychain.offset_z = skin.keychain.offset_z;
+				}
+				systems::g_model_preview.submit( preview_request );
+
+				const auto model_preview = systems::g_model_preview.get_current_texture_srv( );
+				if ( model_preview )
+				{
+					ImGui::TextColored( rendering::retro::accent_green, "3D preview" );
+					ImGui::SetCursorPosX( ( ImGui::GetWindowWidth( ) - 240.0f ) * 0.5f );
+					ImGui::Image( reinterpret_cast< ImTextureID >( model_preview ), ImVec2{ 240.0f, 190.0f } );
+				}
+				else if ( const auto preview = econ.get_skin_image( item->def_index, selected_paint ? selected_paint->id : 0 ); preview && preview->width > 0 && preview->height > 0 )
 				{
 					const auto max_size = ImVec2{ 240.0f, 190.0f };
 					const auto aspect = static_cast< float >( preview->width ) / static_cast< float >( preview->height );
@@ -160,7 +200,8 @@ void imgui_menu::draw_skins_tab( )
 				}
 				else
 				{
-					ImGui::TextDisabled( "Loading preview..." );
+					ImGui::TextDisabled( "Loading 3D preview..." );
+					ImGui::TextDisabled( "%s", systems::g_model_preview.has_texture( ) ? "Captured frame is not ready." : "Open the inventory preview to seed the 3D scene." );
 				}
 
 				ImGui::Separator( );
@@ -295,6 +336,42 @@ void imgui_menu::draw_skins_tab( )
 						ImGui::SliderFloat( "Wear", &applied.wear, 0.0f, 1.0f, "%.4f" );
 						ImGui::SliderInt( "Seed", &applied.seed, 0, 1000 );
 						ImGui::Checkbox( "StatTrak", &applied.stattrak );
+
+						if ( category == 0 || category == 1 )
+						{
+							ImGui::Separator( );
+							ImGui::Text( "Stickers" );
+							sticker_slot = std::clamp( sticker_slot, 0, static_cast<int>( applied.stickers.size( ) ) - 1 );
+							ImGui::SetNextItemWidth( -1.0f );
+							ImGui::Combo( "Slot", &sticker_slot, "1\0002\0003\0004\0005\000" );
+							auto& sticker = applied.stickers[ sticker_slot ];
+							ImGui::Checkbox( "Enabled##sticker", &sticker.enabled );
+							ImGui::SetNextItemWidth( -1.0f );
+							ImGui::InputInt( "Kit ID##sticker", &sticker.kit );
+							sticker.kit = std::max( 0, sticker.kit );
+							ImGui::BeginDisabled( !sticker.enabled || sticker.kit <= 0 );
+							ImGui::SliderFloat( "Wear##sticker", &sticker.wear, 0.0f, 1.0f, "%.3f" );
+							ImGui::SliderFloat( "Scale##sticker", &sticker.scale, 0.1f, 5.0f, "%.2f" );
+							ImGui::SliderFloat( "Rotation##sticker", &sticker.rotation, -180.0f, 180.0f, "%.0f deg" );
+							ImGui::SliderFloat( "Offset X##sticker", &sticker.offset_x, -0.5f, 0.5f, "%.3f" );
+							ImGui::SliderFloat( "Offset Y##sticker", &sticker.offset_y, -0.5f, 0.5f, "%.3f" );
+							ImGui::EndDisabled( );
+
+							ImGui::Separator( );
+							ImGui::Text( "Keychain" );
+							auto& keychain = applied.keychain;
+							ImGui::Checkbox( "Enabled##keychain", &keychain.enabled );
+							ImGui::BeginDisabled( !keychain.enabled );
+							ImGui::SetNextItemWidth( -1.0f );
+							ImGui::InputInt( "ID##keychain", &keychain.id );
+							keychain.id = std::max( 0, keychain.id );
+							ImGui::InputInt( "Seed##keychain", &keychain.seed );
+							keychain.seed = std::clamp( keychain.seed, 0, 100000 );
+							ImGui::SliderFloat( "Offset X##keychain", &keychain.offset_x, -20.0f, 20.0f, "%.2f" );
+							ImGui::SliderFloat( "Offset Y##keychain", &keychain.offset_y, -20.0f, 20.0f, "%.2f" );
+							ImGui::SliderFloat( "Offset Z##keychain", &keychain.offset_z, -20.0f, 20.0f, "%.2f" );
+							ImGui::EndDisabled( );
+						}
 						if ( ImGui::Button( "Clear selected skin" ) )
 						{
 							changer.skins.data.erase( item->def_index );

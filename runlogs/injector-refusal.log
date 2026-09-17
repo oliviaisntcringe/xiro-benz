@@ -1,0 +1,2 @@
+[injector] [23:54:41.491] [INFO ] step=start game=D:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe dll=C:\Users\tuerleprince\xiro-benz\bin\velocity-debug.dll
+[injector] [23:54:41.497] [ERROR] step=launch refused: cs2.exe is already running pid=12236

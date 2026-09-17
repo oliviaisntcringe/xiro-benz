@@ -723,4 +723,34 @@ namespace patterns {
 		::protection::addresses::address_type::pattern,
 		"client.dll:85D20F88????????555657");
 
+	const ::protection::addresses::address_t& preview_create_item = ADDRESS_IMPL(
+		::protection::addresses::hash("client.dll:48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 B8 FF 7F FF 7F FF 7F FF 7F 48 8B FA 48 39 05 ? ? ? ? 48 8B F1 75 1A"),
+		::protection::addresses::address_type::pattern,
+		"client.dll:48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 B8 FF 7F FF 7F FF 7F FF 7F 48 8B FA 48 39 05 ? ? ? ? 48 8B F1 75 1A");
+
+	const ::protection::addresses::address_t& preview_decode_string = ADDRESS_IMPL(
+		::protection::addresses::hash("client.dll:40 55 41 54 41 55 41 56 41 57 48 81 EC E0 00 00 00 48 8D 6C 24 20 48 89 9D F8 00 00 00 4D 8B F8"),
+		::protection::addresses::address_type::pattern,
+		"client.dll:40 55 41 54 41 55 41 56 41 57 48 81 EC E0 00 00 00 48 8D 6C 24 20 48 89 9D F8 00 00 00 4D 8B F8");
+
+	const ::protection::addresses::address_t& preview_ui_engine_pointer = ADDRESS_IMPL(
+		::protection::addresses::hash("client.dll:48 89 78 ? 48 89 0D ? ? ? ?"),
+		::protection::addresses::address_type::pattern,
+		"client.dll:48 89 78 ? 48 89 0D ? ? ? ?");
+
+	const ::protection::addresses::address_t& preview_main_menu_panel = ADDRESS_IMPL(
+		::protection::addresses::hash("client.dll:EC ? 48 8B 05 ? ? ? ? 48 8D 15 ? ? ? ? 48"),
+		::protection::addresses::address_type::pattern,
+		"client.dll:EC ? 48 8B 05 ? ? ? ? 48 8D 15 ? ? ? ? 48");
+
+	const ::protection::addresses::address_t& preview_render_targets = ADDRESS_IMPL(
+		::protection::addresses::hash("panorama.dll:4C 8B DC 55 57 41 55 49 8D AB 68 FD FF FF 48 81 EC 80 03 00 00 48 83 B9 D8 00 00 00 00 48 8B F9 0F 85 ? ? ? ?"),
+		::protection::addresses::address_type::pattern,
+		"panorama.dll:4C 8B DC 55 57 41 55 49 8D AB 68 FD FF FF 48 81 EC 80 03 00 00 48 83 B9 D8 00 00 00 00 48 8B F9 0F 85 ? ? ? ?");
+
+	const ::protection::addresses::address_t& preview_acquire_layer_rt = ADDRESS_IMPL(
+		::protection::addresses::hash("panorama.dll:48 8B C4 53 57 48 83 EC 78 48 FF 81 A8 00 00 00 48 8B F9 48 89 70 E8 48 8B F2"),
+		::protection::addresses::address_type::pattern,
+		"panorama.dll:48 8B C4 53 57 48 83 EC 78 48 FF 81 A8 00 00 00 48 8B F9 48 89 70 E8 48 8B F2");
+
 } // namespace patterns

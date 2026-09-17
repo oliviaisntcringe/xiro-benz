@@ -1,11 +1,63 @@
 #pragma once
 
 #include <filesystem>
+#include <array>
+#include <string>
 #include <utilities/proto/proto.hpp>
 #include <utilities/memory/memory.hpp>
 #include <core/settings.hpp>
 
 namespace systems {
+
+	struct model_preview_sticker
+	{
+		bool enabled{};
+		int kit{};
+		float wear{};
+		float scale{ 1.0f };
+		float rotation{};
+		float offset_x{};
+		float offset_y{};
+
+		bool operator==( const model_preview_sticker& ) const = default;
+	};
+
+	struct model_preview_keychain
+	{
+		bool enabled{};
+		int id{};
+		int seed{};
+		float offset_x{};
+		float offset_y{};
+		float offset_z{};
+
+		bool operator==( const model_preview_keychain& ) const = default;
+	};
+
+	struct model_preview_request
+	{
+		std::uint16_t definition_index{};
+		int paint_kit{};
+		int rarity{};
+		int seed{};
+		float wear{ 0.0001f };
+		bool stattrak{};
+		std::array<model_preview_sticker, 5> stickers{};
+		model_preview_keychain keychain{};
+
+		bool operator==( const model_preview_request& ) const = default;
+	};
+
+	enum class model_preview_status : std::uint8_t
+	{
+		uninitialized,
+		missing_patterns,
+		waiting_for_request,
+		waiting_for_item,
+		waiting_for_panel,
+		waiting_for_texture,
+		ready
+	};
 
 	class schemas
 	{
@@ -628,8 +680,19 @@ namespace systems {
 
 		bool m_initialized = false;
 		std::atomic<std::uintptr_t> m_current_texture{};
+		[[nodiscard]] ID3D11ShaderResourceView* get_native_texture_srv( ) const;
+		[[nodiscard]] bool native_has_texture( ) const;
 	public:
 		bool initialize( );
+		bool initialize_render( ID3D11Device* device, ID3D11DeviceContext* context );
+		void shutdown( );
+		void process_main_thread( );
+		void tick_render_thread( );
+		void submit( const model_preview_request& request );
+		void set_rotation( float rotation_x, float rotation_y );
+		[[nodiscard]] model_preview_status status( ) const;
+		[[nodiscard]] const char* status_text( ) const;
+		void capture_render_target( void* render_target );
 
 		bool on_generate_primitives(
 			std::uintptr_t owner_entity,
@@ -648,11 +711,16 @@ namespace systems {
 
 		bool has_texture( ) const
 		{
-			return m_current_texture.load( std::memory_order_acquire ) != 0;
+			return this->native_has_texture( ) || m_current_texture.load( std::memory_order_acquire ) != 0;
 		}
 
 		ID3D11ShaderResourceView* get_current_texture_srv( ) const
 		{
+			if ( const auto native = this->get_native_texture_srv( ) )
+			{
+				return native;
+			}
+
 			const auto valid_view = []( ID3D11ShaderResourceView* view )
 			{
 				const auto address = reinterpret_cast< std::uintptr_t >( view );
@@ -677,7 +745,7 @@ namespace systems {
 			return valid_view( srv1 ) ? srv1 : nullptr;
 		}
 
-		void reset( ) { m_current_texture.store( 0, std::memory_order_release ); }
+		void reset( );
 	};
 
 	inline input g_input{};

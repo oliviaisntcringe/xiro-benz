@@ -7,4 +7,5 @@
   <Project Path="velocity-cs2/velocity-cs2.vcxproj" Id="d30ae6e8-620d-42e0-b3f4-804cafe20f44" />
   <Project Path="imgui-preview/imgui-preview.vcxproj" Id="6f1e9b0e-3aa9-4f1c-ae53-c9b9708e17c4" />
   <Project Path="file-to-byte-array/file-to-byte-array.vcxproj" Id="8d9e5b7a-3b5c-4ef1-9f3e-6f1f2bb58fd5" />
+  <Project Path="injector/injector.vcxproj" Id="f9d6f9bf-04e1-49bb-bb02-d9b8f3b0a8ae" />
 </Solution>

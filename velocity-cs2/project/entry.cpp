@@ -499,6 +499,7 @@ extern "C" int __stdcall entry( HMODULE module_handle, DWORD reason, LPVOID rese
 		rendering::g_menu.shutdown( );
 
 		systems::events::shutdown( );
+		systems::g_model_preview.shutdown( );
 		hooks::utility::shutdown( );
 		hooks::cheat::shutdown( );
 		CoUninitialize( );

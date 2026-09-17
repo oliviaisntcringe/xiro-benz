@@ -234,7 +234,7 @@ namespace features::changer {
 
 		std::uint32_t m_last_active_handle{};
 		std::uintptr_t m_tracked_pawn{};
-		std::unordered_map<std::uint32_t, int> m_applied_weapons{};
+		std::unordered_map<std::uint32_t, std::uint64_t> m_applied_weapons{};
 		std::uintptr_t m_pending_hud_iv{};
 		std::chrono::steady_clock::time_point m_hud_clear_time{};
 	};

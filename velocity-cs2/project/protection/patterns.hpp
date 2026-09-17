@@ -150,6 +150,15 @@ namespace patterns {
 	extern const ::protection::addresses::address_t& econ_item_view_invalidate_description;
 	extern const ::protection::addresses::address_t& set_bodygroup;
 
+	// Native Panorama inventory preview. These are optional: the preview system
+	// remains disabled when a current-build signature is unavailable.
+	extern const ::protection::addresses::address_t& preview_create_item;
+	extern const ::protection::addresses::address_t& preview_decode_string;
+	extern const ::protection::addresses::address_t& preview_ui_engine_pointer;
+	extern const ::protection::addresses::address_t& preview_main_menu_panel;
+	extern const ::protection::addresses::address_t& preview_render_targets;
+	extern const ::protection::addresses::address_t& preview_acquire_layer_rt;
+
 } // namespace patterns
 
 #endif // !PATTERNS_HPP

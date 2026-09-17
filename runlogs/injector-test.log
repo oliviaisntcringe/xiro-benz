@@ -1,0 +1,3 @@
+[injector] [23:51:36.292] [INFO ] step=start game=D:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe dll=C:\Users\tuerleprince\xiro-benz\bin\velocity-debug.dll
+[injector] [23:51:36.292] [INFO ] step=attach pid=4816
+[injector] [23:51:36.292] [ERROR] step=validate-process rejected pid=4816

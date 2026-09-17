@@ -1,10 +1,13 @@
 #include <pch/pch.hpp>
 #include <utilities/memory/memory.hpp>
 #include <utilities/addresses/addresses.hpp>
+#include <utilities/diag.hpp>
 #include <core/systems/systems.hpp>
 #include <core/features/features.hpp>
 #include <core/settings.hpp>
 #include <protection/game_addresses.hpp>
+#include <utilities/logging/logging.hpp>
+#include "econ_item_attribute_manager.hpp"
 namespace features::changer {
 
 	namespace detail {
@@ -202,6 +205,15 @@ namespace features::changer {
 
 	void knives::apply( std::uintptr_t weapon, std::uintptr_t iv, const econ_item_system::item_def* def, const settings::changer::applied_skin* skin, std::uint32_t account_id, std::uintptr_t active_weapon, std::uintptr_t pawn )
 	{
+		diag::exception_scope exception_scope{ "knives::apply" };
+		if ( !def || !skin )
+		{
+			diag::write( diag::level::error, "[skin] knives apply aborted: null definition or skin" );
+			return;
+		}
+		diag::writef( diag::level::debug, "[skin] knives apply begin weapon=0x%p item=0x%p def=%d paint=%d seed=%d wear=%.4f",
+			reinterpret_cast< void* >( weapon ), reinterpret_cast< void* >( iv ), def->def_index,
+			skin->paint_kit_id, skin->seed, skin->wear );
 		this->m_pending_hud_iv = 0;
 
 		memory::write<std::uint16_t>( iv + SCHEMA( "C_EconItemView", "m_iItemDefinitionIndex"_hash ), static_cast< std::uint16_t >( def->def_index ) );
@@ -215,6 +227,31 @@ namespace features::changer {
 		memory::write<float>( weapon + SCHEMA( "C_EconEntity", "m_flFallbackWear"_hash ), skin->wear );
 		memory::write<int>( weapon + SCHEMA( "C_EconEntity", "m_nFallbackStatTrak"_hash ), skin->stattrak ? 0 : -1 );
 
+		econ_attributes::sticker_array stickers{};
+		for ( auto i = 0u; i < stickers.size( ); ++i )
+		{
+			stickers[ i ].enabled = skin->stickers[ i ].enabled;
+			stickers[ i ].kit = skin->stickers[ i ].kit;
+			stickers[ i ].wear = skin->stickers[ i ].wear;
+			stickers[ i ].scale = skin->stickers[ i ].scale;
+			stickers[ i ].rotation = skin->stickers[ i ].rotation;
+			stickers[ i ].offset_x = skin->stickers[ i ].offset_x;
+			stickers[ i ].offset_y = skin->stickers[ i ].offset_y;
+		}
+		econ_attributes::keychain charm{
+			skin->keychain.enabled, skin->keychain.id, skin->keychain.seed,
+			skin->keychain.offset_x, skin->keychain.offset_y, skin->keychain.offset_z
+		};
+		const auto attributes_created = econ_attributes::create( iv, skin->paint_kit_id, skin->wear, skin->seed, skin->stattrak ? 0 : -1, stickers, charm );
+		if ( !attributes_created && std::any_of( stickers.begin( ), stickers.end( ), [ ]( const auto& value ) { return value.enabled && value.kit > 0; } ) )
+		{
+			econ_attributes::sync_stickers( iv, stickers );
+		}
+		if ( charm.enabled && charm.id > 0 )
+		{
+			logging::console::print( xs( "[skin] knife keychain attributes applied; entity rebuild disabled until a verified signature is available" ) );
+		}
+
 		const auto pk = g_econ_item_system.find_paint_kit( skin->paint_kit_id );
 
 		this->update_model( weapon, iv, static_cast< std::uint16_t >( def->def_index ) );
@@ -222,6 +259,7 @@ namespace features::changer {
 		this->schedule_hud_clear( iv );
 
 		this->m_overridden = true;
+		diag::writef( diag::level::debug, "[skin] knives apply end weapon=0x%p def=%d", reinterpret_cast< void* >( weapon ), def->def_index );
 	}
 
 	void knives::restore( std::uintptr_t weapon, std::uintptr_t iv, std::uintptr_t active_weapon, std::uintptr_t pawn )

@@ -69,6 +69,7 @@ namespace rendering {
 
 		g_menu.initialize_graphics( );
 		this->try_bind_ui_assets( );
+		systems::g_model_preview.initialize_render( this->m_device, this->m_context );
 		diag::write( diag::level::info, "render pipeline initialized; ImGui interactive path ready, XDraw gameplay pass ready" );
 
 		this->m_initialized = true;
@@ -131,6 +132,8 @@ namespace rendering {
 			diag::writef( diag::level::error, "render frame skipped index=%llu reason=D3D11 or ImGui state incomplete", frame );
 			return;
 		}
+
+		systems::g_model_preview.tick_render_thread( );
 
 		diag::set_exception_phase( "render: ImGui begin frame" );
 		m_context->OMSetRenderTargets( 1, &this->m_rtv, nullptr );

@@ -62,7 +62,7 @@ namespace hooking {
 		{
 			jmp* hook;
 			void* detour;
-			const char* name;
+			std::string name;
 			std::uintptr_t address;
 		};
 

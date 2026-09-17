@@ -37,14 +37,14 @@ namespace rendering {
 		};
 
 		static constexpr nav_item k_nav_items[ 8 ]{
-			{ "Rage", "R", 3, -1 },
-			{ "Legit", "L", 2, -1 },
-			{ "Player", "P", 0, 0 },
-			{ "Visuals", "V", 1, 7 },
-			{ "Misc", "M", 4, -1 },
-			{ "Skins", "S", 5, -1 },
-			{ "Person", "N", 6, -1 },
-			{ "Config", "C", 7, -1 }
+			{ "RAGE", "A", 3, -1 },
+			{ "LEGIT", "B", 2, -1 },
+			{ "PLAYER", "C", 0, 0 },
+			{ "VISUALS", "D", 1, 7 },
+			{ "MISC", "E", 4, -1 },
+			{ "SKINS", "F", 5, -1 },
+			{ "PERSONAL", "G", 6, -1 },
+			{ "CONFIG", "H", 7, -1 }
 		};
 
 		int active_nav_index( int tab )
@@ -66,28 +66,10 @@ namespace rendering {
 				return;
 			}
 
-			static constexpr auto title = "trida.benz";
+			static constexpr auto title = "triada.benz";
 			auto* render_font = font ? font : ImGui::GetFont( );
 			constexpr auto font_size = 25.0f;
-			const auto shadow = IM_COL32( 141, 74, 176, 110 );
-			const auto green_dim = IM_COL32( 119, 200, 74, 95 );
-			draw->AddText( render_font, font_size, ImVec2{ pos.x + 2.0f, pos.y + 1.0f }, shadow, title );
-			draw->AddText( render_font, font_size, ImVec2{ pos.x - 1.0f, pos.y }, green_dim, title );
 			draw->AddText( render_font, font_size, pos, IM_COL32( 160, 238, 102, 255 ), title );
-
-			const auto text_width = ImGui::CalcTextSize( title ).x;
-			const auto phase = ImGui::GetTime( ) * 4.0f;
-			for ( auto i = 0; i < 3; ++i )
-			{
-				const auto y = pos.y + 6.0f + static_cast< float >( i ) * 7.0f;
-				const auto wave = static_cast< float >( std::sin( phase + static_cast< float >( i ) * 1.7f ) * 3.0f );
-				draw->AddLine(
-					ImVec2{ pos.x + wave, y },
-					ImVec2{ pos.x + text_width - wave, y },
-					IM_COL32( 119, 200, 74, 42 ),
-					1.0f
-				);
-			}
 		}
 
 		void draw_texture_contain(
@@ -147,74 +129,59 @@ namespace rendering {
 				for ( auto i = 0u; i < particles.size( ); ++i )
 				{
 					auto& particle = particles[ i ];
-					particle.origin.x = std::fmod( 83.0f + i * 137.0f, std::max( 1.0f, width - 40.0f ) ) + 20.0f;
-					particle.origin.y = std::fmod( 41.0f + i * 89.0f, std::max( 1.0f, height ) );
-					particle.speed = 15.0f + static_cast< float >( i % 7 ) * 5.0f;
-					particle.phase = static_cast< float >( i ) * 0.7f;
-					particle.drift = 7.0f + static_cast< float >( i % 4 ) * 3.0f;
-					particle.skull = ( i % 5 ) == 0;
+					particle.origin = ImVec2{
+						std::fmod( 37.0f + i * 149.0f, std::max( 1.0f, width - 24.0f ) ) + 12.0f,
+						std::fmod( 19.0f + i * 83.0f, std::max( 1.0f, height ) )
+					};
+					particle.speed = 12.0f + static_cast< float >( i % 6 ) * 5.0f;
+					particle.phase = static_cast< float >( i ) * 0.55f;
+					particle.drift = 5.0f + static_cast< float >( i % 5 ) * 2.0f;
+					particle.skull = ( i % 7 ) == 0;
 				}
 				initialized = true;
 			}
 
-			const auto dt = ImGui::GetIO( ).DeltaTime;
 			auto* draw = ImGui::GetBackgroundDrawList( );
 			const auto viewport_max = ImVec2{
 				viewport->WorkPos.x + viewport->WorkSize.x,
 				viewport->WorkPos.y + viewport->WorkSize.y
 			};
-			draw->AddRectFilled( viewport->WorkPos, viewport_max, IM_COL32( 0, 0, 0, 122 ) );
+			draw->AddRectFilled( viewport->WorkPos, viewport_max, IM_COL32( 0, 0, 0, 145 ) );
 
-			static constexpr const char* flower_symbols[ 6 ]{ " .-. ", "( * )", "<.*.>", "{ o }", "\\|/", "(_|_)" };
-			static constexpr const char* skull_symbols[ 6 ]{ " .-. ", "(o o)", "[o_o]", "/xxx\\", "| ^ |", "\\___/" };
+			static constexpr const char* flowers[ 6 ]{ ".", "+", "x", "*", "o", "#" };
+			static constexpr const char* skulls[ 6 ]{ ":", "(o)", "[o]", "/x\\", "|^|", "\\_/" };
+			const auto dt = std::clamp( ImGui::GetIO( ).DeltaTime, 0.0f, 0.05f );
 			for ( auto& particle : particles )
 			{
 				particle.origin.y += particle.speed * dt;
 				particle.phase += dt;
-				if ( particle.origin.y > height + 24.0f )
+				if ( particle.origin.y > height + 20.0f )
 				{
-					particle.origin.y = -24.0f;
+					particle.origin.y = -20.0f;
 				}
 
 				const auto x = particle.origin.x + std::sin( particle.phase ) * particle.drift;
-				const auto glyph_index = static_cast< int >( particle.phase * 2.0f ) % 6;
-				const auto glyph = particle.skull ? skull_symbols[ glyph_index ] : flower_symbols[ glyph_index ];
-				const auto color = particle.skull ? IM_COL32( 119, 200, 74, 105 ) : IM_COL32( 119, 200, 74, 82 );
-				draw->AddText( ImVec2{ std::floor( viewport->WorkPos.x + x ), std::floor( viewport->WorkPos.y + particle.origin.y ) }, color, glyph );
+				const auto index = static_cast< int >( particle.phase * 2.0f ) % 6;
+				const auto glyph = particle.skull ? skulls[ index ] : flowers[ index ];
+				const auto pos = ImVec2{ viewport->WorkPos.x + x, viewport->WorkPos.y + particle.origin.y };
+				const auto color = particle.skull ? IM_COL32( 160, 238, 102, 180 ) : IM_COL32( 119, 200, 74, 125 );
+				// Layered glyphs create a restrained CRT-like glow without a blur pass.
+				draw->AddText( ImVec2{ pos.x + 1.0f, pos.y }, particle.skull ? IM_COL32( 141, 74, 176, 70 ) : IM_COL32( 119, 200, 74, 45 ), glyph );
+				draw->AddText( pos, color, glyph );
 			}
 
 			const auto center = ImVec2{
-				viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
-				viewport->WorkPos.y + viewport->WorkSize.y * 0.5f
+				viewport->WorkPos.x + width * 0.5f,
+				viewport->WorkPos.y + height * 0.5f
 			};
-			if ( logo_texture )
+			if ( logo_texture && logo_width > 0 && logo_height > 0 )
 			{
-				draw_texture_contain(
-					draw,
-					logo_texture,
-					logo_width,
-					logo_height,
-					ImVec2{ center.x, center.y - 10.0f },
-					180.0f,
-					IM_COL32( 119, 200, 74, 30 )
-				);
-			}
-			else
-			{
-				static constexpr auto fallback_logo = "trida.benz";
-				const auto fallback_size = ImGui::CalcTextSize( fallback_logo );
-				draw->AddText(
-					ImVec2{ center.x - fallback_size.x * 0.5f, center.y - fallback_size.y * 0.5f },
-					IM_COL32( 119, 200, 74, 48 ),
-					fallback_logo
-				);
+				draw_texture_contain( draw, logo_texture, logo_width, logo_height, center, 190.0f, IM_COL32( 119, 200, 74, 22 ) );
 			}
 			draw->AddLine(
 				ImVec2{ viewport->WorkPos.x + width * 0.22f, center.y + 24.0f },
 				ImVec2{ viewport->WorkPos.x + width * 0.78f, center.y + 24.0f },
-				IM_COL32( 119, 200, 74, 34 ),
-				1.0f
-			);
+				IM_COL32( 119, 200, 74, 42 ), 1.0f );
 		}
 
 		void draw_animated_window_separator( float height = 2.0f )
@@ -222,25 +189,8 @@ namespace rendering {
 			auto* draw = ImGui::GetWindowDrawList( );
 			const auto start = ImGui::GetCursorScreenPos( );
 			const auto width = ImGui::GetContentRegionAvail( ).x;
-			const auto time = ImGui::GetTime( );
-			constexpr auto segment_width = 10.0f;
-			const auto segment_count = std::max( 1, static_cast< int >( std::ceil( width / segment_width ) ) );
-
-			for ( auto i = 0; i < segment_count; ++i )
-			{
-				const auto x0 = start.x + width * static_cast< float >( i ) / segment_count;
-				const auto x1 = start.x + width * static_cast< float >( i + 1 ) / segment_count;
-				const auto wave = std::sin( time * 3.0f - static_cast< float >( i ) * 0.22f ) * 0.5f + 0.5f;
-				const auto red = static_cast< int >( 42.0f + wave * 25.0f );
-				const auto green = static_cast< int >( 112.0f + wave * 88.0f );
-				const auto blue = static_cast< int >( 38.0f + wave * 42.0f );
-				const auto alpha = static_cast< int >( 155.0f + wave * 75.0f );
-				draw->AddRectFilled(
-					ImVec2{ x0, start.y },
-					ImVec2{ x1 + 0.5f, start.y + height },
-					IM_COL32( red, green, blue, alpha )
-				);
-			}
+			const auto pulse = std::sin( ImGui::GetTime( ) * 3.0f ) * 0.5f + 0.5f;
+			draw->AddRectFilled( start, ImVec2{ start.x + width, start.y + height }, IM_COL32( 78 + static_cast< int >( pulse * 45.0f ), 155 + static_cast< int >( pulse * 55.0f ), 68, 190 + static_cast< int >( pulse * 50.0f ) ) );
 
 			ImGui::Dummy( ImVec2{ 0.0f, height + 7.0f } );
 		}
@@ -488,7 +438,7 @@ namespace rendering {
 				);
 			}
 
-			static constexpr auto logo_label = "trida.benz";
+			static constexpr auto logo_label = "triada.benz";
 			const auto logo_text_size = 34.0f + ring_phase * 2.0f;
 			const auto logo_dimensions = ImGui::CalcTextSize( logo_label );
 			const auto logo_y = center.y + ( has_logo ? 64.0f : 48.0f );
@@ -515,7 +465,7 @@ namespace rendering {
 		const auto panel_y = std::min( center.y + 132.0f, viewport->WorkPos.y + viewport->WorkSize.y - panel_height - 24.0f );
 		draw->AddRectFilled( ImVec2{ panel_x, panel_y }, ImVec2{ panel_x + panel_width, panel_y + panel_height }, IM_COL32( 12, 19, 23, static_cast< int >( 238.0f * fade ) ), 8.0f );
 		draw->AddRect( ImVec2{ panel_x, panel_y }, ImVec2{ panel_x + panel_width, panel_y + panel_height }, IM_COL32( 72, 92, 98, static_cast< int >( 230.0f * fade ) ), 8.0f, 0, 1.0f );
-		draw->AddText( ImVec2{ panel_x + 18.0f, panel_y + 14.0f }, IM_COL32( 119, 200, 74, static_cast< int >( 255.0f * fade ) ), failed ? "INITIALIZATION ABORTED" : "INITIALIZING trida.benz" );
+		draw->AddText( ImVec2{ panel_x + 18.0f, panel_y + 14.0f }, IM_COL32( 119, 200, 74, static_cast< int >( 255.0f * fade ) ), failed ? "INITIALIZATION ABORTED" : "INITIALIZING triada.benz" );
 
 		const auto row_height = 17.0f;
 		const auto visible_rows = std::max( 1, static_cast< int >( ( panel_height - 62.0f ) / row_height ) );
@@ -627,10 +577,32 @@ namespace rendering {
 			return;
 		}
 
+		static bool was_open{};
+		static float menu_reveal{};
+		static float profile_reveal{};
+		const auto frame_dt = std::clamp( ImGui::GetIO( ).DeltaTime, 0.0f, 0.05f );
 		if ( !this->m_open )
 		{
+			was_open = false;
+			menu_reveal = 0.0f;
+			profile_reveal = 0.0f;
 			return;
 		}
+		if ( !was_open )
+		{
+			was_open = true;
+			menu_reveal = 0.0f;
+			profile_reveal = 0.0f;
+		}
+		menu_reveal = std::min( 1.0f, menu_reveal + frame_dt * 8.0f );
+		profile_reveal = std::min( 1.0f, profile_reveal + frame_dt * 10.0f );
+		const auto ease_out = [ ]( float value )
+		{
+			const auto inverse = 1.0f - std::clamp( value, 0.0f, 1.0f );
+			return 1.0f - inverse * inverse * inverse;
+		};
+		const auto menu_alpha = 0.35f + ease_out( menu_reveal ) * 0.65f;
+		const auto profile_alpha = 0.35f + ease_out( profile_reveal ) * 0.65f;
 
 		this->try_load_avatar( );
 		const auto viewport = ImGui::GetMainViewport( );
@@ -644,12 +616,25 @@ namespace rendering {
 			viewport->WorkPos.x + ( viewport->WorkSize.x - workspace_width ) * 0.5f,
 			viewport->WorkPos.y + 34.0f
 		};
-		ImGui::SetNextWindowPos( workspace_pos, ImGuiCond_FirstUseEver );
+		const auto animated_workspace_pos = ImVec2{
+			workspace_pos.x,
+			workspace_pos.y + ( 1.0f - ease_out( menu_reveal ) ) * 18.0f
+		};
+		static bool profile_actions_open{};
+		if ( ImGui::IsKeyPressed( ImGuiKey_F9, false ) )
+		{
+			profile_actions_open = !profile_actions_open;
+		}
+		ImGui::SetNextWindowPos(
+			animated_workspace_pos,
+			menu_reveal < 0.999f ? ImGuiCond_Always : ImGuiCond_FirstUseEver
+		);
 		ImGui::SetNextWindowSize( ImVec2{ workspace_width, workspace_height }, ImGuiCond_FirstUseEver );
 		ImGui::SetNextWindowSizeConstraints(
 			ImVec2{ 720.0f, 520.0f },
 			ImVec2{ max_workspace_width, max_workspace_height } );
-		ImGui::Begin( "trida.benz // WORKSPACE", nullptr,
+		ImGui::PushStyleVar( ImGuiStyleVar_Alpha, menu_alpha );
+		ImGui::Begin( "triada.benz // WORKSPACE", nullptr,
 			ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
 			ImGuiWindowFlags_NoScrollbar );
 		draw_animated_window_separator( );
@@ -666,52 +651,61 @@ namespace rendering {
 		ImGui::TextColored( rendering::retro::text_muted, "operator workspace // %s", k_nav_items[ active_nav_index( this->m_tab ) ].label );
 		ImGui::SetCursorScreenPos( ImVec2{ header_pos.x, header_max.y + 10.0f } );
 
+		const auto body_width = ImGui::GetContentRegionAvail( ).x;
 		const auto body_height = std::max( 120.0f, ImGui::GetContentRegionAvail( ).y );
 		constexpr auto rail_width = 86.0f;
-		ImGui::BeginChild( "##imgui_left_rail", ImVec2{ rail_width, body_height }, true, ImGuiWindowFlags_NoScrollbar );
-		this->draw_left_rail( rail_width, body_height );
-		ImGui::EndChild( );
-		ImGui::SameLine( 0.0f, 10.0f );
-		ImGui::BeginChild( "##imgui_main_panel", ImVec2{ 0.0f, body_height }, false );
+		constexpr auto rail_gap = 10.0f;
+		ImGui::BeginChild( "##imgui_main_panel", ImVec2{ body_width - rail_width - rail_gap, body_height }, false );
 		this->draw_panel( );
 		ImGui::EndChild( );
+		ImGui::SameLine( 0.0f, rail_gap );
+		ImGui::BeginChild( "##imgui_right_rail", ImVec2{ rail_width, body_height }, true, ImGuiWindowFlags_NoScrollbar );
+		this->draw_left_rail( rail_width, body_height );
+		ImGui::EndChild( );
 		ImGui::End( );
+		ImGui::PopStyleVar( );
 
-		static bool profile_actions_open{};
 		const auto persona = steam::friends::get_persona_name( );
 		const auto profile_name = persona && persona[ 0 ] ? persona : "steam user";
-		const auto profile_width = std::clamp( ImGui::CalcTextSize( profile_name ).x + 116.0f, 240.0f, 420.0f );
+		const auto profile_width = std::clamp( ImGui::CalcTextSize( profile_name ).x + 164.0f, 280.0f, 440.0f );
+		constexpr auto profile_height = 76.0f;
+		const auto profile_y = viewport->WorkPos.y + viewport->WorkSize.y - profile_height - 18.0f;
 		ImGui::SetNextWindowPos(
 			ImVec2{ viewport->WorkPos.x + ( viewport->WorkSize.x - profile_width ) * 0.5f,
-				viewport->WorkPos.y + viewport->WorkSize.y - 66.0f },
-			ImGuiCond_Always
-		);
-		ImGui::SetNextWindowSize( ImVec2{ profile_width, 48.0f }, ImGuiCond_Always );
-		ImGui::Begin( "##imgui_profile_hud", nullptr,
-			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize
-			| ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing );
+				profile_y + ( 1.0f - ease_out( profile_reveal ) ) * 12.0f }, ImGuiCond_Always );
+		ImGui::SetNextWindowSize( ImVec2{ profile_width, profile_height }, ImGuiCond_Always );
+		ImGui::PushStyleVar( ImGuiStyleVar_Alpha, profile_alpha );
+		ImGui::Begin( "##triada_profile_hud", nullptr,
+			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+			ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing );
 		draw_animated_window_separator( 1.0f );
-		if ( ImGui::IsKeyPressed( ImGuiKey_F9, false ) )
-		{
-			profile_actions_open = !profile_actions_open;
-		}
+		const auto profile_window_pos = ImGui::GetWindowPos( );
+		const auto profile_padding = ImGui::GetStyle( ).WindowPadding;
+		const auto profile_content_x = profile_window_pos.x + profile_padding.x;
+		const auto profile_row_y = profile_window_pos.y + 25.0f;
+		const auto profile_button_x = profile_window_pos.x + profile_width - profile_padding.x - 34.0f;
 		if ( this->m_avatar )
 		{
-			ImGui::Image( reinterpret_cast< ImTextureID >( this->m_avatar.Get( ) ), ImVec2{ 28.0f, 28.0f } );
-			ImGui::SameLine( );
+			ImGui::SetCursorScreenPos( ImVec2{ profile_content_x, profile_row_y } );
+			ImGui::Image( reinterpret_cast< ImTextureID >( this->m_avatar.Get( ) ), ImVec2{ 25.0f, 25.0f } );
 		}
-		ImGui::Text( "%s", profile_name );
-		ImGui::SameLine( );
-		ImGui::SetCursorPosX( profile_width - 58.0f );
-		if ( ImGui::Button( "...", ImVec2{ 42.0f, 28.0f } ) )
+		const auto profile_text_x = profile_content_x + ( this->m_avatar ? 33.0f : 0.0f );
+		ImGui::SetCursorScreenPos( ImVec2{ profile_text_x, profile_window_pos.y + 21.0f } );
+		ImGui::TextColored( rendering::retro::accent_green, "%s", profile_name );
+		ImGui::SetCursorScreenPos( ImVec2{ profile_text_x, profile_window_pos.y + 44.0f } );
+		ImGui::TextColored( rendering::retro::text_muted, "TRIADA // ONLINE" );
+		ImGui::SetCursorScreenPos( ImVec2{ profile_button_x, profile_window_pos.y + 24.0f } );
+		if ( ImGui::Button( "...", ImVec2{ 34.0f, 25.0f } ) )
 		{
 			profile_actions_open = !profile_actions_open;
 		}
+		ImGui::End( );
+		ImGui::PopStyleVar( );
+
 		if ( profile_actions_open )
 		{
 			ImGui::SetNextWindowPos(
-				ImVec2{ viewport->WorkPos.x + ( viewport->WorkSize.x + profile_width ) * 0.5f - 190.0f,
-					viewport->WorkPos.y + viewport->WorkSize.y - 146.0f },
+				ImVec2{ workspace_pos.x + workspace_width - 220.0f, workspace_pos.y + 70.0f },
 				ImGuiCond_Always
 			);
 			ImGui::Begin( "##imgui_profile_actions", &profile_actions_open,
@@ -736,7 +730,6 @@ namespace rendering {
 			ImGui::TextDisabled( "F9 toggles this panel" );
 			ImGui::End( );
 		}
-		ImGui::End( );
 
 	}
 
@@ -935,6 +928,7 @@ namespace rendering {
 		const auto content_width = std::max( 1.0f, width - 8.0f );
 		auto* glyph_font = this->m_mono_font ? this->m_mono_font : ImGui::GetFont( );
 		const auto row_height = std::clamp( ( height - 24.0f ) / 8.0f, 48.0f, 60.0f );
+		const auto rail_time = static_cast< float >( ImGui::GetTime( ) );
 
 		ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2{ 0.0f, 3.0f } );
 		for ( auto i = 0; i < IM_ARRAYSIZE( k_nav_items ); ++i )
@@ -956,20 +950,31 @@ namespace rendering {
 			}
 			const auto item_min = ImGui::GetItemRectMin( );
 			const auto item_max = ImGui::GetItemRectMax( );
+			const auto hovered = ImGui::IsItemHovered( );
+			const auto shimmer = std::sin( rail_time * 3.2f + static_cast< float >( i ) * 0.45f ) * 0.5f + 0.5f;
 			const auto glyph_width = ImGui::CalcTextSize( item.glyph ).x;
+			const auto glyph_alpha = selected
+				? static_cast< int >( 220.0f + shimmer * 35.0f )
+				: hovered ? 245 : 180;
 			draw->AddText(
 				glyph_font,
 				22.0f,
 				ImVec2{ item_min.x + ( content_width - glyph_width ) * 0.5f, item_min.y + 5.0f },
-				selected ? IM_COL32( 160, 238, 102, 255 ) : IM_COL32( 156, 178, 164, 220 ),
+				selected ? IM_COL32( 160, 238, 102, glyph_alpha ) : IM_COL32( 156, 178, 164, glyph_alpha ),
 				item.glyph
 			);
 			if ( selected )
 			{
+				const auto active_alpha = static_cast< int >( 120.0f + shimmer * 90.0f );
+				draw->AddRectFilled(
+					ImVec2{ item_max.x - 5.0f, item_min.y + 3.0f },
+					ImVec2{ item_max.x - 3.0f, item_max.y - 3.0f },
+					IM_COL32( 119, 200, 74, active_alpha )
+				);
 				draw->AddRectFilled(
 					ImVec2{ item_max.x - 3.0f, item_min.y + 4.0f },
 					ImVec2{ item_max.x, item_max.y - 4.0f },
-					IM_COL32( 119, 200, 74, 235 )
+					IM_COL32( 119, 200, 74, 190 + static_cast< int >( shimmer * 65.0f ) )
 				);
 			}
 			ImGui::PopStyleColor( 3 );

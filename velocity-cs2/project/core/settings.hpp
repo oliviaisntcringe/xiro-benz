@@ -1025,12 +1025,39 @@ namespace settings {
 
 	struct changer
 	{
+		struct sticker
+		{
+			bool enabled{};
+			int kit{};
+			float wear{};
+			float scale{ 1.0f };
+			float rotation{};
+			float offset_x{};
+			float offset_y{};
+
+			bool operator==( const sticker& ) const = default;
+		};
+
+		struct keychain
+		{
+			bool enabled{};
+			int id{};
+			int seed{};
+			float offset_x{};
+			float offset_y{};
+			float offset_z{};
+
+			bool operator==( const keychain& ) const = default;
+		};
+
 		struct applied_skin
 		{
 			int paint_kit_id{};
 			float wear{ 0.01f };
 			int seed{};
 			bool stattrak{};
+			std::array<sticker, 5> stickers{};
+			keychain keychain{};
 
 			bool operator==( const applied_skin& ) const = default;
 		};
@@ -1049,7 +1076,26 @@ namespace settings {
 						{"p", s.paint_kit_id},
 						{"w", s.wear},
 						{"s", s.seed},
-						{"t", s.stattrak}
+						{"t", s.stattrak},
+						{"stickers", [&]
+						{
+							auto stickers = nlohmann::json::array( );
+							for ( const auto& sticker : s.stickers )
+							{
+								stickers.push_back( nlohmann::json
+								{
+									{"e", sticker.enabled}, {"k", sticker.kit}, {"w", sticker.wear},
+									{"s", sticker.scale}, {"r", sticker.rotation},
+									{"x", sticker.offset_x}, {"y", sticker.offset_y}
+								} );
+							}
+							return stickers;
+						}( )},
+						{"keychain", nlohmann::json
+						{
+							{"e", s.keychain.enabled}, {"id", s.keychain.id}, {"seed", s.keychain.seed},
+							{"x", s.keychain.offset_x}, {"y", s.keychain.offset_y}, {"z", s.keychain.offset_z}
+						}}
 					};
 				}
 
@@ -1075,6 +1121,32 @@ namespace settings {
 						s.wear = it.value( ).value( "w", 0.01f );
 						s.seed = it.value( ).value( "s", 0 );
 						s.stattrak = it.value( ).value( "t", false );
+
+						if ( const auto stickers = it.value( ).find( "stickers" ); stickers != it.value( ).end( ) && stickers->is_array( ) )
+						{
+							const auto count = std::min( stickers->size( ), s.stickers.size( ) );
+							for ( auto i = 0u; i < count; ++i )
+							{
+								auto& sticker = s.stickers[ i ];
+								sticker.enabled = ( *stickers )[ i ].value( "e", false );
+								sticker.kit = ( *stickers )[ i ].value( "k", 0 );
+								sticker.wear = ( *stickers )[ i ].value( "w", 0.0f );
+								sticker.scale = ( *stickers )[ i ].value( "s", 1.0f );
+								sticker.rotation = ( *stickers )[ i ].value( "r", 0.0f );
+								sticker.offset_x = ( *stickers )[ i ].value( "x", 0.0f );
+								sticker.offset_y = ( *stickers )[ i ].value( "y", 0.0f );
+							}
+						}
+
+						if ( const auto keychain = it.value( ).find( "keychain" ); keychain != it.value( ).end( ) && keychain->is_object( ) )
+						{
+							s.keychain.enabled = keychain->value( "e", false );
+							s.keychain.id = keychain->value( "id", 0 );
+							s.keychain.seed = keychain->value( "seed", 0 );
+							s.keychain.offset_x = keychain->value( "x", 0.0f );
+							s.keychain.offset_y = keychain->value( "y", 0.0f );
+							s.keychain.offset_z = keychain->value( "z", 0.0f );
+						}
 					}
 					catch ( ... ) {}
 				}

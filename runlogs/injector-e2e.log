@@ -1,0 +1,10 @@
+[injector] [23:52:46.337] [INFO ] step=start game=D:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe dll=C:\Users\tuerleprince\xiro-benz\bin\velocity-debug.dll
+[injector] [23:52:46.342] [INFO ] step=launch command="D:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\bin\win64\cs2.exe" -insecure -novid
+[injector] [23:52:46.347] [INFO ] step=launch complete pid=12236
+[injector] [23:52:46.347] [INFO ] step=modules wait=client.dll,engine2.dll
+[injector] [23:52:49.285] [INFO ] step=modules ready
+[injector] [23:52:49.285] [INFO ] step=open-process pid=12236
+[injector] [23:52:49.294] [INFO ] step=allocate-remote-path bytes=110
+[injector] [23:52:49.294] [INFO ] step=create-remote-thread LoadLibraryW
+[injector] [23:52:49.568] [INFO ] step=inject complete remote_module=0x8e580000
+[injector] [23:52:49.568] [INFO ] step=done injection successful

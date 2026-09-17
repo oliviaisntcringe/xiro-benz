@@ -151,12 +151,20 @@ namespace hooks {
 			reinterpret_cast< std::uintptr_t >( thisptr ),
 			sync_interval,
 			flags };
+		diag::exception_scope exception_scope{ "present" };
+		if ( diag::g_verbose_logging )
+		{
+			diag::writef( diag::level::debug, "[present] begin swap_chain=0x%p sync=%u flags=0x%X ready=%u",
+				thisptr, sync_interval, flags, m_hooks_ready.load( std::memory_order_relaxed ) ? 1u : 0u );
+		}
 		if ( !m_hooks_ready.load( std::memory_order_acquire ) )
 		{
+			diag::write( diag::level::debug, "[present] runtime not ready; forwarding" );
 			return m_present.call<HRESULT>( thisptr, sync_interval, flags );
 		}
 
 		rendering::g_context.on_present( thisptr );
+		diag::write( diag::level::debug, "[present] rendering context updated" );
 
 		if ( !m_wnd_proc.is_enabled( ) && rendering::g_context.get_window( ) )
 		{
@@ -175,13 +183,25 @@ namespace hooks {
 			}
 		}
 
+		diag::write( diag::level::debug, "[present] forwarding to original" );
 		return m_present.call<HRESULT>( thisptr, sync_interval, flags );
 	}
 
 	HRESULT __fastcall cheat::resize_buffers( IDXGISwapChain* thisptr, UINT buffer_count, UINT width, UINT height, DXGI_FORMAT new_format, UINT swap_chain_flags )
 	{
+		diag::hook_scope hook_context{
+			"resize_buffers",
+			reinterpret_cast< std::uintptr_t >( thisptr ),
+			buffer_count,
+			width,
+			height };
+		diag::exception_scope exception_scope{ "resize_buffers" };
+		diag::writef( diag::level::debug, "[resize] begin swap_chain=0x%p buffers=%u size=%ux%u format=%u flags=0x%X ready=%u",
+			thisptr, buffer_count, width, height, static_cast< unsigned >( new_format ), swap_chain_flags,
+			m_hooks_ready.load( std::memory_order_relaxed ) ? 1u : 0u );
 		if ( !m_hooks_ready.load( std::memory_order_acquire ) )
 		{
+			diag::write( diag::level::debug, "[resize] runtime not ready; forwarding" );
 			return m_resize_buffers.call<long>( thisptr, buffer_count, width, height, new_format, swap_chain_flags );
 		}
 
@@ -192,6 +212,7 @@ namespace hooks {
 		{
 			rendering::g_context.on_resize_buffers_post( thisptr );
 		}
+		diag::writef( diag::level::debug, "[resize] end result=0x%08X", static_cast< unsigned >( result ) );
 
 		return result;
 	}
@@ -247,9 +268,12 @@ namespace hooks {
 	void __fastcall cheat::frame_stage_notify( std::uintptr_t thisptr, int stage )
 	{
 		diag::hook_scope hook_context{ "frame_stage_notify", thisptr, static_cast< std::uintptr_t >( stage ) };
+		diag::exception_scope exception_scope{ "frame_stage_notify" };
+		diag::writef( diag::level::debug, "[frame_stage] begin stage=%d this=0x%p", stage, reinterpret_cast< void* >( thisptr ) );
 		if ( systems::g_entities.is_empty( ) )
 		{
 			systems::g_entities.force_update( );
+			diag::write( diag::level::debug, "[frame_stage] entity list refreshed" );
 		}
 
 		systems::g_local.update( );
@@ -258,19 +282,29 @@ namespace hooks {
 		{
 			if ( stage == 6 )
 			{
+				diag::write( diag::level::debug, "[frame_stage] guns begin" );
 				features::changer::g_guns.on_frame_stage_notify( );
+				diag::write( diag::level::debug, "[frame_stage] guns end" );
 			}
 
 			if ( stage == 7 )
 			{
+				diag::write( diag::level::debug, "[frame_stage] agents begin" );
 				features::changer::g_agents.on_frame_stage_notify( );
+				diag::write( diag::level::debug, "[frame_stage] agents end; gloves begin" );
 				features::changer::g_gloves.on_frame_stage_notify( );
+				diag::write( diag::level::debug, "[frame_stage] gloves end; knives begin" );
 				features::changer::g_knives.on_frame_stage_notify( );
+				diag::write( diag::level::debug, "[frame_stage] knives end; world begin" );
 
 				features::world::g_scene.on_frame_stage_notify( );
+				diag::write( diag::level::debug, "[frame_stage] scene end; weather begin" );
 				features::world::g_weather.on_frame_stage_notify( );
+				diag::write( diag::level::debug, "[frame_stage] weather end; other begin" );
 				features::misc::g_other.on_frame_stage_notify( );
+				diag::write( diag::level::debug, "[frame_stage] other end; impacts begin" );
 				features::misc::g_impacts.on_frame_stage_notify( );
+				diag::write( diag::level::debug, "[frame_stage] impacts end" );
 
 				
 			}
@@ -282,7 +316,16 @@ namespace hooks {
 
 			if ( is_active != was_active )
 			{
-				CONVAR ("r_draw3dskybox")->m_value.i1 = is_active;
+				const auto skybox = CONVAR( "r_draw3dskybox" );
+				if ( skybox )
+				{
+					skybox->m_value.i1 = is_active;
+					diag::writef( diag::level::debug, "[frame_stage] r_draw3dskybox=%d", is_active ? 1 : 0 );
+				}
+				else
+				{
+					diag::write( diag::level::warning, "[frame_stage] r_draw3dskybox convar unavailable" );
+				}
 				was_active = is_active;
 			}
 		}
@@ -291,21 +334,30 @@ namespace hooks {
 		// Publish our entry first, while keeping all manager mutations on the game thread.
 		if ( stage == 6 )
 		{
+			systems::g_model_preview.process_main_thread( );
+
+			diag::write( diag::level::debug, "[frame_stage] dlight begin" );
 			features::misc::g_dlight.on_frame_stage_notify( );
+			diag::write( diag::level::debug, "[frame_stage] dlight end" );
 		}
 
+		diag::write( diag::level::debug, "[frame_stage] original begin" );
 		m_frame_stage_notify.call<void>( thisptr, stage );
+		diag::write( diag::level::debug, "[frame_stage] original end" );
 
 		// The current frame's world-to-projection matrix is published by the
 		// engine during render-start stage 12.
 		if ( stage == 12 )
 		{
+			diag::write( diag::level::debug, "[frame_stage] view/frame-data update begin" );
 			systems::g_view.update_matrix( );
 			systems::g_frame_data.update( );
+			diag::write( diag::level::debug, "[frame_stage] view/frame-data update end" );
 		}
 
 		if (systems::g_local.get ().is_valid () && systems::g_view.has_camera ()) {
 			if (stage == 6) {
+				diag::write( diag::level::debug, "[frame_stage] post-network feature updates begin" );
 				// Capture lag records only after Source 2 has committed this network update,
 				// so the simulation timestamp, world origin and evaluated bones agree.
 				features::combat::g_shared.lc( ).run( );
@@ -314,8 +366,10 @@ namespace hooks {
 
 				features::misc::g_scoreboard_weapons.on_frame_stage_notify ();
 				features::misc::g_other.do_kill_feed_preservation( );
+				diag::write( diag::level::debug, "[frame_stage] post-network feature updates end" );
 			}
 		}
+		diag::writef( diag::level::debug, "[frame_stage] end stage=%d", stage );
 	}
 
 	void __fastcall cheat::create_move( std::uintptr_t thisptr, int slot, bool active )

@@ -138,6 +138,7 @@
     <ClCompile Include="project\core\features\changer\impl\gloves.cpp" />
     <ClCompile Include="project\core\features\changer\impl\guns.cpp" />
     <ClCompile Include="project\core\features\changer\impl\econ_item_system.cpp" />
+    <ClCompile Include="project\core\features\changer\impl\econ_item_attribute_manager.cpp" />
     <ClCompile Include="project\core\features\changer\impl\knives.cpp" />
     <ClCompile Include="project\core\features\combat\impl\extrapolation.cpp" />
     <ClCompile Include="project\core\features\combat\impl\legit.cpp" />
@@ -257,6 +258,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="project\core\features\changer\changer.hpp" />
+    <ClInclude Include="project\core\features\changer\impl\econ_item_attribute_manager.hpp" />
     <ClInclude Include="project\core\features\combat\combat.hpp" />
     <ClInclude Include="project\core\features\esp\esp.hpp" />
     <ClInclude Include="project\core\features\features.hpp" />
